@@ -1,0 +1,8 @@
+OpenNOW private GStreamer runtime bundle
+Source: C:\Program Files\gstreamer\1.0\msvc_x86_64
+Generated: 2026-08-02T05:07:14.750Z
+Platform: win32
+Scope: native streamer child process only
+
+This directory is loaded only for the native streamer child process. Keep the private layout intact.
+Vulkan plugin: injected from C:\Users\Administrator\Desktop\OpenNow remake\OpenNow-v10-Final\OpenNow-v9\native\opennow-streamer\vendor\gstreamer-vulkan-windows\1.28.3
