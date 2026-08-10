@@ -4,6 +4,7 @@ import type { GameInfo } from "@shared/gfn";
 import { useTranslation } from "../i18n";
 import { GameCardListItem, useCatalogCardActionsRef } from "./GameCardListItem";
 import { GameInfoPanel } from "./GameInfoPanel";
+import { SearchSuggestions } from "./SearchSuggestions";
 import { MotionSpinner } from "./MotionSpinner";
 import { AnimatePresence } from "motion/react";
 import {
@@ -43,6 +44,7 @@ export const FavoritesPage = memo(function FavoritesPage({
   // otherwise we hit the same TDZ crash that took down HomePage.
   const [query, setQuery] = useState("");
   const [infoGame, setInfoGame] = useState<GameInfo | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const catalogActionsRef = useCatalogCardActionsRef({
     onPlayGame,
@@ -233,7 +235,19 @@ export const FavoritesPage = memo(function FavoritesPage({
               placeholder={t("favorites.searchPlaceholder")}
               className="favorites-search-input"
               aria-label={t("favorites.searchPlaceholder")}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
             />
+            {isSearchFocused && (
+              <SearchSuggestions
+                query={query}
+                games={visibleGames}
+                onSelect={(game) => {
+                  setInfoGame(game);
+                  setIsSearchFocused(false);
+                }}
+              />
+            )}
             {query && (
               <button
                 type="button"

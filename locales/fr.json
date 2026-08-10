@@ -778,5 +778,10 @@
     "lastPlayed": "Dernière partie",
     "playtime": "Temps de jeu",
     "rating": "Note"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "Aucun jeu trouvé pour « {{query}} »"
+    }
   }
 }

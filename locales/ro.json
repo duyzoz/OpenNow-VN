@@ -778,5 +778,10 @@
     "lastPlayed": "Jucate recent",
     "playtime": "Timp de joc",
     "rating": "Evaluare"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "Nu s-au găsit jocuri pentru \"{{query}}\""
+    }
   }
 }

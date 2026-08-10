@@ -778,5 +778,10 @@
     "lastPlayed": "Laatst gespeeld",
     "playtime": "Speeltijd",
     "rating": "Beoordeling"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "Geen games gevonden voor \"{{query}}\""
+    }
   }
 }

@@ -778,5 +778,10 @@
     "lastPlayed": "最近プレイ",
     "playtime": "プレイ時間",
     "rating": "評価"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "「{{query}}」に一致するゲームが見つかりません"
+    }
   }
 }

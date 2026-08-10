@@ -778,5 +778,10 @@
     "lastPlayed": "Ostatnio grane",
     "playtime": "Czas gry",
     "rating": "Ocena"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "Nie znaleziono gier dla \"{{query}}\""
+    }
   }
 }

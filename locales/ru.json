@@ -778,5 +778,10 @@
     "lastPlayed": "Недавно сыгранные",
     "playtime": "Время игры",
     "rating": "Рейтинг"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "Игры по запросу «{{query}}» не найдены"
+    }
   }
 }

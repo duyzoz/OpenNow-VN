@@ -20,6 +20,7 @@ import { formatCatalogLastPlayed } from "../utils/lastPlayedFormat";
 import { controllerButton, readControllerGamepadButtons } from "../utils/controllerGamepad";
 import { pageTransition } from "./MotionProvider";
 import { GameInfoPanel } from "./GameInfoPanel";
+import { SearchSuggestions } from "./SearchSuggestions";
 import { AnimatePresence as AP } from "motion/react";
 import { SelectDropdown } from "./ui/SelectDropdown";
 import { LibraryControllerView } from "./library/LibraryControllerView";
@@ -85,6 +86,7 @@ export const LibraryPage = memo(function LibraryPage({
 }: LibraryPageProps): JSX.Element {
   const { t } = useTranslation();
   const [gameInfoGame, setGameInfoGame] = useState<GameInfo | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   const catalogActionsRef = useCatalogCardActionsRef({
     onPlayGame,
@@ -707,7 +709,19 @@ export const LibraryPage = memo(function LibraryPage({
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder={t("library.searchPlaceholder")}
             className="library-search-input"
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
           />
+          {isSearchFocused && (
+            <SearchSuggestions
+              query={searchQuery}
+              games={visibleLibraryGames}
+              onSelect={(game) => {
+                setGameInfoGame(game);
+                setIsSearchFocused(false);
+              }}
+            />
+          )}
         </div>
 
         {libraryFilterGroups.length > 0 && (

@@ -1095,5 +1095,10 @@
     "lastPlayed": "Last Played",
     "playtime": "Playtime",
     "rating": "Rating"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "No games found for \"{{query}}\""
+    }
   }
 }

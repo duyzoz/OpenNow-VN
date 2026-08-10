@@ -778,5 +778,10 @@
     "lastPlayed": "Son oynanan",
     "playtime": "Oynama süresi",
     "rating": "Puan"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "\"{{query}}\" için oyun bulunamadı"
+    }
   }
 }

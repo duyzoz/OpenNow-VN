@@ -12481,6 +12481,97 @@ button.game-card-store-chip.owned.active:hover {
   color: var(--ink-soft, rgba(0,0,0,.7));
 }
 
+/* ── Search autocomplete dropdown (Home / Library / Favorites) ────────────── */
+/* PERF: this panel only ever holds a handful of rows (see maxResults in
+   SearchSuggestions.tsx), so a one-shot blur+float-in entrance animation
+   here costs nothing like the per-card scroll animations in the grid. */
+.search-suggestions {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--panel-bg-solid, var(--card));
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  padding: 6px;
+  animation: search-suggestions-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes search-suggestions-in {
+  from { opacity: 0; transform: translateY(6px); filter: blur(6px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+[data-perf-mode="low"] .search-suggestions {
+  animation: none;
+}
+
+.search-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+}
+
+.search-suggestion-item:hover,
+.search-suggestion-item:focus-visible {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  outline: none;
+}
+
+.search-suggestion-thumb {
+  flex-shrink: 0;
+  width: 42px;
+  height: 26px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--bg-c);
+}
+
+.search-suggestion-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.search-suggestion-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-suggestion-match {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+
+.search-suggestions-empty {
+  padding: 14px 10px;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
 /* === stream overlay typography normalisation === */
 /*
  * The stream overlay (session clock, stats pills, warnings, exit dialog) is

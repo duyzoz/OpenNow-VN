@@ -9,6 +9,7 @@ import { GameCardListItem, useCatalogCardActionsRef } from "./GameCardListItem";
 
 import { useTranslation } from "../i18n";
 import { GameInfoPanel } from "./GameInfoPanel";
+import { SearchSuggestions } from "./SearchSuggestions";
 import { SelectDropdown } from "./ui/SelectDropdown";
 import { MotionSpinner } from "./MotionSpinner";
 import { formatSortLabel } from "../utils/sortLabelFormat";
@@ -78,6 +79,7 @@ export const HomePage = memo(function HomePage({
 }: HomePageProps): JSX.Element {
   const { t } = useTranslation();
   const [gameInfoGame, setGameInfoGame] = useState<import("@shared/gfn").GameInfo | null>(null);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const catalogActionsRef = useCatalogCardActionsRef({
     onPlayGame,
     onSelectGame,
@@ -243,7 +245,19 @@ export const HomePage = memo(function HomePage({
               placeholder={t("home.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
             />
+            {isSearchFocused && (
+              <SearchSuggestions
+                query={searchQuery}
+                games={games}
+                onSelect={(game) => {
+                  setGameInfoGame(game);
+                  setIsSearchFocused(false);
+                }}
+              />
+            )}
           </div>
 
           {visibleFilterGroups.length > 0 && (

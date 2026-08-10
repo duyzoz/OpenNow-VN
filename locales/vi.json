@@ -1095,5 +1095,10 @@
     "lastPlayed": "Chơi gần đây",
     "playtime": "Thời gian chơi",
     "rating": "Đánh giá"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "Không tìm thấy game nào cho \"{{query}}\""
+    }
   }
 }

@@ -778,5 +778,10 @@
     "lastPlayed": "最近游玩",
     "playtime": "游玩时长",
     "rating": "评分"
+  },
+  "search": {
+    "suggestions": {
+      "notFound": "未找到与\"{{query}}\"匹配的游戏"
+    }
   }
 }
