@@ -12264,6 +12264,18 @@ button.game-card-store-chip.owned.active:hover {
   opacity: 0.22;
 }
 
+/* PERF: sticky headers + backdrop-filter is one of the most expensive
+   combinations in Chromium - the blur is recomputed on every scroll frame
+   for as long as the toolbar is on screen (i.e. the whole time you're
+   browsing the game grid). Drop it on low-end machines in favour of a
+   solid-ish background that still reads as "glass" without the repaint cost. */
+[data-perf-mode="low"] .home-toolbar,
+[data-perf-mode="low"] .library-toolbar {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-a) 97%, transparent), color-mix(in srgb, var(--bg-a) 90%, transparent) 70%, transparent);
+}
+
 /* ── Perf-mode first-run prompt ────────────────────────────────────────────── */
 .perf-prompt-backdrop {
   position: fixed;
@@ -12576,25 +12588,27 @@ button.game-card-store-chip.owned.active:hover {
   }
 }
 
+/* PERF: no `filter: blur()` here on purpose. Animating blur on every card
+   that crosses the scroll timeline is the #1 jank source in the game grid -
+   each card becomes a heavy backdrop-capable compositor layer and Chromium
+   re-blurs it on every scroll frame. transform + opacity stay GPU-cheap
+   (compositor-only) and keep the same "bulge in" feel, so high/low perf
+   modes now render the same effect at very different cost. */
 @keyframes in-and-out-blurry-bulge {
   entry 0% {
     opacity: 0;
-    filter: blur(20px);
     transform: translateZ(-300px) scale(0.85);
   }
   entry 100% {
     opacity: 1;
-    filter: none;
     transform: translateZ(0) scale(1);
   }
   exit 0% {
     opacity: 1;
-    filter: none;
     transform: translateZ(0) scale(1);
   }
   exit 100% {
     opacity: 0;
-    filter: blur(20px);
     transform: translateZ(-300px) scale(0.85);
   }
 }
@@ -12633,8 +12647,8 @@ button.game-card-store-chip.owned.active:hover {
   overflow: visible !important;
   z-index: 1;
   contain: layout style paint;
-  will-change: transform, opacity, filter;
-  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform, opacity;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .scroll-anim-wrapper:hover {
@@ -12645,19 +12659,18 @@ button.game-card-store-chip.owned.active:hover {
 .card-batch-anim {
   animation: cardBatchWave 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(var(--card-i, 0) * 10ms);
-  will-change: transform, opacity, filter;
+  will-change: transform, opacity;
   contain: layout style paint;
 }
 
+/* PERF: filter blur removed (see in-and-out-blurry-bulge above for why). */
 @keyframes cardBatchWave {
   from {
     opacity: 0;
-    filter: blur(14px);
     transform: translateY(20px) scale(0.94);
   }
   to {
     opacity: 1;
-    filter: blur(0px);
     transform: translateY(0) scale(1);
   }
 }

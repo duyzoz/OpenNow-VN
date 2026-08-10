@@ -4,6 +4,8 @@ import type { JSX, RefObject } from "react";
 import type { ShaderMaterial } from "three";
 import { Vector2 } from "three";
 
+import { isLowPerfMode } from "../lib/perfMode";
+
 export type ShaderAtmosphereVariant = "controller" | "queue" | "connecting";
 
 export interface ShaderAtmosphereProps {
@@ -162,8 +164,12 @@ export function ShaderAtmosphere({
   active = true,
 }: ShaderAtmosphereProps): JSX.Element {
   const [webGlSupported, setWebGlSupported] = useState(false);
+  // PERF: low-perf mode used to only hide this canvas via CSS (`display:
+  // none`), while the WebGL shader kept rendering every frame behind it -
+  // wasting GPU cycles on exactly the weak machines this mode exists to
+  // protect. Treat it the same as reduced-motion: never mount the canvas.
   const [reducedMotion, setReducedMotion] = useState(
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => isLowPerfMode() || window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
   const [documentVisible, setDocumentVisible] = useState(() => document.visibilityState !== "hidden");
   const pointerRef = useRef<PointerPosition>({ x: -2, y: -2 });
@@ -171,7 +177,7 @@ export function ShaderAtmosphere({
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncReducedMotion = (): void => setReducedMotion(mediaQuery.matches);
+    const syncReducedMotion = (): void => setReducedMotion(isLowPerfMode() || mediaQuery.matches);
     const syncVisibility = (): void => setDocumentVisible(document.visibilityState !== "hidden");
     syncReducedMotion();
     syncVisibility();
