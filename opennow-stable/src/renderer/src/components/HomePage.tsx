@@ -18,6 +18,13 @@ export interface HomePageProps {
   games: GameInfo[];
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  /**
+   * Independent catalog search for the autocomplete dropdown. Does not
+   * touch the main grid - only committing the search (Enter key) calls
+   * onSearchChange, which is the one thing that actually re-fetches and
+   * re-renders `games`.
+   */
+  fetchSearchSuggestions: (query: string) => Promise<GameInfo[]>;
   onPlayGame: (game: GameInfo) => void;
   isLoading: boolean;
   selectedGameId: string;
@@ -50,6 +57,7 @@ export const HomePage = memo(function HomePage({
   games,
   searchQuery,
   onSearchChange,
+  fetchSearchSuggestions,
   onPlayGame,
   isLoading,
   selectedGameId,
@@ -80,6 +88,47 @@ export const HomePage = memo(function HomePage({
   const { t } = useTranslation();
   const [gameInfoGame, setGameInfoGame] = useState<import("@shared/gfn").GameInfo | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+
+  // PERF: the search box used to write straight into the searchQuery state
+  // that drives `games` (a live GFN catalog fetch). Every keystroke was
+  // re-fetching and re-rendering the *entire* grid ("reflect" lag). Typing
+  // now only updates this local draft, which feeds the lightweight
+  // suggestions dropdown; the grid is only touched when the search is
+  // actually committed (Enter).
+  const [draftQuery, setDraftQuery] = useState(searchQuery);
+  const [suggestions, setSuggestions] = useState<GameInfo[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+
+  useEffect(() => {
+    setDraftQuery(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const trimmed = draftQuery.trim();
+    if (!trimmed) {
+      setSuggestions([]);
+      setIsSuggesting(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setIsSuggesting(true);
+    const handle = window.setTimeout(() => {
+      void fetchSearchSuggestions(trimmed).then((results) => {
+        if (cancelled) return;
+        setSuggestions(results);
+        setIsSuggesting(false);
+      });
+    }, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
+  }, [draftQuery, fetchSearchSuggestions]);
+
+  const commitSearch = useCallback((value: string) => {
+    onSearchChange(value);
+    setIsSearchFocused(false);
+  }, [onSearchChange]);
   const catalogActionsRef = useCatalogCardActionsRef({
     onPlayGame,
     onSelectGame,
@@ -243,15 +292,35 @@ export const HomePage = memo(function HomePage({
               type="text"
               className="home-search-input"
               placeholder={t("home.searchPlaceholder")}
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
+              value={draftQuery}
+              onChange={(e) => {
+                const value = e.target.value;
+                setDraftQuery(value);
+                if (value.trim() === "" && searchQuery !== "") {
+                  // Clearing is an explicit action, not "typing" - reflect it
+                  // in the grid immediately instead of waiting for Enter.
+                  onSearchChange("");
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitSearch(draftQuery);
+                  (e.target as HTMLInputElement).blur();
+                } else if (e.key === "Escape") {
+                  setIsSearchFocused(false);
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
             />
             {isSearchFocused && (
               <SearchSuggestions
-                query={searchQuery}
-                games={games}
+                query={draftQuery}
+                games={suggestions}
+                isLoading={isSuggesting}
+                maxResults={30}
                 onSelect={(game) => {
                   setGameInfoGame(game);
                   setIsSearchFocused(false);

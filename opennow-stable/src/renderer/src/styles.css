@@ -12494,11 +12494,13 @@ button.game-card-store-chip.owned.active:hover {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  max-height: 340px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--panel-bg-solid, var(--card));
   border: 1px solid var(--panel-border);
   border-radius: 14px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
   padding: 6px;
   animation: search-suggestions-in 0.16s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -12570,6 +12572,33 @@ button.game-card-store-chip.owned.active:hover {
   font-size: 0.82rem;
   color: var(--ink-muted);
   text-align: center;
+}
+
+.search-suggestions-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 10px;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+}
+
+.search-suggestions-spinner {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--ink) 18%, transparent);
+  border-top-color: var(--accent);
+  animation: search-suggestions-spin 0.7s linear infinite;
+}
+
+@keyframes search-suggestions-spin {
+  to { transform: rotate(360deg); }
+}
+
+[data-perf-mode="low"] .search-suggestions-spinner {
+  animation-duration: 1s;
 }
 
 /* === stream overlay typography normalisation === */

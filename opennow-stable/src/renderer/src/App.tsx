@@ -589,6 +589,7 @@ export function App(): JSX.Element {
     handleSelectGameVariant,
     handleToggleCatalogFilter,
     loadSubscriptionInfo,
+    fetchSearchSuggestions,
   } = useCatalogData({
     authSession,
     activeSessionProxyUrl,
@@ -2709,6 +2710,7 @@ export function App(): JSX.Element {
                 games={filteredGames}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
+                fetchSearchSuggestions={fetchSearchSuggestions}
                 onPlayGame={handleInitiatePlay}
                 isLoading={effectiveControllerMode ? isLoadingStorePanels : isLoadingCatalog}
                 selectedGameId={selectedGameId}

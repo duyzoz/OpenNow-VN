@@ -101,6 +101,14 @@ export interface CatalogData {
   handleSelectGameVariant: (gameId: string, variantId: string) => void;
   handleToggleCatalogFilter: (filterId: string) => void;
   loadSubscriptionInfo: (session: AuthSession) => Promise<void>;
+  /**
+   * Independent, side-effect-free catalog search used by the search-box
+   * autocomplete dropdown. Deliberately does NOT touch `games`/setGames or
+   * any loading flag the main grid reads, so typing in the search box never
+   * re-renders the grid - only committing (Enter) does that, via
+   * setSearchQuery.
+   */
+  fetchSearchSuggestions: (query: string) => Promise<GameInfo[]>;
 }
 
 export function useCatalogData({
@@ -626,6 +634,30 @@ export function useCatalogData({
     ));
   }, []);
 
+  const fetchSearchSuggestions = useCallback(async (query: string): Promise<GameInfo[]> => {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    const token = authSession?.tokens.idToken ?? authSession?.tokens.accessToken;
+    const userId = authSession?.user.userId;
+    if (!token || !userId) return [];
+    try {
+      const result = await window.openNow.browseCatalog({
+        token,
+        userId,
+        providerStreamingBaseUrl: effectiveStreamingBaseUrl,
+        proxyUrl: activeSessionProxyUrl,
+        searchQuery: trimmed,
+        sortId: "relevance",
+        filterIds: [],
+        fetchCount: 30,
+      });
+      return result.games;
+    } catch (error) {
+      console.warn("Search suggestions fetch failed:", error);
+      return [];
+    }
+  }, [authSession, effectiveStreamingBaseUrl, activeSessionProxyUrl]);
+
   return {
     games,
     featuredGames,
@@ -669,5 +701,6 @@ export function useCatalogData({
     handleSelectGameVariant,
     handleToggleCatalogFilter,
     loadSubscriptionInfo,
+    fetchSearchSuggestions,
   };
 }

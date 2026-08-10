@@ -12,6 +12,13 @@ export interface SearchSuggestionsProps {
    */
   games: GameInfo[];
   onSelect: (game: GameInfo) => void;
+  /**
+   * True while the caller is still computing/fetching `games` for the
+   * current query (e.g. Home's server-backed catalog search). There is no
+   * fixed delay here on purpose - the panel just waits for this to flip to
+   * false, however long that actually takes on the user's machine/network.
+   */
+  isLoading?: boolean;
   maxResults?: number;
 }
 
@@ -44,7 +51,8 @@ export const SearchSuggestions = memo(function SearchSuggestions({
   query,
   games,
   onSelect,
-  maxResults = 4,
+  isLoading = false,
+  maxResults = 30,
 }: SearchSuggestionsProps): JSX.Element | null {
   const { t } = useTranslation();
   const trimmed = query.trim();
@@ -54,7 +62,12 @@ export const SearchSuggestions = memo(function SearchSuggestions({
 
   return (
     <div className="search-suggestions" role="listbox">
-      {results.length === 0 ? (
+      {isLoading ? (
+        <div className="search-suggestions-loading">
+          <span className="search-suggestions-spinner" aria-hidden="true" />
+          <span>{t("common.loading")}</span>
+        </div>
+      ) : results.length === 0 ? (
         <div className="search-suggestions-empty">
           {t("search.suggestions.notFound", { query: trimmed })}
         </div>
