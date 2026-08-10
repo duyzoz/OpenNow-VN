@@ -707,6 +707,7 @@
     "detected": "Detected: {mode}",
     "activeLow": "Effects reduced",
     "activeHigh": "Full effects",
+    "weakDeviceWarning": "Deze pc lijkt traag, maar \"Snelle pc\" is geselecteerd. Schakel over naar \"Trage pc\" voor de vloeiendste ervaring.",
     "restartNeeded": "Performance changes will apply on the next launch. Restart OpenNOW manually to apply.",
     "restartOk": "Got it"
   },

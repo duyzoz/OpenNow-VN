@@ -12471,6 +12471,16 @@ button.game-card-store-chip.owned.active:hover {
 
 .perf-restart-notice-dismiss:hover { opacity: .8; }
 
+.perf-restart-notice--warning {
+  background: color-mix(in srgb, #f5a623 10%, var(--panel-bg-solid, #fff));
+  border-color: color-mix(in srgb, #f5a623 35%, var(--panel-border, rgba(0,0,0,.12)));
+  color: #f5a623;
+}
+
+.perf-restart-notice--warning .perf-restart-notice-text {
+  color: var(--ink-soft, rgba(0,0,0,.7));
+}
+
 /* === stream overlay typography normalisation === */
 /*
  * The stream overlay (session clock, stats pills, warnings, exit dialog) is
@@ -12588,67 +12598,45 @@ button.game-card-store-chip.owned.active:hover {
   }
 }
 
-/* PERF: no `filter: blur()` here on purpose. Animating blur on every card
-   that crosses the scroll timeline is the #1 jank source in the game grid -
-   each card becomes a heavy backdrop-capable compositor layer and Chromium
-   re-blurs it on every scroll frame. transform + opacity stay GPU-cheap
-   (compositor-only) and keep the same "bulge in" feel, so high/low perf
-   modes now render the same effect at very different cost. */
+/* PERF: the blur look is intentional and kept (see .scroll-anim-wrapper
+   below for the actual fix: don't force-promote every card to a
+   blur-capable layer via will-change, only the ones crossing the scroll
+   boundary need it while they're animating). */
 @keyframes in-and-out-blurry-bulge {
   entry 0% {
     opacity: 0;
+    filter: blur(20px);
     transform: translateZ(-300px) scale(0.85);
   }
   entry 100% {
     opacity: 1;
+    filter: none;
     transform: translateZ(0) scale(1);
   }
   exit 0% {
     opacity: 1;
+    filter: none;
     transform: translateZ(0) scale(1);
   }
   exit 100% {
     opacity: 0;
+    filter: blur(20px);
     transform: translateZ(-300px) scale(0.85);
   }
 }
 
-/* Exact nerdy.dev "blurry" scroll-driven animation */
-@keyframes nerdyDevBlurryScroll {
-  0% {
-    filter: blur(14px);
-    opacity: 0.3;
-    transform: scale(0.92);
-  }
-  20% {
-    filter: blur(8px);
-    opacity: 0.6;
-    transform: scale(0.96);
-  }
-  40%, 60% {
-    filter: blur(0px);
-    opacity: 1;
-    transform: scale(1);
-  }
-  80% {
-    filter: blur(8px);
-    opacity: 0.6;
-    transform: scale(0.96);
-  }
-  100% {
-    filter: blur(14px);
-    opacity: 0.3;
-    transform: scale(0.92);
-  }
-}
-
+/* PERF: intentionally NOT `will-change: filter` here. That would promote
+   every single card in the grid (there can be hundreds) to a permanent
+   blur-capable compositor layer, which is real GPU/RAM cost paid at all
+   times. The browser is perfectly able to promote a card on-demand for the
+   short entry/exit window where it actually animates filter/transform. */
 .scroll-anim-wrapper {
   position: relative;
   overflow: visible !important;
   z-index: 1;
   contain: layout style paint;
   will-change: transform, opacity;
-  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .scroll-anim-wrapper:hover {
@@ -12663,14 +12651,15 @@ button.game-card-store-chip.owned.active:hover {
   contain: layout style paint;
 }
 
-/* PERF: filter blur removed (see in-and-out-blurry-bulge above for why). */
 @keyframes cardBatchWave {
   from {
     opacity: 0;
+    filter: blur(14px);
     transform: translateY(20px) scale(0.94);
   }
   to {
     opacity: 1;
+    filter: blur(0px);
     transform: translateY(0) scale(1);
   }
 }

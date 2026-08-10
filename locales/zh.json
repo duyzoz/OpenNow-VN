@@ -707,6 +707,7 @@
     "detected": "Detected: {mode}",
     "activeLow": "Effects reduced",
     "activeHigh": "Full effects",
+    "weakDeviceWarning": "这台电脑看起来配置较低，但当前选择的是\"高配电脑\"。切换到\"低配电脑\"以获得最流畅的体验。",
     "restartNeeded": "性能更改将在下次启动时生效。请手动重启 OpenNOW。",
     "restartOk": "知道了"
   },

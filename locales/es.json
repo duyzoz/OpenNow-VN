@@ -707,6 +707,7 @@
     "detected": "Detected: {mode}",
     "activeLow": "Effects reduced",
     "activeHigh": "Full effects",
+    "weakDeviceWarning": "Este PC parece de gama baja, pero está seleccionado \"PC de gama alta\". Cambia a \"PC de gama baja\" para la experiencia más fluida.",
     "restartNeeded": "Performance changes will apply on the next launch. Restart OpenNOW manually to apply.",
     "restartOk": "Got it"
   },

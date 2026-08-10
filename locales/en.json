@@ -1024,6 +1024,7 @@
     "detected": "Detected: {mode}",
     "activeLow": "Effects reduced",
     "activeHigh": "Full effects",
+    "weakDeviceWarning": "This PC looks low-end, but High-end PC is selected. Switch to Low-end PC for the smoothest experience.",
     "restartNeeded": "Performance changes will apply on the next launch. Restart OpenNOW manually to apply.",
     "restartOk": "Got it"
   },

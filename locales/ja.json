@@ -707,6 +707,7 @@
     "detected": "Detected: {mode}",
     "activeLow": "Effects reduced",
     "activeHigh": "Full effects",
+    "weakDeviceWarning": "このPCは低スペックのようですが、「高スペックPC」が選択されています。最も快適に動作させるには「低スペックPC」に切り替えてください。",
     "restartNeeded": "パフォーマンスの変更は次回起動時に適用されます。手動でOpenNOWを再起動してください。",
     "restartOk": "了解"
   },

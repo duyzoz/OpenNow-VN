@@ -707,6 +707,7 @@
     "detected": "Detected: {mode}",
     "activeLow": "Effects reduced",
     "activeHigh": "Full effects",
+    "weakDeviceWarning": "Ten komputer wygląda na słaby, ale wybrano \"Mocny komputer\". Przełącz na \"Słaby komputer\", aby uzyskać najpłynniejsze działanie.",
     "restartNeeded": "Performance changes will apply on the next launch. Restart OpenNOW manually to apply.",
     "restartOk": "Got it"
   },

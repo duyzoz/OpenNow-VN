@@ -707,6 +707,7 @@
     "detected": "Detected: {mode}",
     "activeLow": "Effects reduced",
     "activeHigh": "Full effects",
+    "weakDeviceWarning": "Dieser PC wirkt wie ein schwacher PC, aber \"Starker PC\" ist ausgewählt. Wechseln Sie zu \"Schwacher PC\" für die flüssigste Erfahrung.",
     "restartNeeded": "Performance changes will apply on the next launch. Restart OpenNOW manually to apply.",
     "restartOk": "Got it"
   },

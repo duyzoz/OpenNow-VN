@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type JSX } from "react";
+import { AlertTriangle } from "lucide-react";
 import type { AppAccentColor, Settings } from "@shared/gfn";
-import { getStoredPerfMode, setPerfMode, type PerfMode } from "../../../lib/perfMode";
+import { detectLowEndDevice, getStoredPerfMode, setPerfMode, type PerfMode } from "../../../lib/perfMode";
 import { useTranslation } from "../../../i18n";
 import { SelectDropdown } from "../../ui/SelectDropdown";
 import { SettingRange } from "../SettingRange";
@@ -24,6 +25,8 @@ export function SettingsInterfaceSection({ settings, showAll, handleChange, hand
   const { locale, availableLocales, setLocale, t } = useTranslation();
   const [currentPerfMode, setCurrentPerfMode] = useState<PerfMode>(getStoredPerfMode);
   const [showPerfRestartNotice, setShowPerfRestartNotice] = useState(false);
+  // Detected once: hardware doesn't change while Settings is open.
+  const isWeakDevice = useMemo(() => detectLowEndDevice(), []);
 
   const handlePerfModeChange = useCallback((mode: PerfMode) => {
     if (mode === currentPerfMode) return;
@@ -73,10 +76,12 @@ export function SettingsInterfaceSection({ settings, showAll, handleChange, hand
       {/* ── Performance ── */}
       <section className="settings-section">
         {showAll && <div className="settings-section-context">{t("settings.sections.performance")}</div>}
-        <div className="settings-section-header">
-          <h2>{t("perf.title")}</h2>
+        <div className="settings-section-header settings-section-header--with-copy">
+          <div>
+            <h2>{t("perf.title")}</h2>
+            <p className="settings-section-subtitle">{t("perf.description")}</p>
+          </div>
         </div>
-        <p className="settings-subtle-hint" style={{ margin: "0 0 12px" }}>{t("perf.description")}</p>
         <div className="settings-rows">
           <div className="settings-row settings-row--column">
             <div className="perf-setting-buttons">
@@ -97,6 +102,12 @@ export function SettingsInterfaceSection({ settings, showAll, handleChange, hand
                 <span className="perf-setting-btn-hint">{t("perf.promptLowBody")}</span>
               </button>
             </div>
+            {currentPerfMode === "high" && isWeakDevice && (
+              <div className="perf-restart-notice perf-restart-notice--warning">
+                <AlertTriangle size={16} />
+                <p className="perf-restart-notice-text">{t("perf.weakDeviceWarning")}</p>
+              </div>
+            )}
             {showPerfRestartNotice && (
               <div className="perf-restart-notice">
                 <p className="perf-restart-notice-text">{t("perf.restartNeeded")}</p>

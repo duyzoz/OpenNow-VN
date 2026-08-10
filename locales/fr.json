@@ -707,6 +707,7 @@
     "detected": "Detected: {mode}",
     "activeLow": "Effects reduced",
     "activeHigh": "Full effects",
+    "weakDeviceWarning": "Cet ordinateur semble peu puissant, mais \"PC puissant\" est sélectionné. Passez à \"PC peu puissant\" pour l'expérience la plus fluide.",
     "restartNeeded": "Performance changes will apply on the next launch. Restart OpenNOW manually to apply.",
     "restartOk": "Got it"
   },

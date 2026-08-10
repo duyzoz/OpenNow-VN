@@ -1024,6 +1024,7 @@
     "detected": "Nhận diện: {mode}",
     "activeLow": "Đã giảm hiệu ứng",
     "activeHigh": "Đầy đủ hiệu ứng",
+    "weakDeviceWarning": "Máy này có vẻ là cấu hình yếu, nhưng bạn đang chọn Cấu hình máy mạnh. Chuyển sang Cấu hình máy yếu để có trải nghiệm mượt nhất.",
     "restartNeeded": "Thay đổi hiệu năng sẽ được áp dụng vào lần khởi động tiếp theo. Tự khởi động lại OpenNOW để áp dụng.",
     "restartOk": "Đã hiểu"
   },
