@@ -109,11 +109,19 @@ test("partial-reliable mouse drops stale motion under browser backpressure but p
   const reliablePackets: Uint8Array[] = [];
   const channelPackets: Uint8Array[] = [];
   let bufferedAmount = 40 * 1024;
+  let bufferedAmountLowListener: () => void = () => {};
   const channel = {
     readyState: "open",
     get bufferedAmount() {
       return bufferedAmount;
     },
+    bufferedAmountLowThreshold: 0,
+    addEventListener: (event: string, listener: () => void) => {
+      if (event === "bufferedamountlow") {
+        bufferedAmountLowListener = listener;
+      }
+    },
+    removeEventListener: () => {},
     send: (payload: Uint8Array) => channelPackets.push(payload),
   } as unknown as RTCDataChannel;
   const controller = new InputChannelPolicyController(
@@ -131,8 +139,10 @@ test("partial-reliable mouse drops stale motion under browser backpressure but p
     },
   );
   const payload = new Uint8Array([1, 2, 3]);
+  const newerPayload = new Uint8Array([4, 5, 6]);
 
   controller.sendInput(payload, INPUT_MOUSE_REL);
+  controller.sendInput(newerPayload, INPUT_MOUSE_REL);
   assert.equal(channelPackets.length, 0);
   assert.equal(reliablePackets.length, 0);
 
@@ -140,8 +150,8 @@ test("partial-reliable mouse drops stale motion under browser backpressure but p
   assert.deepEqual(reliablePackets, [payload]);
 
   bufferedAmount = 0;
-  controller.sendInput(payload, INPUT_MOUSE_REL);
-  assert.deepEqual(channelPackets, [payload]);
+  bufferedAmountLowListener();
+  assert.deepEqual(channelPackets, [newerPayload]);
 });
 
 test("gamepad polling and keepalive decisions preserve adaptive timing", () => {

@@ -6,6 +6,7 @@ import {
 } from "../inputProtocol";
 
 const MAX_PARTIALLY_RELIABLE_MOUSE_BUFFER_BYTES = 32 * 1024;
+const PARTIALLY_RELIABLE_MOUSE_LOW_WATERMARK_BYTES = 16 * 1024;
 
 function isMouseMotionInput(inputType: number): boolean {
   return inputType === INPUT_MOUSE_REL || inputType === INPUT_MOUSE_ABS;
@@ -52,6 +53,55 @@ interface InputChannelPolicyControllerDependencies {
 
 export class InputChannelPolicyController {
   private capabilities: RiInputCapabilities;
+  private pendingMouseMotion: Uint8Array | null = null;
+  private lowWatermarkChannel: RTCDataChannel | null = null;
+
+  private readonly handleBufferedAmountLow = (): void => {
+    const channel = this.lowWatermarkChannel;
+    if (
+      !channel
+      || channel.readyState !== "open"
+      || this.dependencies.isNativeInputActive()
+      || this.dependencies.getPartiallyReliableChannel() !== channel
+    ) {
+      this.pendingMouseMotion = null;
+      return;
+    }
+    if (channel.bufferedAmount > PARTIALLY_RELIABLE_MOUSE_LOW_WATERMARK_BYTES) {
+      return;
+    }
+    const pending = this.pendingMouseMotion;
+    this.pendingMouseMotion = null;
+    if (!pending) {
+      return;
+    }
+    try {
+      channel.send(pending as unknown as ArrayBufferView<ArrayBuffer>);
+    } catch {
+      // Keep the newest motion for the next low-watermark event if the channel
+      // transitions during the flush.
+      this.pendingMouseMotion = pending;
+    }
+  };
+
+  private syncLowWatermarkChannel(channel: RTCDataChannel | null): void {
+    if (channel === this.lowWatermarkChannel) {
+      return;
+    }
+    if (this.lowWatermarkChannel) {
+      this.lowWatermarkChannel.removeEventListener(
+        "bufferedamountlow",
+        this.handleBufferedAmountLow,
+      );
+    }
+    this.lowWatermarkChannel = channel;
+    if (!channel) {
+      this.pendingMouseMotion = null;
+      return;
+    }
+    channel.bufferedAmountLowThreshold = PARTIALLY_RELIABLE_MOUSE_LOW_WATERMARK_BYTES;
+    channel.addEventListener("bufferedamountlow", this.handleBufferedAmountLow);
+  }
 
   constructor(
     capabilities: RiInputCapabilities,
@@ -105,20 +155,22 @@ export class InputChannelPolicyController {
   }
 
   sendInput(payload: Uint8Array, inputType: number): void {
-    if (this.canSendInput(inputType)) {
-      const channel = this.dependencies.isNativeInputActive()
-        ? null
-        : this.dependencies.getPartiallyReliableChannel();
+    const channel = this.dependencies.isNativeInputActive()
+      ? null
+      : this.dependencies.getPartiallyReliableChannel();
+    this.syncLowWatermarkChannel(channel);
 
+    if (this.canSendInput(inputType)) {
       // A partially-reliable channel should never be allowed to accumulate
-      // stale relative motion. Drop only mouse movement while its browser
-      // send queue is high; the next sample carries the latest position
-      // delta, while clicks, wheel, keyboard and gamepad state remain reliable.
+      // stale relative motion. Keep the newest motion until the browser queue
+      // reaches its low watermark; clicks, wheel, keyboard and gamepad state
+      // remain reliable and are never dropped by this guard.
       if (
         isMouseMotionInput(inputType)
         && channel?.readyState === "open"
         && channel.bufferedAmount > MAX_PARTIALLY_RELIABLE_MOUSE_BUFFER_BYTES
       ) {
+        this.pendingMouseMotion = payload.slice();
         return;
       }
 
