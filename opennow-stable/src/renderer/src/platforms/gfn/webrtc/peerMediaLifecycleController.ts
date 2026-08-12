@@ -13,6 +13,8 @@ export class PeerMediaLifecycleController {
   private audioGainNode: GainNode | null = null;
   private outputVolume = 1;
   private visibilityChangeListener: (() => void) | null = null;
+  private videoFrameCallbackId: number | null = null;
+  private videoFrameCallbackGeneration = 0;
 
   constructor(private readonly dependencies: PeerMediaLifecycleDependencies) {
     dependencies.videoElement.srcObject = this.videoStream;
@@ -28,14 +30,27 @@ export class PeerMediaLifecycleController {
   attachTrack(track: MediaStreamTrack): void {
     if (track.kind === "video") {
       this.replaceTrackInStream(this.videoStream, track);
+      this.cancelVideoFrameCallback();
       const video = this.dependencies.videoElement;
+      const generation = this.videoFrameCallbackGeneration;
       const frameCallback = () => {
+        if (generation !== this.videoFrameCallbackGeneration) {
+          return;
+        }
         this.dependencies.onRenderFrame();
-        if (this.videoStream.active) {
-          video.requestVideoFrameCallback(frameCallback);
+        if (
+          this.videoStream.active
+          && this.videoStream.getVideoTracks()[0] === track
+          && typeof video.requestVideoFrameCallback === "function"
+        ) {
+          this.videoFrameCallbackId = video.requestVideoFrameCallback(frameCallback);
+        } else {
+          this.videoFrameCallbackId = null;
         }
       };
-      video.requestVideoFrameCallback(frameCallback);
+      if (typeof video.requestVideoFrameCallback === "function") {
+        this.videoFrameCallbackId = video.requestVideoFrameCallback(frameCallback);
+      }
 
       this.dependencies.log(
         `Video element before play: paused=${video.paused}, readyState=${video.readyState}, size=${video.videoWidth}x${video.videoHeight}`,
@@ -61,6 +76,9 @@ export class PeerMediaLifecycleController {
         this.dependencies.log("Warning: video track muted by sender");
       };
       track.onended = () => {
+        if (this.videoStream.getVideoTracks()[0] === track) {
+          this.cancelVideoFrameCallback();
+        }
         this.dependencies.log("Warning: video track ended");
       };
       this.dependencies.log("Video track attached");
@@ -147,12 +165,25 @@ export class PeerMediaLifecycleController {
   }
 
   clearTracks(): void {
+    this.cancelVideoFrameCallback();
     for (const track of this.videoStream.getTracks()) {
       this.videoStream.removeTrack(track);
     }
     for (const track of this.audioStream.getTracks()) {
       this.audioStream.removeTrack(track);
     }
+  }
+
+  private cancelVideoFrameCallback(): void {
+    this.videoFrameCallbackGeneration += 1;
+    const video = this.dependencies.videoElement;
+    if (
+      this.videoFrameCallbackId !== null
+      && typeof video.cancelVideoFrameCallback === "function"
+    ) {
+      video.cancelVideoFrameCallback(this.videoFrameCallbackId);
+    }
+    this.videoFrameCallbackId = null;
   }
 
   private replaceTrackInStream(

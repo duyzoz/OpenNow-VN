@@ -939,9 +939,14 @@ export class GfnWebRtcClient {
         return;
       }
       this.statsPollInFlight = true;
-      void this.collectStats().finally(() => {
-        this.statsPollInFlight = false;
-      });
+      void this.collectStats()
+        .catch(() => {
+          // getStats() can reject during peer teardown; a failed sample must
+          // never become an unhandled promise or disturb the input path.
+        })
+        .finally(() => {
+          this.statsPollInFlight = false;
+        });
     }, 500);
   }
 
@@ -960,11 +965,17 @@ export class GfnWebRtcClient {
   }
 
   private async collectStats(): Promise<void> {
-    if (!this.pc) {
+    const peerConnection = this.pc;
+    if (!peerConnection) {
       return;
     }
 
-    const report = await this.pc.getStats();
+    const report = await peerConnection.getStats();
+    // A slow getStats() call can resolve after reconnect/teardown. Never
+    // publish samples belonging to a peer connection that is no longer active.
+    if (this.pc !== peerConnection) {
+      return;
+    }
     const now = performance.now();
     let inboundVideo: Record<string, unknown> | null = null;
     let activePair: Record<string, unknown> | null = null;

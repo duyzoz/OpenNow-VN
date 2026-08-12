@@ -98,6 +98,8 @@ export class NativeStreamerManager {
   private capabilities: NativeStreamerCapabilities | null = null;
   private activeSessionId: string | null = null;
   private inputBackpressureWarned = false;
+  private pendingPartiallyReliableInput: NativeStreamerInputPacket | null = null;
+  private inputDrainListenerAttached = false;
   private answerInFlight = false;
   private queuedLocalIce: IceCandidatePayload[] = [];
   private queuedRemoteIceSessionId: string | null = null;
@@ -254,9 +256,12 @@ export class NativeStreamerManager {
       return;
     }
 
-    // When stdin is backpressured, drop non-critical mouse movements (partiallyReliable),
-    // but allow critical keyboard/button state changes (reliable) to prevent stuck keys.
+    // Mouse motion is partially reliable: keep only the newest packet while
+    // stdin is backed up. This avoids replaying stale movement and keeps
+    // input-to-frame latency bounded without dropping button/key state changes.
     if (child.stdin.writableLength > MAX_INPUT_STDIN_BUFFER_BYTES && input.partiallyReliable) {
+      this.pendingPartiallyReliableInput = input;
+      this.armInputDrainFlush(child);
       if (!this.inputBackpressureWarned) {
         this.inputBackpressureWarned = true;
         console.warn("[NativeStreamer] Coalescing non-critical mouse movement while stdin is backpressured.");
@@ -277,15 +282,34 @@ export class NativeStreamerManager {
       }
     });
 
-    if (!flushed && !this.inputBackpressureWarned) {
-      this.inputBackpressureWarned = true;
-      console.warn("[NativeStreamer] Native input writer reported backpressure; input will be dropped until it drains.");
-      child.stdin.once("drain", () => {
-        this.inputBackpressureWarned = false;
-      });
-    } else if (flushed) {
+    if (!flushed) {
+      if (input.partiallyReliable) {
+        this.pendingPartiallyReliableInput = input;
+      }
+      this.armInputDrainFlush(child);
+      if (!this.inputBackpressureWarned) {
+        this.inputBackpressureWarned = true;
+        console.warn("[NativeStreamer] Native input writer reported backpressure; coalescing mouse movement until drain.");
+      }
+    } else if (!this.pendingPartiallyReliableInput) {
       this.inputBackpressureWarned = false;
     }
+  }
+
+  private armInputDrainFlush(child: ChildProcessWithoutNullStreams): void {
+    if (this.inputDrainListenerAttached) {
+      return;
+    }
+    this.inputDrainListenerAttached = true;
+    child.stdin.once("drain", () => {
+      this.inputDrainListenerAttached = false;
+      this.inputBackpressureWarned = false;
+      const pending = this.pendingPartiallyReliableInput;
+      this.pendingPartiallyReliableInput = null;
+      if (pending && this.child === child && this.activeSessionId && child.stdin.writable) {
+        this.sendInput(pending);
+      }
+    });
   }
 
   updateSurface(surface: NativeRenderSurface): void {
@@ -333,6 +357,8 @@ export class NativeStreamerManager {
 
   async stop(reason = "stopped"): Promise<void> {
     const child = this.child;
+    this.pendingPartiallyReliableInput = null;
+    this.inputDrainListenerAttached = false;
     this.activeSessionId = null;
     this.capabilities = null;
     this.surfaceUpdates.markNotReady();
@@ -352,6 +378,8 @@ export class NativeStreamerManager {
   }
 
   dispose(reason = "disposed"): void {
+    this.pendingPartiallyReliableInput = null;
+    this.inputDrainListenerAttached = false;
     this.activeSessionId = null;
     this.capabilities = null;
     this.surfaceUpdates.markNotReady();
@@ -754,6 +782,8 @@ export class NativeStreamerManager {
     const stoppedReason = `process ended (${reason})`;
     console.warn(`[NativeStreamer] Process ended (${reason})${tail}`);
     this.child = null;
+    this.pendingPartiallyReliableInput = null;
+    this.inputDrainListenerAttached = false;
     this.stdoutBuffer = "";
     this.stderrTail = [];
     this.activeSessionId = null;
@@ -835,6 +865,8 @@ export class NativeStreamerManager {
 
   private terminateProcess(): void {
     this.surfaceUpdates.markNotReady();
+    this.pendingPartiallyReliableInput = null;
+    this.inputDrainListenerAttached = false;
     const child = this.child;
     if (!child) {
       return;
