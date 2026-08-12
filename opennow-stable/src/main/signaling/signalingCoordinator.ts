@@ -496,6 +496,12 @@ export class SignalingCoordinator {
       void this.getNativeStreamerManager()
         .addRemoteIce(event.candidate, context)
         .catch((error) => {
+          // Stop/reconnect/fallback intentionally cancels native ICE requests.
+          // Do not surface their late rejection as an error for the session
+          // that has already replaced or fallen back from this context.
+          if (!this.isCurrentNativeStreamerContext(context)) {
+            return;
+          }
           this.emitToRenderer({
             type: "error",
             message: `Native streamer ICE failed: ${String(error)}`,

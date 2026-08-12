@@ -388,6 +388,10 @@ export class NativeStreamerManager {
     } catch (error) {
       console.warn("[NativeStreamer] Stop request failed:", error);
     } finally {
+      // Reject in-flight remote ICE/control requests immediately instead of
+      // letting callbacks from the stopped session wait for their timeout and
+      // surface an unrelated error after a reconnect or web fallback.
+      this.rejectPending(new Error(`Native streamer ${reason}.`));
       this.terminateProcess();
     }
   }
