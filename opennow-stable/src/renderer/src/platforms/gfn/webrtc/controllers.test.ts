@@ -13,6 +13,7 @@ import {
   shouldSendGamepadPacket,
 } from "./gamepadController";
 import { InputChannelPolicyController } from "./inputChannelPolicy";
+import { INPUT_KEY_DOWN, INPUT_MOUSE_REL } from "../inputProtocol";
 
 const pressureSignal: DecoderPressureSignal = {
   active: true,
@@ -102,6 +103,45 @@ test("input policy preserves native, partially-reliable, and fallback routes", (
   channelOpen = false;
   controller.sendPartiallyReliable(payload);
   assert.deepEqual(reliablePackets, [payload]);
+});
+
+test("partial-reliable mouse drops stale motion under browser backpressure but preserves keyboard", () => {
+  const reliablePackets: Uint8Array[] = [];
+  const channelPackets: Uint8Array[] = [];
+  let bufferedAmount = 40 * 1024;
+  const channel = {
+    readyState: "open",
+    get bufferedAmount() {
+      return bufferedAmount;
+    },
+    send: (payload: Uint8Array) => channelPackets.push(payload),
+  } as unknown as RTCDataChannel;
+  const controller = new InputChannelPolicyController(
+    {
+      partialReliableThresholdMs: 300,
+      hidDeviceMask: 0xffff,
+      enablePartiallyReliableTransferGamepad: 0xffff,
+      enablePartiallyReliableTransferHid: 0xffff,
+    },
+    {
+      isNativeInputActive: () => false,
+      getPartiallyReliableChannel: () => channel,
+      sendNativeInput: () => {},
+      sendReliable: (payload) => reliablePackets.push(payload),
+    },
+  );
+  const payload = new Uint8Array([1, 2, 3]);
+
+  controller.sendInput(payload, INPUT_MOUSE_REL);
+  assert.equal(channelPackets.length, 0);
+  assert.equal(reliablePackets.length, 0);
+
+  controller.sendInput(payload, INPUT_KEY_DOWN);
+  assert.deepEqual(reliablePackets, [payload]);
+
+  bufferedAmount = 0;
+  controller.sendInput(payload, INPUT_MOUSE_REL);
+  assert.deepEqual(channelPackets, [payload]);
 });
 
 test("gamepad polling and keepalive decisions preserve adaptive timing", () => {

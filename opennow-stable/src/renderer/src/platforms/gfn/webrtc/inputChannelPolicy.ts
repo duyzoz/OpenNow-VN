@@ -1,7 +1,15 @@
 import {
+  INPUT_MOUSE_ABS,
+  INPUT_MOUSE_REL,
   isPartiallyReliableHidTransferEligible,
   partiallyReliableHidMaskForInputType,
 } from "../inputProtocol";
+
+const MAX_PARTIALLY_RELIABLE_MOUSE_BUFFER_BYTES = 32 * 1024;
+
+function isMouseMotionInput(inputType: number): boolean {
+  return inputType === INPUT_MOUSE_REL || inputType === INPUT_MOUSE_ABS;
+}
 
 export interface RiInputCapabilities {
   partialReliableThresholdMs: number | null;
@@ -98,6 +106,22 @@ export class InputChannelPolicyController {
 
   sendInput(payload: Uint8Array, inputType: number): void {
     if (this.canSendInput(inputType)) {
+      const channel = this.dependencies.isNativeInputActive()
+        ? null
+        : this.dependencies.getPartiallyReliableChannel();
+
+      // A partially-reliable channel should never be allowed to accumulate
+      // stale relative motion. Drop only mouse movement while its browser
+      // send queue is high; the next sample carries the latest position
+      // delta, while clicks, wheel, keyboard and gamepad state remain reliable.
+      if (
+        isMouseMotionInput(inputType)
+        && channel?.readyState === "open"
+        && channel.bufferedAmount > MAX_PARTIALLY_RELIABLE_MOUSE_BUFFER_BYTES
+      ) {
+        return;
+      }
+
       this.sendPartiallyReliable(payload);
       return;
     }
