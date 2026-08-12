@@ -160,6 +160,12 @@ export interface NativeStreamStats {
   bitrateKbps: number;
   targetBitrateKbps: number;
   bitratePerformancePercent: number;
+  /** Backlog của pipe Electron → native helper tại lúc stats heartbeat. */
+  inputPipeBufferedBytes?: number;
+  /** Số mouse motion cũ bị thay thế do stdin backpressure trong session hiện tại. */
+  inputCoalescedMotionCount?: number;
+  /** Có mouse motion mới nhất đang chờ pipe drain hay không. */
+  inputMotionPending?: boolean;
   decodedFps: number;
   renderFps: number;
   framesDecoded: number;

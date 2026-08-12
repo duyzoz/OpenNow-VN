@@ -94,11 +94,17 @@ export function mergeNativeStreamStats(
     framesDecoded: stats.framesDecoded,
     framesDropped: sinkDropped,
     packetLossPercent: dropPercent,
-    inputQueueBufferedBytes: 0,
-    inputQueuePeakBufferedBytes: 0,
+    // NativeStream has no browser data-channel queue. Its relevant client-side
+    // pressure is the Electron → helper stdin pipe, sampled on the existing
+    // native stats heartbeat by NativeStreamerManager.
+    inputQueueBufferedBytes: stats.inputPipeBufferedBytes ?? 0,
+    inputQueuePeakBufferedBytes: Math.max(
+      current.inputQueuePeakBufferedBytes,
+      stats.inputPipeBufferedBytes ?? 0,
+    ),
     partiallyReliableInputQueueBufferedBytes: 0,
     partiallyReliableInputQueuePeakBufferedBytes: 0,
-    inputQueueDropCount: 0,
+    inputQueueDropCount: stats.inputCoalescedMotionCount ?? 0,
     inputQueueMaxSchedulingDelayMs: 0,
     mouseAdaptiveFlushActive: false,
     mousePacketsPerSecond: 0,

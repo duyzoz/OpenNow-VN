@@ -105,6 +105,8 @@ export class NativeStreamerManager {
   private capabilities: NativeStreamerCapabilities | null = null;
   private activeSessionId: string | null = null;
   private inputBackpressureWarned = false;
+  /** Số movement đã bị thay thế dưới backpressure; click/key/gamepad không bao giờ được tính ở đây. */
+  private inputCoalescedMotionCount = 0;
   private pendingPartiallyReliableInput: NativeStreamerInputPacket | null = null;
   private inputDrainListenerAttached = false;
   private answerInFlight = false;
@@ -267,6 +269,9 @@ export class NativeStreamerManager {
     // stdin is backed up. This avoids replaying stale movement and keeps
     // input-to-frame latency bounded without dropping button/key state changes.
     if (child.stdin.writableLength > MAX_INPUT_STDIN_BUFFER_BYTES && input.partiallyReliable) {
+      if (this.pendingPartiallyReliableInput) {
+        this.inputCoalescedMotionCount += 1;
+      }
       this.pendingPartiallyReliableInput = input;
       this.armInputDrainFlush(child);
       if (!this.inputBackpressureWarned) {
@@ -291,6 +296,9 @@ export class NativeStreamerManager {
 
     if (!flushed) {
       if (input.partiallyReliable) {
+        if (this.pendingPartiallyReliableInput) {
+          this.inputCoalescedMotionCount += 1;
+        }
         this.pendingPartiallyReliableInput = input;
       }
       this.armInputDrainFlush(child);
@@ -370,6 +378,7 @@ export class NativeStreamerManager {
   async stop(reason = "stopped"): Promise<void> {
     const child = this.child;
     this.pendingPartiallyReliableInput = null;
+    this.inputCoalescedMotionCount = 0;
     this.inputDrainListenerAttached = false;
     this.inputBackpressureWarned = false;
     this.answerInFlight = false;
@@ -398,6 +407,7 @@ export class NativeStreamerManager {
 
   dispose(reason = "disposed"): void {
     this.pendingPartiallyReliableInput = null;
+    this.inputCoalescedMotionCount = 0;
     this.inputDrainListenerAttached = false;
     this.inputBackpressureWarned = false;
     this.answerInFlight = false;
@@ -796,9 +806,18 @@ export class NativeStreamerManager {
     }
 
     if (message.type === "stats") {
+      // The helper already emits this heartbeat. Add Node's own stdin backlog
+      // here rather than introducing another IPC loop or touching the native
+      // render/input hot paths.
+      const inputPipeBufferedBytes = Math.max(0, this.child?.stdin.writableLength ?? 0);
       this.options.emit({
         type: "native-stream-stats",
-        stats: message.stats,
+        stats: {
+          ...message.stats,
+          inputPipeBufferedBytes,
+          inputCoalescedMotionCount: this.inputCoalescedMotionCount,
+          inputMotionPending: this.pendingPartiallyReliableInput !== null,
+        },
       });
       return;
     }
@@ -834,6 +853,7 @@ export class NativeStreamerManager {
     this.child = null;
     ++this.processGeneration;
     this.pendingPartiallyReliableInput = null;
+    this.inputCoalescedMotionCount = 0;
     this.inputDrainListenerAttached = false;
     this.inputBackpressureWarned = false;
     this.answerInFlight = false;
