@@ -12530,9 +12530,106 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 .search-suggestion-item:hover,
-.search-suggestion-item:focus-visible {
+.search-suggestion-item:focus-visible,
+.search-suggestion-item.is-active {
   background: color-mix(in srgb, var(--ink) 7%, transparent);
   outline: none;
+}
+
+.search-suggestions-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px 7px;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.search-suggestions-heading > span,
+.search-suggestions-clear,
+.search-history-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.search-suggestions-clear {
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font: inherit;
+  text-transform: none;
+}
+
+.search-suggestions-clear:hover {
+  color: var(--accent);
+}
+
+.search-history-item {
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.search-history-item:hover,
+.search-history-item:focus-visible {
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  outline: none;
+}
+
+.search-history-query {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 620;
+}
+
+.search-history-count {
+  min-width: 19px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.search-suggestion-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.search-suggestion-stores {
+  display: flex;
+  gap: 4px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+
+.search-suggestion-store {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: 4px;
+  color: var(--ink-muted);
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.15;
 }
 
 .search-suggestion-thumb {

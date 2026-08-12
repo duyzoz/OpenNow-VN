@@ -22,6 +22,7 @@ import {
   areStringArraysEqual,
   defaultVariantId,
   getSelectedVariant,
+  matchesGameTitlePrefix,
   mergeVariantSelections,
 } from "../lib/gameCatalog";
 import {
@@ -651,7 +652,10 @@ export function useCatalogData({
         filterIds: [],
         fetchCount: 30,
       });
-      return result.games;
+      // The provider can return broad relevance matches (for example, a numeric
+      // query such as "10" may include unrelated titles). Keep autocomplete
+      // strict: only titles/short names beginning with the typed prefix survive.
+      return result.games.filter((game) => matchesGameTitlePrefix(game, trimmed)).slice(0, 30);
     } catch (error) {
       console.warn("Search suggestions fetch failed:", error);
       return [];
