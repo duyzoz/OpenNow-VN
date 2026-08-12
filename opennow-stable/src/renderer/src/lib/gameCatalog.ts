@@ -44,6 +44,14 @@ export function findSessionContextForAppId(
   return null;
 }
 
+export function matchesGameTitlePrefix(game: GameInfo, query: string): boolean {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return true;
+  return [game.title, game.shortName]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .some((value) => value.trim().toLocaleLowerCase().startsWith(normalizedQuery));
+}
+
 export function matchesGameSearch(game: GameInfo, query: string): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return true;
