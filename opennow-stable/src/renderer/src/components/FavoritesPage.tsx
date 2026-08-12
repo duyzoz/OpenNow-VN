@@ -1,10 +1,13 @@
-import { Heart, Search, X, Gamepad2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Heart, Search, X, Gamepad2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { memo, useEffect, useMemo, useState, useRef, useCallback, useSyncExternalStore, type JSX } from "react";
 import type { GameInfo } from "@shared/gfn";
 import { useTranslation } from "../i18n";
 import { GameCardListItem, useCatalogCardActionsRef } from "./GameCardListItem";
 import { GameInfoPanel } from "./GameInfoPanel";
 import { SearchSuggestions } from "./SearchSuggestions";
+import { getGameSearchSuggestions, type PlaytimeData } from "../lib/gameCatalog";
+import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
+import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
 import { MotionSpinner } from "./MotionSpinner";
 import { AnimatePresence } from "motion/react";
 import {
@@ -15,6 +18,7 @@ import {
 
 export interface FavoritesPageProps {
   games: GameInfo[];
+  playtimeData?: PlaytimeData;
   /** True while the catalog is still being fetched. */
   isCatalogLoading?: boolean;
   onPlayGame: (game: GameInfo) => void;
@@ -29,6 +33,7 @@ export interface FavoritesPageProps {
 
 export const FavoritesPage = memo(function FavoritesPage({
   games,
+  playtimeData = {},
   isCatalogLoading = false,
   onPlayGame,
   selectedGameId,
@@ -43,8 +48,12 @@ export const FavoritesPage = memo(function FavoritesPage({
   // NOTE: state hooks are declared BEFORE any hook that consumes them,
   // otherwise we hit the same TDZ crash that took down HomePage.
   const [query, setQuery] = useState("");
+  const [draftQuery, setDraftQuery] = useState("");
   const [infoGame, setInfoGame] = useState<GameInfo | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [searchSuggestions, setSearchSuggestions] = useState<GameInfo[]>([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [recentGames, setRecentGames] = useState<RecentGame[]>(loadRecentGames);
 
   const catalogActionsRef = useCatalogCardActionsRef({
     onPlayGame,
@@ -78,6 +87,28 @@ export const FavoritesPage = memo(function FavoritesPage({
     }
     return result;
   }, [favoriteIds, gamesById]);
+
+  useEffect(() => {
+    const trimmed = draftQuery.trim();
+    setSelectedSuggestionIndex(-1);
+    if (!trimmed) {
+      setSearchSuggestions([]);
+      return undefined;
+    }
+    const handle = window.setTimeout(() => {
+      setSearchSuggestions(getGameSearchSuggestions(favoriteGames, trimmed, 30));
+    }, 40);
+    return () => window.clearTimeout(handle);
+  }, [draftQuery, favoriteGames]);
+
+  const rememberGame = useCallback((game: GameInfo) => {
+    setRecentGames((current) => rememberRecentGame(current, game));
+  }, []);
+
+  const clearRecentGamesHistory = useCallback(() => {
+    setRecentGames([]);
+    clearRecentGames();
+  }, []);
 
   const visibleGames = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -230,19 +261,50 @@ export const FavoritesPage = memo(function FavoritesPage({
             <Search size={15} className="favorites-search-icon" />
             <input
               type="text"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              value={draftQuery}
+              onChange={(event) => setDraftQuery(event.target.value)}
               placeholder={t("favorites.searchPlaceholder")}
               className="favorites-search-input"
               aria-label={t("favorites.searchPlaceholder")}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowDown" && searchSuggestions.length > 0) {
+                  event.preventDefault();
+                  setSelectedSuggestionIndex((current) => Math.min(current + 1, searchSuggestions.length - 1));
+                } else if (event.key === "ArrowUp" && searchSuggestions.length > 0) {
+                  event.preventDefault();
+                  setSelectedSuggestionIndex((current) => Math.max(current - 1, -1));
+                } else if (event.key === "Enter") {
+                  event.preventDefault();
+                  const selected = selectedSuggestionIndex >= 0 ? searchSuggestions[selectedSuggestionIndex] : undefined;
+                  if (selected) {
+                    rememberGame(selected);
+                    setInfoGame(selected);
+                  } else {
+                    setQuery(draftQuery.trim());
+                  }
+                  setIsSearchFocused(false);
+                } else if (event.key === "Escape") {
+                  setIsSearchFocused(false);
+                }
+              }}
             />
             {isSearchFocused && (
               <SearchSuggestions
-                query={query}
-                games={visibleGames}
+                query={draftQuery}
+                games={searchSuggestions}
+                selectedIndex={selectedSuggestionIndex}
+                recentGames={recentGames}
+                onSelectRecent={(game) => {
+                  rememberGame(game);
+                  setInfoGame(game);
+                  setDraftQuery(game.title);
+                  setIsSearchFocused(false);
+                }}
+                onClearRecent={clearRecentGamesHistory}
                 onSelect={(game) => {
+                  rememberGame(game);
                   setInfoGame(game);
                   setIsSearchFocused(false);
                 }}
@@ -252,7 +314,10 @@ export const FavoritesPage = memo(function FavoritesPage({
               <button
                 type="button"
                 className="favorites-search-clear"
-                onClick={() => setQuery("")}
+                onClick={() => {
+                  setDraftQuery("");
+                  setQuery("");
+                }}
                 aria-label={t("favorites.clearSearch")}
               >
                 <X size={13} />
@@ -314,6 +379,15 @@ export const FavoritesPage = memo(function FavoritesPage({
                     surface="home"
                     actionsRef={catalogActionsRef}
                   />
+                  {(() => {
+                    const lastPlayedAt = playtimeData[game.id]?.lastPlayedAt ?? game.lastPlayed;
+                    return (
+                      <div className={`library-last-played${lastPlayedAt ? "" : " library-last-played--empty"}`} aria-hidden={lastPlayedAt ? undefined : true}>
+                        <Clock size={12} />
+                        <span>{lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : "—"}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

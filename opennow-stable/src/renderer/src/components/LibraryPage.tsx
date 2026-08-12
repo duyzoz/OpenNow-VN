@@ -16,11 +16,13 @@ import {
   type LibraryFilterOption,
 } from "../lib/libraryFilters";
 import { useTranslation } from "../i18n";
-import { formatCatalogLastPlayed } from "../utils/lastPlayedFormat";
+import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 import { controllerButton, readControllerGamepadButtons } from "../utils/controllerGamepad";
 import { pageTransition } from "./MotionProvider";
 import { GameInfoPanel } from "./GameInfoPanel";
 import { SearchSuggestions } from "./SearchSuggestions";
+import { getGameSearchSuggestions } from "../lib/gameCatalog";
+import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
 import { AnimatePresence as AP } from "motion/react";
 import { SelectDropdown } from "./ui/SelectDropdown";
 import { LibraryControllerView } from "./library/LibraryControllerView";
@@ -87,6 +89,36 @@ export const LibraryPage = memo(function LibraryPage({
   const { t } = useTranslation();
   const [gameInfoGame, setGameInfoGame] = useState<GameInfo | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [draftQuery, setDraftQuery] = useState(searchQuery);
+  const [searchSuggestions, setSearchSuggestions] = useState<GameInfo[]>([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [recentGames, setRecentGames] = useState<RecentGame[]>(loadRecentGames);
+
+  useEffect(() => {
+    setDraftQuery(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const trimmed = draftQuery.trim();
+    setSelectedSuggestionIndex(-1);
+    if (!trimmed) {
+      setSearchSuggestions([]);
+      return undefined;
+    }
+    const handle = window.setTimeout(() => {
+      setSearchSuggestions(getGameSearchSuggestions(allGames, trimmed, 30));
+    }, 40);
+    return () => window.clearTimeout(handle);
+  }, [allGames, draftQuery]);
+
+  const rememberGame = useCallback((game: GameInfo) => {
+    setRecentGames((current) => rememberRecentGame(current, game));
+  }, []);
+
+  const clearRecentGamesHistory = useCallback(() => {
+    setRecentGames([]);
+    clearRecentGames();
+  }, []);
 
   const catalogActionsRef = useCatalogCardActionsRef({
     onPlayGame,
@@ -620,7 +652,9 @@ export const LibraryPage = memo(function LibraryPage({
   }, [controllerMode, controllerSearchOpen, onNextControllerPage, onPreviousControllerPage, surfaceActive]);
 
   const libraryGridItems = useMemo(
-    () => visibleLibraryGames.map((game) => (
+    () => current64LibraryGames.map((game) => {
+      const lastPlayedAt = playtimeData[game.id]?.lastPlayedAt ?? game.lastPlayed;
+      return (
       <div key={game.id} className="scroll-anim-wrapper">
         <GameCardListItem
           game={game}
@@ -630,15 +664,16 @@ export const LibraryPage = memo(function LibraryPage({
           actionsRef={catalogActionsRef}
         />
         <div
-          className={`library-last-played${game.lastPlayed ? "" : " library-last-played--empty"}`}
-          aria-hidden={game.lastPlayed ? undefined : true}
+          className={`library-last-played${lastPlayedAt ? "" : " library-last-played--empty"}`}
+          aria-hidden={lastPlayedAt ? undefined : true}
         >
           <Clock size={12} />
-          <span>{game.lastPlayed ? formatCatalogLastPlayed(t, game.lastPlayed) : "—"}</span>
+          <span>{lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : "—"}</span>
         </div>
       </div>
-    )),
-    [catalogActionsRef, selectedGameId, selectedVariantByGameId, t, visibleLibraryGames],
+      );
+    }),
+    [catalogActionsRef, current64LibraryGames, playtimeData, selectedGameId, selectedVariantByGameId],
   );
 
   if (controllerMode) {
@@ -705,18 +740,49 @@ export const LibraryPage = memo(function LibraryPage({
           <Search className="library-search-icon" size={16} />
           <input
             type="text"
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={draftQuery}
+            onChange={(e) => setDraftQuery(e.target.value)}
             placeholder={t("library.searchPlaceholder")}
             className="library-search-input"
             onFocus={() => setIsSearchFocused(true)}
             onBlur={() => setIsSearchFocused(false)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" && searchSuggestions.length > 0) {
+                event.preventDefault();
+                setSelectedSuggestionIndex((current) => Math.min(current + 1, searchSuggestions.length - 1));
+              } else if (event.key === "ArrowUp" && searchSuggestions.length > 0) {
+                event.preventDefault();
+                setSelectedSuggestionIndex((current) => Math.max(current - 1, -1));
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                const selected = selectedSuggestionIndex >= 0 ? searchSuggestions[selectedSuggestionIndex] : undefined;
+                if (selected) {
+                  rememberGame(selected);
+                  setGameInfoGame(selected);
+                } else {
+                  onSearchChange(draftQuery.trim());
+                }
+                setIsSearchFocused(false);
+              } else if (event.key === "Escape") {
+                setIsSearchFocused(false);
+              }
+            }}
           />
           {isSearchFocused && (
             <SearchSuggestions
-              query={searchQuery}
-              games={visibleLibraryGames}
+              query={draftQuery}
+              games={searchSuggestions}
+              selectedIndex={selectedSuggestionIndex}
+              recentGames={recentGames}
+              onSelectRecent={(game) => {
+                rememberGame(game);
+                setGameInfoGame(game);
+                setDraftQuery(game.title);
+                setIsSearchFocused(false);
+              }}
+              onClearRecent={clearRecentGamesHistory}
               onSelect={(game) => {
+                rememberGame(game);
                 setGameInfoGame(game);
                 setIsSearchFocused(false);
               }}

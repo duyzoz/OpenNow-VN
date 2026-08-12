@@ -2708,6 +2708,7 @@ export function App(): JSX.Element {
             {mainPage === "home" && (
               <HomePage
                 games={filteredGames}
+                allGames={allKnownGames}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 fetchSearchSuggestions={fetchSearchSuggestions}
@@ -2744,6 +2745,7 @@ export function App(): JSX.Element {
               <PageErrorBoundary label="favorites">
                 <FavoritesPage
                   games={allKnownGames}
+                  playtimeData={playtime}
                   isCatalogLoading={isLoadingCatalog}
                   onPlayGame={handleInitiatePlay}
                   selectedGameId={selectedGameId}
