@@ -13,6 +13,7 @@ import {
   shouldSendGamepadPacket,
 } from "./gamepadController";
 import { InputChannelPolicyController } from "./inputChannelPolicy";
+import { DomInputCaptureController } from "./domInputCaptureController";
 import { INPUT_KEY_DOWN, INPUT_MOUSE_REL } from "../inputProtocol";
 
 const pressureSignal: DecoderPressureSignal = {
@@ -152,6 +153,25 @@ test("partial-reliable mouse drops stale motion under browser backpressure but p
   bufferedAmount = 0;
   bufferedAmountLowListener();
   assert.deepEqual(channelPackets, [newerPayload]);
+});
+
+test("critical input can force a reliable flush of pending mouse movement", () => {
+  const controller = new DomInputCaptureController({} as never, {
+    mouseSensitivity: 1,
+    mouseAccelerationPercent: 1,
+    nativeCursorOverlay: false,
+  });
+  let forceReliable: boolean | undefined;
+  (
+    controller as unknown as {
+      flushPendingMouseMovement: (value?: boolean) => void;
+    }
+  ).flushPendingMouseMovement = (value) => {
+    forceReliable = value;
+  };
+
+  controller.flushPendingMovement(true);
+  assert.equal(forceReliable, true);
 });
 
 test("gamepad polling and keepalive decisions preserve adaptive timing", () => {

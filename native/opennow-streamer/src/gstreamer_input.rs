@@ -38,6 +38,10 @@ const NATIVE_INPUT_BRIDGE_POLL_INTERVAL: Duration = Duration::from_millis(1);
 #[cfg(target_os = "windows")]
 const NATIVE_INPUT_DRAIN_MAX_EVENTS: usize = 512;
 #[cfg(target_os = "windows")]
+const NATIVE_MOUSE_MAX_BUFFERED_BYTES: u64 = 32 * 1024;
+#[cfg(target_os = "windows")]
+const NATIVE_MOUSE_LOW_WATERMARK_BYTES: u64 = 16 * 1024;
+#[cfg(target_os = "windows")]
 const NATIVE_GAMEPAD_POLL_INTERVAL: Duration = Duration::from_millis(4);
 #[cfg(target_os = "windows")]
 const NATIVE_GAMEPAD_KEEPALIVE_INTERVAL: Duration = Duration::from_millis(100);
@@ -142,7 +146,10 @@ pub(crate) enum NativeWindowInputEvent {
 #[cfg(target_os = "windows")]
 enum EncodedNativeInputBatch {
     ReliableSingles(Vec<Vec<u8>>),
-    MousePacket(Vec<u8>),
+    /// Mouse motion normally uses the low-latency partial-reliable channel.
+    /// When it directly precedes a critical input, it must be reliable so the
+    /// server applies position before that click/key/wheel packet.
+    MousePacket { payload: Vec<u8>, reliable: bool },
 }
 
 #[cfg(target_os = "windows")]
@@ -256,10 +263,18 @@ mod win32_xinput {
     }
 }
 
+#[cfg(target_os = "windows")]
+#[derive(Debug, Default)]
+struct NativeMouseBackpressureState {
+    pending_packet: Option<Vec<u8>>,
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct GstreamerInputChannels {
     reliable: gst_webrtc::WebRTCDataChannel,
     partially_reliable: gst_webrtc::WebRTCDataChannel,
+    #[cfg(target_os = "windows")]
+    native_mouse_backpressure: Arc<Mutex<NativeMouseBackpressureState>>,
 }
 
 impl GstreamerInputChannels {
@@ -271,6 +286,10 @@ impl GstreamerInputChannels {
     }
 
     pub(crate) fn send_packet(&self, payload: &[u8], partially_reliable: bool) -> bool {
+        self.send_owned_packet(payload.to_vec(), partially_reliable)
+    }
+
+    fn send_owned_packet(&self, payload: Vec<u8>, partially_reliable: bool) -> bool {
         if payload.is_empty() {
             return false;
         }
@@ -288,9 +307,73 @@ impl GstreamerInputChannels {
             return false;
         }
 
-        let bytes = glib::Bytes::from_owned(payload.to_vec());
+        let bytes = glib::Bytes::from_owned(payload);
         channel.send_data_full(Some(&bytes)).is_ok()
     }
+
+    #[cfg(target_os = "windows")]
+    fn send_native_mouse_packet(&self, payload: Vec<u8>, reliable: bool) -> bool {
+        if reliable {
+            // A critical input follows this motion in the caller. Preserve any
+            // coalesced movement accumulated during backpressure by sending it
+            // first on the ordered channel; never let it flush later and move
+            // the server cursor after a click/key has already been applied.
+            let pending = self
+                .native_mouse_backpressure
+                .lock()
+                .ok()
+                .and_then(|mut state| state.pending_packet.take());
+            if let Some(pending) = pending {
+                let _ = self.send_owned_packet(pending, false);
+            }
+            return self.send_owned_packet(payload, false);
+        }
+
+        if self.partially_reliable.ready_state() != gst_webrtc::WebRTCDataChannelState::Open {
+            return false;
+        }
+
+        if self.partially_reliable.buffered_amount() > NATIVE_MOUSE_MAX_BUFFERED_BYTES {
+            if let Ok(mut state) = self.native_mouse_backpressure.lock() {
+                // Movement is disposable under congestion: replace older motion
+                // rather than letting stale RawInput packets accumulate.
+                state.pending_packet = Some(payload);
+                return true;
+            }
+        }
+
+        if let Ok(mut state) = self.native_mouse_backpressure.lock() {
+            // A fresh packet supersedes anything held while the queue was full.
+            state.pending_packet = None;
+        }
+        self.send_owned_packet(payload, true)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn flush_pending_native_mouse_packet(
+    channel: &gst_webrtc::WebRTCDataChannel,
+    state: &Arc<Mutex<NativeMouseBackpressureState>>,
+) {
+    if channel.ready_state() != gst_webrtc::WebRTCDataChannelState::Open
+        || channel.buffered_amount() > NATIVE_MOUSE_LOW_WATERMARK_BYTES
+    {
+        return;
+    }
+
+    let pending = state
+        .lock()
+        .ok()
+        .and_then(|mut state| state.pending_packet.take());
+    let Some(payload) = pending else {
+        return;
+    };
+
+    // The packet was intentionally kept as the latest motion only. If the
+    // channel closes in this small race window, dropping it is preferable to
+    // replaying stale movement into a later stream session.
+    let bytes = glib::Bytes::from_owned(payload);
+    let _ = channel.send_data_full(Some(&bytes));
 }
 
 #[cfg(target_os = "windows")]
@@ -491,10 +574,14 @@ fn send_native_window_input_events(
                     &mut current_reliable_singles,
                     &mut input_batches,
                 );
+                // A click, wheel or key must observe the preceding mouse
+                // movement. Send that coalesced movement on the ordered
+                // reliable channel instead of racing it on partial-reliable.
                 collect_pending_mouse_move_packets(
                     &encoder,
                     &mut pending_mouse_move,
                     &mut input_batches,
+                    true,
                 );
             }
             if let Some(payload) =
@@ -512,6 +599,7 @@ fn send_native_window_input_events(
             &encoder,
             &mut pending_mouse_move,
             &mut input_batches,
+            false,
         );
     }
 
@@ -523,9 +611,12 @@ fn send_native_window_input_events(
                     let _ = input_channels.send_packet(&payload, false);
                 }
             }
-            EncodedNativeInputBatch::MousePacket(mut payload) => {
+            EncodedNativeInputBatch::MousePacket {
+                mut payload,
+                reliable,
+            } => {
                 restamp_protocol_v3_outer_timestamp(&mut payload, send_timestamp_us);
-                let _ = input_channels.send_packet(&payload, true);
+                let _ = input_channels.send_native_mouse_packet(payload, reliable);
             }
         }
     }
@@ -545,6 +636,7 @@ fn collect_pending_mouse_move_packets(
     encoder: &InputEncoder,
     pending_mouse_move: &mut Option<(i32, i32, u64)>,
     input_batches: &mut Vec<EncodedNativeInputBatch>,
+    reliable: bool,
 ) {
     let Some((mut dx, mut dy, timestamp_us)) = pending_mouse_move.take() else {
         return;
@@ -553,13 +645,14 @@ fn collect_pending_mouse_move_packets(
     while dx != 0 || dy != 0 {
         let chunk_dx = dx.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
         let chunk_dy = dy.clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16;
-        input_batches.push(EncodedNativeInputBatch::MousePacket(encoder.encode_mouse_move(
-            MouseMovePayload {
+        input_batches.push(EncodedNativeInputBatch::MousePacket {
+            payload: encoder.encode_mouse_move(MouseMovePayload {
                 dx: chunk_dx,
                 dy: chunk_dy,
                 timestamp_us,
-            },
-        )));
+            }),
+            reliable,
+        });
         dx = dx.saturating_sub(i32::from(chunk_dx));
         dy = dy.saturating_sub(i32::from(chunk_dy));
     }
@@ -998,9 +1091,23 @@ pub(crate) fn create_input_data_channels(
         ),
     );
 
+    #[cfg(target_os = "windows")]
+    let native_mouse_backpressure = Arc::new(Mutex::new(NativeMouseBackpressureState::default()));
+    #[cfg(target_os = "windows")]
+    {
+        partially_reliable
+            .set_buffered_amount_low_threshold(NATIVE_MOUSE_LOW_WATERMARK_BYTES);
+        let flush_state = native_mouse_backpressure.clone();
+        partially_reliable.connect_on_buffered_amount_low(move |channel| {
+            flush_pending_native_mouse_packet(channel, &flush_state);
+        });
+    }
+
     Ok(GstreamerInputChannels {
         reliable,
         partially_reliable,
+        #[cfg(target_os = "windows")]
+        native_mouse_backpressure,
     })
 }
 

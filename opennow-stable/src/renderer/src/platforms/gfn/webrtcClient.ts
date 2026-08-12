@@ -1677,10 +1677,12 @@ export class GfnWebRtcClient {
 
   /**
    * Send a reliable single-input packet immediately (official GFN Jc()->Tc()).
-   * When a mouse batch is pending, flush it first (official kc(): cl() then send key).
+   * When a mouse batch is pending, flush it first on the same ordered channel
+   * (official kc(): cl() then send key), so an unordered partial-reliable
+   * motion packet cannot arrive after the click/key it should precede.
    */
   private sendReliableSingleInput(payload: Uint8Array): void {
-    this.domInputController.flushPendingMovement();
+    this.domInputController.flushPendingMovement(true);
 
     let packet = payload;
     if (this.inputProtocolVersion > 2) {

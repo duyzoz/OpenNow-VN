@@ -990,7 +990,19 @@ pub(crate) mod win32_renderer_window {
             return;
         }
 
-        let mut buffer = vec![0u8; size as usize];
+        // Mouse and keyboard RAWINPUT payloads are small fixed-size structs.
+        // Keeping the common path on the stack avoids one heap allocation per
+        // WM_INPUT message (notable with 500–1000 Hz mice). Retain a heap
+        // fallback so an unexpected oversized payload remains safe.
+        const STACK_RAW_INPUT_BYTES: usize = 256;
+        let mut stack_buffer = [0u8; STACK_RAW_INPUT_BYTES];
+        let mut heap_buffer = Vec::new();
+        let buffer: &mut [u8] = if size as usize <= STACK_RAW_INPUT_BYTES {
+            &mut stack_buffer[..size as usize]
+        } else {
+            heap_buffer.resize(size as usize, 0);
+            heap_buffer.as_mut_slice()
+        };
         let read = GetRawInputData(
             raw_input,
             RID_INPUT,

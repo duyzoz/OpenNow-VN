@@ -80,7 +80,7 @@ export class DomInputCaptureController {
   private keyboardLockState: "unknown" | "unsupported" | "locked" | "failed" = "unknown";
   private lastLockKeysState = -1;
   private mouseFlushTimer: number | null = null;
-  private flushPendingMouseMovement: () => void = () => {};
+  private flushPendingMouseMovement: (forceReliable?: boolean) => void = () => {};
   private pendingMouseDxFloat = 0;
   private pendingMouseDyFloat = 0;
   private pendingMouseAbs: { x: number; y: number; width: number; height: number } | null = null;
@@ -162,8 +162,8 @@ export class DomInputCaptureController {
     this.flushPendingMouseMovement = () => {};
   }
 
-  flushPendingMovement(): void {
-    this.flushPendingMouseMovement();
+  flushPendingMovement(forceReliable = false): void {
+    this.flushPendingMouseMovement(forceReliable);
   }
 
   reset(): void {
@@ -681,9 +681,9 @@ export class DomInputCaptureController {
       return true;
     };
 
-    this.flushPendingMouseMovement = () => {
+    this.flushPendingMouseMovement = (forceReliable = false) => {
       try {
-        flushMouse();
+        flushMouse(forceReliable);
       } catch (err) {
         this.dependencies.log(`Mouse flush failed (non-fatal): ${String(err)}`);
       }
