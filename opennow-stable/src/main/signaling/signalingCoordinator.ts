@@ -377,21 +377,34 @@ export class SignalingCoordinator {
     await this.resetNativeStreamerForSignalingReconnect();
     await this.prepareNativeStreamerBeforeSignaling();
 
-    this.signalingClient = new GfnSignalingClient(
+    const signalingClient = new GfnSignalingClient(
       payload.signalingServer,
       payload.sessionId,
       payload.signalingUrl,
     );
+    this.signalingClient = signalingClient;
     this.signalingClientKey = nextKey;
-    this.signalingClient.onEvent((event) => this.routeSignalingEvent(event));
+    signalingClient.onEvent((event) => {
+      // A replaced signaling client may still deliver queued events while its
+      // socket is closing. Do not route those events into the current session.
+      if (this.signalingClient !== signalingClient) {
+        return;
+      }
+      this.routeSignalingEvent(event);
+    });
     try {
-      await this.signalingClient.connect();
+      await signalingClient.connect();
     } catch (error) {
-      await this.nativeStreamerManager
-        ?.stop("signaling connect failed")
-        .catch(() => undefined);
-      this.signalingClient = null;
-      this.signalingClientKey = null;
+      // A newer connect may have replaced this client while its asynchronous
+      // connect attempt was resolving. Only tear down the resources owned by
+      // this attempt.
+      if (this.signalingClient === signalingClient) {
+        await this.nativeStreamerManager
+          ?.stop("signaling connect failed")
+          .catch(() => undefined);
+        this.signalingClient = null;
+        this.signalingClientKey = null;
+      }
       throw error;
     }
   }
@@ -494,6 +507,12 @@ export class SignalingCoordinator {
     this.emitToRenderer(event);
   }
 
+  private isCurrentNativeStreamerContext(context: NativeStreamerSessionContext): boolean {
+    return this.isNativeStreamerSelected()
+      && this.nativeStreamerContext === context
+      && this.nativeStreamerFallbackSessionId !== context.session.sessionId;
+  }
+
   private async handleNativeStreamerOffer(
     sdp: string,
     context: NativeStreamerSessionContext,
@@ -502,6 +521,14 @@ export class SignalingCoordinator {
       await this.getNativeStreamerManager().handleOffer(sdp, context);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (!this.isCurrentNativeStreamerContext(context)) {
+        console.log(
+          "[NativeStreamer] Ignoring failed offer from a replaced session:",
+          context.session.sessionId,
+        );
+        return;
+      }
+
       console.warn("[NativeStreamer] Falling back to web streamer:", message);
       this.nativeStreamerFallbackSessionId = context.session.sessionId;
       const queuedRemoteIce =

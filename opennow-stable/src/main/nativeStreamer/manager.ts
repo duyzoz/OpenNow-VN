@@ -42,6 +42,7 @@ import {
 } from "./protocol";
 import { createNativeStreamerRuntimeEnvironment } from "./runtime";
 import { NativeSurfaceUpdateQueue } from "./surfaceUpdateQueue";
+import { isCurrentNativeStreamerProcess } from "./processGeneration";
 
 interface NativeStreamerCallbacks {
   sendAnswer(payload: SendAnswerRequest): Promise<void>;
@@ -90,6 +91,12 @@ function normalizeBitrateKbps(value: number): number {
 
 export class NativeStreamerManager {
   private child: ChildProcessWithoutNullStreams | null = null;
+  /**
+   * Increments whenever a helper process is replaced or invalidated. Event
+   * handlers capture the generation so a late stdout/error/exit callback from
+   * the previous process cannot tear down a newer NativeStream session.
+   */
+  private processGeneration = 0;
   private startupPromise: Promise<void> | null = null;
   private stdoutBuffer = "";
   private stderrTail: string[] = [];
@@ -302,6 +309,11 @@ export class NativeStreamerManager {
     }
     this.inputDrainListenerAttached = true;
     child.stdin.once("drain", () => {
+      // A previous process can emit drain after a quick restart. It must not
+      // mutate the new process's listener/input state.
+      if (this.child !== child) {
+        return;
+      }
       this.inputDrainListenerAttached = false;
       this.inputBackpressureWarned = false;
       const pending = this.pendingPartiallyReliableInput;
@@ -359,6 +371,9 @@ export class NativeStreamerManager {
     const child = this.child;
     this.pendingPartiallyReliableInput = null;
     this.inputDrainListenerAttached = false;
+    this.inputBackpressureWarned = false;
+    this.answerInFlight = false;
+    this.queuedLocalIce = [];
     this.activeSessionId = null;
     this.capabilities = null;
     this.surfaceUpdates.markNotReady();
@@ -380,6 +395,9 @@ export class NativeStreamerManager {
   dispose(reason = "disposed"): void {
     this.pendingPartiallyReliableInput = null;
     this.inputDrainListenerAttached = false;
+    this.inputBackpressureWarned = false;
+    this.answerInFlight = false;
+    this.queuedLocalIce = [];
     this.activeSessionId = null;
     this.capabilities = null;
     this.surfaceUpdates.markNotReady();
@@ -500,15 +518,19 @@ export class NativeStreamerManager {
       windowsHide: false,
       env: childEnv,
     });
+    const generation = ++this.processGeneration;
 
     this.child = child;
     this.stdoutBuffer = "";
     this.stderrTail = [];
 
     child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (chunk: string) => this.handleStdout(chunk));
+    child.stdout.on("data", (chunk: string) => this.handleStdout(child, generation, chunk));
     child.stderr.setEncoding("utf8");
     child.stderr.on("data", (chunk: string) => {
+      if (!this.isCurrentProcess(child, generation)) {
+        return;
+      }
       for (const line of chunk.split(/\r?\n/)) {
         if (line.trim()) {
           this.appendStderr(line);
@@ -518,13 +540,16 @@ export class NativeStreamerManager {
     });
 
     child.once("error", (error) => {
+      if (!this.isCurrentProcess(child, generation)) {
+        return;
+      }
       this.options.emit({ type: "error", message: `Native streamer failed to start: ${formatError(error)}` });
-      this.handleProcessExit(`spawn error: ${formatError(error)}`);
+      this.handleProcessExit(child, generation, `spawn error: ${formatError(error)}`);
     });
 
     child.once("exit", (code, signal) => {
       const reason = signal ? `signal ${signal}` : `exit code ${code ?? "unknown"}`;
-      this.handleProcessExit(reason);
+      this.handleProcessExit(child, generation, reason);
     });
 
     const helloTimeoutMs = runtimeStatus.bundled ? BUNDLED_GSTREAMER_HELLO_TIMEOUT_MS : HELLO_TIMEOUT_MS;
@@ -603,7 +628,24 @@ export class NativeStreamerManager {
     });
   }
 
-  private handleStdout(chunk: string): void {
+  private isCurrentProcess(child: ChildProcessWithoutNullStreams, generation: number): boolean {
+    return isCurrentNativeStreamerProcess(
+      this.child,
+      this.processGeneration,
+      child,
+      generation,
+    );
+  }
+
+  private handleStdout(
+    child: ChildProcessWithoutNullStreams,
+    generation: number,
+    chunk: string,
+  ): void {
+    if (!this.isCurrentProcess(child, generation)) {
+      return;
+    }
+
     this.stdoutBuffer += chunk;
     const lines = this.stdoutBuffer.split(/\r?\n/);
     this.stdoutBuffer = lines.pop() ?? "";
@@ -772,8 +814,12 @@ export class NativeStreamerManager {
     }
   }
 
-  private handleProcessExit(reason: string): void {
-    if (!this.child) {
+  private handleProcessExit(
+    child: ChildProcessWithoutNullStreams,
+    generation: number,
+    reason: string,
+  ): void {
+    if (!this.isCurrentProcess(child, generation)) {
       return;
     }
 
@@ -782,8 +828,12 @@ export class NativeStreamerManager {
     const stoppedReason = `process ended (${reason})`;
     console.warn(`[NativeStreamer] Process ended (${reason})${tail}`);
     this.child = null;
+    ++this.processGeneration;
     this.pendingPartiallyReliableInput = null;
     this.inputDrainListenerAttached = false;
+    this.inputBackpressureWarned = false;
+    this.answerInFlight = false;
+    this.queuedLocalIce = [];
     this.stdoutBuffer = "";
     this.stderrTail = [];
     this.activeSessionId = null;
@@ -873,6 +923,7 @@ export class NativeStreamerManager {
     }
 
     this.child = null;
+    ++this.processGeneration;
     try {
       child.kill();
     } catch (error) {
