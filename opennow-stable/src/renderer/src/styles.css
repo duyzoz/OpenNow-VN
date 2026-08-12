@@ -12589,6 +12589,11 @@ button.game-card-store-chip.owned.active:hover {
   outline: none;
 }
 
+.search-history-icon {
+  flex: 0 0 auto;
+  color: var(--ink-muted);
+}
+
 .search-history-thumb {
   width: 42px;
   height: 28px;

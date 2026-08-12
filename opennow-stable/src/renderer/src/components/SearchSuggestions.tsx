@@ -117,6 +117,7 @@ export const SearchSuggestions = memo(function SearchSuggestions({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => onSelectRecent?.(item.game)}
             >
+              <History className="search-history-icon" size={14} aria-hidden="true" />
               <span className="search-suggestion-thumb search-history-thumb" aria-hidden="true">
                 {item.game.imageUrl ? <img src={item.game.imageUrl} alt="" loading="lazy" /> : <History size={15} />}
               </span>
