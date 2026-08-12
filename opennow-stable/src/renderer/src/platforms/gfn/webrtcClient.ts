@@ -379,6 +379,7 @@ export class GfnWebRtcClient {
     mouseFlushIntervalMs: GfnWebRtcClient.MOUSE_FLUSH_NORMAL_MS,
     mousePacketsPerSecond: 0,
     mouseResidualMagnitude: 0,
+    mouseBatchAgeMs: 0,
     mouseAdaptiveFlushActive: false,
     lagReason: "unknown",
     lagReasonDetail: "Waiting for stream stats",
@@ -830,6 +831,7 @@ export class GfnWebRtcClient {
       mouseFlushIntervalMs: mouseDiagnostics.flushIntervalMs,
       mousePacketsPerSecond: mouseDiagnostics.packetsPerSecond,
       mouseResidualMagnitude: 0,
+      mouseBatchAgeMs: mouseDiagnostics.batchAgeMs,
       mouseAdaptiveFlushActive: mouseDiagnostics.adaptiveFlushActive,
       lagReason: "unknown",
       lagReasonDetail: "Waiting for stream stats",
@@ -1170,6 +1172,7 @@ export class GfnWebRtcClient {
     this.diagnostics.mouseFlushIntervalMs = mouseDiagnostics.flushIntervalMs;
     this.diagnostics.mousePacketsPerSecond = mouseDiagnostics.packetsPerSecond;
     this.diagnostics.mouseResidualMagnitude = mouseDiagnostics.residualMagnitude;
+    this.diagnostics.mouseBatchAgeMs = mouseDiagnostics.batchAgeMs;
 
     // Intentional adaptive coalesce: only when mouse moves ride the reliable
     // channel (PR mouse keeps the fixed 4/8/16 ms official interval). Skip while

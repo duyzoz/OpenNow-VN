@@ -46,6 +46,8 @@ export interface MouseInputDiagnostics {
   flushIntervalMs: number;
   packetsPerSecond: number;
   residualMagnitude: number;
+  /** Thời gian sample chuột cũ nhất chờ trước lần gửi gần nhất; chỉ đo phía client. */
+  batchAgeMs: number;
   adaptiveFlushActive: boolean;
 }
 
@@ -85,6 +87,8 @@ export class DomInputCaptureController {
   private pendingMouseDyFloat = 0;
   private pendingMouseAbs: { x: number; y: number; width: number; height: number } | null = null;
   private pendingMouseTimestampUs: bigint | null = null;
+  private mouseBatchFirstQueuedAtMs: number | null = null;
+  private mouseLastBatchAgeMs = 0;
   private readonly mouseDeltaFilter = new MouseDeltaFilter();
   private mouseSensitivity = 1;
   private mouseAccelerationPercent = 1;
@@ -177,6 +181,8 @@ export class DomInputCaptureController {
     this.pendingMouseDyFloat = 0;
     this.pendingMouseAbs = null;
     this.pendingMouseTimestampUs = null;
+    this.mouseBatchFirstQueuedAtMs = null;
+    this.mouseLastBatchAgeMs = 0;
     this.mouseDeltaFilter.reset();
     this.mouseFlushLastSendMs = 0;
     this.mouseCoalescedBatchEntries = 0;
@@ -195,6 +201,7 @@ export class DomInputCaptureController {
       flushIntervalMs: this.mouseFlushIntervalMs,
       packetsPerSecond: this.mousePacketsPerSecond,
       residualMagnitude: Math.hypot(this.pendingMouseDxFloat, this.pendingMouseDyFloat),
+      batchAgeMs: this.mouseLastBatchAgeMs,
       adaptiveFlushActive: this.mouseAdaptiveFlushActive,
     };
   }
@@ -506,6 +513,8 @@ export class DomInputCaptureController {
     this.pendingMouseDyFloat = 0;
     this.pendingMouseAbs = null;
     this.pendingMouseTimestampUs = null;
+    this.mouseBatchFirstQueuedAtMs = null;
+    this.mouseLastBatchAgeMs = 0;
     this.mousePacketsPerSecond = 0;
     this.mousePacketsSentInWindow = 0;
     this.mousePacketRateWindowStartedAtMs = mouseInitNow;
@@ -674,7 +683,9 @@ export class DomInputCaptureController {
 
       const expectedSendAt = this.mouseFlushLastSendMs + this.mouseFlushIntervalMs;
       this.dependencies.recordSchedulingDelay(Math.max(0, tickNow - expectedSendAt));
+      this.mouseLastBatchAgeMs = Math.max(0, tickNow - (this.mouseBatchFirstQueuedAtMs ?? tickNow));
       this.pendingMouseTimestampUs = null;
+      this.mouseBatchFirstQueuedAtMs = null;
       this.mouseCoalescedBatchEntries = 0;
       this.mouseFlushLastSendMs = tickNow;
       updateMousePacketRate();
@@ -880,6 +891,7 @@ export class DomInputCaptureController {
       this.pendingMouseDyFloat += adjustedDy;
       if (this.pendingMouseTimestampUs === null) {
         this.pendingMouseTimestampUs = timestampUs(eventTimestampMs);
+        this.mouseBatchFirstQueuedAtMs = performance.now();
       }
       this.mouseCoalescedBatchEntries += 1;
     };

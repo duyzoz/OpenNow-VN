@@ -48,6 +48,8 @@ export interface StreamDiagnostics {
   mouseFlushIntervalMs: number;
   mousePacketsPerSecond: number;
   mouseResidualMagnitude: number;
+  /** Độ tuổi của mouse batch gần nhất lúc dispatch, chỉ phản ánh client-side queueing. */
+  mouseBatchAgeMs: number;
   mouseAdaptiveFlushActive: boolean;
 
   lagReason: StreamLagReason;

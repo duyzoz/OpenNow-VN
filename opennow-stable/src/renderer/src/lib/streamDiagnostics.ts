@@ -39,6 +39,7 @@ export function defaultDiagnostics(): StreamDiagnostics {
     mouseFlushIntervalMs: 8,
     mousePacketsPerSecond: 0,
     mouseResidualMagnitude: 0,
+    mouseBatchAgeMs: 0,
     mouseAdaptiveFlushActive: false,
     lagReason: "unknown",
     lagReasonDetail: "Waiting for stream stats",
