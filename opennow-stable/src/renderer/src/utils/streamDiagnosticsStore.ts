@@ -12,11 +12,19 @@ export interface StreamDiagnosticsStore {
 export function createStreamDiagnosticsStore(initial: StreamDiagnostics): StreamDiagnosticsStore {
   let current = initial;
   const listeners = new Set<() => void>();
+  let emitScheduled = false;
 
   const emit = () => {
-    for (const listener of listeners) {
-      listener();
+    if (emitScheduled) {
+      return;
     }
+    emitScheduled = true;
+    queueMicrotask(() => {
+      emitScheduled = false;
+      for (const listener of listeners) {
+        listener();
+      }
+    });
   };
 
   return {
