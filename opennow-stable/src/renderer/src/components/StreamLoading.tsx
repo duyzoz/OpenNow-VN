@@ -209,14 +209,10 @@ export function StreamLoading({
         const y = rect.height > 0 ? ((event.clientY - rect.top) / rect.height) * 100 : 50;
         const driftX = Math.max(-14, Math.min(14, ((x - 50) / 50) * 14));
         const driftY = Math.max(-10, Math.min(10, ((y - 50) / 50) * 10));
-        event.currentTarget.style.setProperty("--sload-pointer-x", `${Math.max(0, Math.min(100, x))}%`);
-        event.currentTarget.style.setProperty("--sload-pointer-y", `${Math.max(0, Math.min(100, y))}%`);
         event.currentTarget.style.setProperty("--sload-drift-x", `${driftX.toFixed(2)}px`);
         event.currentTarget.style.setProperty("--sload-drift-y", `${driftY.toFixed(2)}px`);
       }}
       onPointerLeave={(event) => {
-        event.currentTarget.style.setProperty("--sload-pointer-x", "50%");
-        event.currentTarget.style.setProperty("--sload-pointer-y", "50%");
         event.currentTarget.style.setProperty("--sload-drift-x", "0px");
         event.currentTarget.style.setProperty("--sload-drift-y", "0px");
       }}
