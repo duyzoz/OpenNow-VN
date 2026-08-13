@@ -40,6 +40,9 @@ export function defaultDiagnostics(): StreamDiagnostics {
     mousePacketsPerSecond: 0,
     mouseResidualMagnitude: 0,
     mouseAdaptiveFlushActive: false,
+    mouseBatchAgeMs: 0,
+    frameAgeMs: 0,
+    framePacingVarianceMs: 0,
     lagReason: "unknown",
     lagReasonDetail: "Waiting for stream stats",
     gpuType: "",
@@ -110,6 +113,9 @@ export function mergeNativeStreamStats(
     mouseAdaptiveFlushActive: false,
     mousePacketsPerSecond: 0,
     mouseResidualMagnitude: 0,
+    mouseBatchAgeMs: 0,
+    frameAgeMs: 0,
+    framePacingVarianceMs: 0,
     lagReason: dropPercent > 1 ? "render" : "stable",
     lagReasonDetail: stats.lastTransitionSummary
       ? `Native bitrate ${stats.bitratePerformancePercent.toFixed(0)}% of target · ${stats.lastTransitionSummary}`

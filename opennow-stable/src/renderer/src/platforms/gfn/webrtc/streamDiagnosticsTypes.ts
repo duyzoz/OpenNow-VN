@@ -49,6 +49,11 @@ export interface StreamDiagnostics {
   mousePacketsPerSecond: number;
   mouseResidualMagnitude: number;
   mouseAdaptiveFlushActive: boolean;
+  mouseBatchAgeMs?: number;
+
+  // Presentation telemetry (optional for backwards-compatible fixtures)
+  frameAgeMs?: number;
+  framePacingVarianceMs?: number;
 
   lagReason: StreamLagReason;
   lagReasonDetail: string;

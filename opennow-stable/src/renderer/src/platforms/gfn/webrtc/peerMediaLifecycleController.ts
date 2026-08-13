@@ -11,6 +11,13 @@ export interface PeerAudioDiagnostics {
   videoAudioOffsetMs: number;
 }
 
+export interface PeerFramePacingDiagnostics {
+  /** How late the most recent frame callback arrived after its expected display time. */
+  frameAgeMs: number;
+  /** Rolling standard deviation of callback-to-callback frame intervals, in ms. */
+  framePacingVarianceMs: number;
+}
+
 interface PeerMediaLifecycleDependencies {
   videoElement: HTMLVideoElement;
   audioElement: HTMLAudioElement;
@@ -39,6 +46,14 @@ export class PeerMediaLifecycleController {
   private outputVolume = 1;
   private audioOutputMode: AudioOutputMode = "direct";
   private visibilityChangeListener: (() => void) | null = null;
+  private frameAgeMs = 0;
+  private framePacingVarianceMs = 0;
+  private lastFrameCallbackMs: number | null = null;
+  private readonly frameIntervalsMs = new Float64Array(120);
+  private frameIntervalIndex = 0;
+  private frameIntervalCount = 0;
+  private frameIntervalSumMs = 0;
+  private frameIntervalSumSquaresMs = 0;
 
   constructor(private readonly dependencies: PeerMediaLifecycleDependencies) {
     this.audioOutputMode = dependencies.audioOutputMode ?? "direct";
@@ -50,6 +65,13 @@ export class PeerMediaLifecycleController {
 
   getVideoTrack(): MediaStreamTrack | null {
     return this.videoStream.getVideoTracks()[0] ?? null;
+  }
+
+  getFramePacingDiagnostics(): PeerFramePacingDiagnostics {
+    return {
+      frameAgeMs: this.frameAgeMs,
+      framePacingVarianceMs: this.framePacingVarianceMs,
+    };
   }
 
   getAudioDiagnostics(): PeerAudioDiagnostics {
@@ -91,8 +113,45 @@ export class PeerMediaLifecycleController {
   attachTrack(track: MediaStreamTrack): void {
     if (track.kind === "video") {
       this.replaceTrackInStream(this.videoStream, track);
+      this.resetFramePacingDiagnostics();
       const video = this.dependencies.videoElement;
-      const frameCallback = () => {
+      const frameCallback = (
+        callbackNow: number,
+        metadata: VideoFrameCallbackMetadata,
+      ) => {
+        const expectedDisplayTime = Number(metadata.expectedDisplayTime);
+        const presentationTime = Number(metadata.presentationTime);
+        const displayTime = Number.isFinite(expectedDisplayTime)
+          ? expectedDisplayTime
+          : presentationTime;
+        if (Number.isFinite(displayTime)) {
+          this.frameAgeMs = Math.max(0, Math.min(1000, callbackNow - displayTime));
+        }
+
+        if (this.lastFrameCallbackMs !== null) {
+          const intervalMs = callbackNow - this.lastFrameCallbackMs;
+          if (intervalMs > 0 && intervalMs <= 1000) {
+            const oldIntervalMs = this.frameIntervalsMs[this.frameIntervalIndex];
+            if (this.frameIntervalCount === this.frameIntervalsMs.length) {
+              this.frameIntervalSumMs -= oldIntervalMs;
+              this.frameIntervalSumSquaresMs -= oldIntervalMs * oldIntervalMs;
+            } else {
+              this.frameIntervalCount += 1;
+            }
+            this.frameIntervalsMs[this.frameIntervalIndex] = intervalMs;
+            this.frameIntervalSumMs += intervalMs;
+            this.frameIntervalSumSquaresMs += intervalMs * intervalMs;
+            this.frameIntervalIndex = (this.frameIntervalIndex + 1) % this.frameIntervalsMs.length;
+            const meanMs = this.frameIntervalSumMs / this.frameIntervalCount;
+            const varianceMs = Math.max(
+              0,
+              this.frameIntervalSumSquaresMs / this.frameIntervalCount - meanMs * meanMs,
+            );
+            this.framePacingVarianceMs = Math.sqrt(varianceMs);
+          }
+        }
+        this.lastFrameCallbackMs = callbackNow;
+
         this.dependencies.onRenderFrame();
         if (this.videoStream.active) {
           video.requestVideoFrameCallback(frameCallback);
@@ -150,6 +209,7 @@ export class PeerMediaLifecycleController {
   reset(): void {
     this.cleanupAudioRouting();
     this.clearTracks();
+    this.resetFramePacingDiagnostics();
   }
 
   cleanupAudio(): void {
@@ -157,12 +217,24 @@ export class PeerMediaLifecycleController {
   }
 
   clearTracks(): void {
+    this.resetFramePacingDiagnostics();
     for (const track of this.videoStream.getTracks()) {
       this.videoStream.removeTrack(track);
     }
     for (const track of this.audioStream.getTracks()) {
       this.audioStream.removeTrack(track);
     }
+  }
+
+  private resetFramePacingDiagnostics(): void {
+    this.frameAgeMs = 0;
+    this.framePacingVarianceMs = 0;
+    this.lastFrameCallbackMs = null;
+    this.frameIntervalIndex = 0;
+    this.frameIntervalCount = 0;
+    this.frameIntervalSumMs = 0;
+    this.frameIntervalSumSquaresMs = 0;
+    this.frameIntervalsMs.fill(0);
   }
 
   private replaceTrackInStream(

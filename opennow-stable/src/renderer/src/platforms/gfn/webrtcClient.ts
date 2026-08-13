@@ -82,6 +82,7 @@ export {
   subsampleCoalescedPointerEvents,
   type AdaptiveMouseFlushDecisionParams,
 } from "./webrtc/mouseInput";
+export { calculateMouseBatchAgeMs } from "./webrtc/domInputCaptureController";
 export {
   evaluateControllerOverlayShortcutGate,
   type ControllerOverlayChordState,
@@ -808,6 +809,7 @@ export class GfnWebRtcClient {
     this.videoDecodeStallWarningSent = false;
     this.decoderPressureController.reset();
     const mouseDiagnostics = this.domInputController.getMouseDiagnostics();
+    const framePacingDiagnostics = this.peerMediaController.getFramePacingDiagnostics();
     const audioDiagnostics = this.peerMediaController.getAudioDiagnostics();
     this.diagnostics = {
       connectionState: this.pc?.connectionState ?? "closed",
@@ -846,6 +848,9 @@ export class GfnWebRtcClient {
       mousePacketsPerSecond: mouseDiagnostics.packetsPerSecond,
       mouseResidualMagnitude: 0,
       mouseAdaptiveFlushActive: mouseDiagnostics.adaptiveFlushActive,
+      mouseBatchAgeMs: mouseDiagnostics.batchAgeMs,
+      frameAgeMs: framePacingDiagnostics.frameAgeMs,
+      framePacingVarianceMs: framePacingDiagnostics.framePacingVarianceMs,
       lagReason: "unknown",
       lagReasonDetail: "Waiting for stream stats",
       gpuType: this.gpuType,
@@ -989,6 +994,9 @@ export class GfnWebRtcClient {
 
     const report = await this.pc.getStats();
     const now = performance.now();
+    const framePacingDiagnostics = this.peerMediaController.getFramePacingDiagnostics();
+    this.diagnostics.frameAgeMs = Math.round(framePacingDiagnostics.frameAgeMs * 10) / 10;
+    this.diagnostics.framePacingVarianceMs = Math.round(framePacingDiagnostics.framePacingVarianceMs * 10) / 10;
     const audioDiagnostics = this.peerMediaController.getAudioDiagnostics();
     this.diagnostics.audioOutputMode = audioDiagnostics.outputMode;
     this.diagnostics.audioContextState = audioDiagnostics.audioContextState;
@@ -1191,6 +1199,7 @@ export class GfnWebRtcClient {
     this.diagnostics.mouseFlushIntervalMs = mouseDiagnostics.flushIntervalMs;
     this.diagnostics.mousePacketsPerSecond = mouseDiagnostics.packetsPerSecond;
     this.diagnostics.mouseResidualMagnitude = mouseDiagnostics.residualMagnitude;
+    this.diagnostics.mouseBatchAgeMs = Math.round(mouseDiagnostics.batchAgeMs * 10) / 10;
 
     // Intentional adaptive coalesce: only when mouse moves ride the reliable
     // channel (PR mouse keeps the fixed 4/8/16 ms official interval). Skip while

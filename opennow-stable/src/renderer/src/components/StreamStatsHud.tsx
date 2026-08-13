@@ -123,6 +123,9 @@ export function StreamStatsHud({
     lines.push(
       `Input queue peak ${(stats.inputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · PR peak ${(stats.partiallyReliableInputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · drops ${stats.inputQueueDropCount} · sched ${stats.inputQueueMaxSchedulingDelayMs.toFixed(1)}ms · residual ${mouseResidualText}`,
     );
+    lines.push(
+      `Mouse batch ${typeof stats.mouseBatchAgeMs === "number" ? stats.mouseBatchAgeMs.toFixed(1) : "0.0"}ms · frame age ${typeof stats.frameAgeMs === "number" ? stats.frameAgeMs.toFixed(1) : "0.0"}ms · pacing σ ${typeof stats.framePacingVarianceMs === "number" ? stats.framePacingVarianceMs.toFixed(1) : "0.0"}ms`,
+    );
     const avOffset = typeof stats.videoAudioOffsetMs === "number" && Math.abs(stats.videoAudioOffsetMs) > 0.1
       ? `${stats.videoAudioOffsetMs.toFixed(1)}ms`
       : "--";

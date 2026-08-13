@@ -47,11 +47,20 @@ export interface MouseInputDiagnostics {
   packetsPerSecond: number;
   residualMagnitude: number;
   adaptiveFlushActive: boolean;
+  /** Age of the oldest currently queued mouse batch at the last flush, in ms. */
+  batchAgeMs: number;
 }
 
 const MOUSE_FLUSH_FAST_MS = 4;
 const MOUSE_FLUSH_NORMAL_MS = 8;
 const MOUSE_FLUSH_SAFE_MS = 16;
+
+export function calculateMouseBatchAgeMs(nowMs: number, batchStartedAtMs: number): number {
+  if (!Number.isFinite(nowMs) || !Number.isFinite(batchStartedAtMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1000, nowMs - batchStartedAtMs));
+}
 
 function timestampUs(sourceTimestampMs?: number): bigint {
   return captureTimestampUs(sourceTimestampMs);
@@ -85,6 +94,7 @@ export class DomInputCaptureController {
   private pendingMouseDyFloat = 0;
   private pendingMouseAbs: { x: number; y: number; width: number; height: number } | null = null;
   private pendingMouseTimestampUs: bigint | null = null;
+  private pendingMouseBatchStartedAtMs: number | null = null;
   private readonly mouseDeltaFilter = new MouseDeltaFilter();
   private mouseSensitivity = 1;
   private mouseAccelerationPercent = 1;
@@ -96,6 +106,7 @@ export class DomInputCaptureController {
   private mousePacketRateWindowStartedAtMs = 0;
   private mouseFlushLastSendMs = 0;
   private mouseCoalescedBatchEntries = 0;
+  private mouseBatchAgeMs = 0;
   private nativeCursorOverlayEnabled: boolean;
 
   constructor(
@@ -177,6 +188,7 @@ export class DomInputCaptureController {
     this.pendingMouseDyFloat = 0;
     this.pendingMouseAbs = null;
     this.pendingMouseTimestampUs = null;
+    this.pendingMouseBatchStartedAtMs = null;
     this.mouseDeltaFilter.reset();
     this.mouseFlushLastSendMs = 0;
     this.mouseCoalescedBatchEntries = 0;
@@ -186,6 +198,7 @@ export class DomInputCaptureController {
     this.mousePacketsSentInWindow = 0;
     this.mousePacketsPerSecond = 0;
     this.mousePacketRateWindowStartedAtMs = 0;
+    this.mouseBatchAgeMs = 0;
     this.lastLockKeysState = -1;
   }
 
@@ -196,6 +209,7 @@ export class DomInputCaptureController {
       packetsPerSecond: this.mousePacketsPerSecond,
       residualMagnitude: Math.hypot(this.pendingMouseDxFloat, this.pendingMouseDyFloat),
       adaptiveFlushActive: this.mouseAdaptiveFlushActive,
+      batchAgeMs: this.mouseBatchAgeMs,
     };
   }
 
@@ -594,7 +608,9 @@ export class DomInputCaptureController {
       // was hidden mid-batch. Send the absolute packet first, then the
       // relative deltas, preserving event order like the official client's
       // mixed batch encoding — never discard queued relative movement.
+      const batchStartedAtMs = this.pendingMouseBatchStartedAtMs ?? tickNow;
       const batchTimestampUs = this.pendingMouseTimestampUs ?? timestampUs();
+      this.mouseBatchAgeMs = calculateMouseBatchAgeMs(tickNow, batchStartedAtMs);
       let sentAny = false;
 
       // Compute the relative part first (without consuming it) so a mixed
@@ -675,6 +691,7 @@ export class DomInputCaptureController {
       const expectedSendAt = this.mouseFlushLastSendMs + this.mouseFlushIntervalMs;
       this.dependencies.recordSchedulingDelay(Math.max(0, tickNow - expectedSendAt));
       this.pendingMouseTimestampUs = null;
+      this.pendingMouseBatchStartedAtMs = null;
       this.mouseCoalescedBatchEntries = 0;
       this.mouseFlushLastSendMs = tickNow;
       updateMousePacketRate();
@@ -870,6 +887,7 @@ export class DomInputCaptureController {
           this.pendingMouseAbs = abs;
           if (this.pendingMouseTimestampUs === null) {
             this.pendingMouseTimestampUs = timestampUs(eventTimestampMs);
+            this.pendingMouseBatchStartedAtMs = performance.now();
           }
           this.mouseCoalescedBatchEntries += 1;
           return;
@@ -880,6 +898,7 @@ export class DomInputCaptureController {
       this.pendingMouseDyFloat += adjustedDy;
       if (this.pendingMouseTimestampUs === null) {
         this.pendingMouseTimestampUs = timestampUs(eventTimestampMs);
+        this.pendingMouseBatchStartedAtMs = performance.now();
       }
       this.mouseCoalescedBatchEntries += 1;
     };
@@ -1503,6 +1522,7 @@ export class DomInputCaptureController {
       this.pendingMouseDyFloat = 0;
       this.pendingMouseAbs = null;
       this.pendingMouseTimestampUs = null;
+      this.pendingMouseBatchStartedAtMs = null;
       this.mouseDeltaFilter.reset();
       this.pointerLockTarget = null;
       // Unlock keyboard on cleanup
