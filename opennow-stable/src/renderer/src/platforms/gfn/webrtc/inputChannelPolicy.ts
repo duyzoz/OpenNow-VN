@@ -47,6 +47,7 @@ export function canUsePartiallyReliableInput(
 interface InputChannelPolicyControllerDependencies {
   getPartiallyReliableChannel: () => RTCDataChannel | null;
   sendReliable: (payload: Uint8Array) => void;
+  onMouseMotionDropped?: () => void;
 }
 
 export class InputChannelPolicyController {
@@ -157,6 +158,9 @@ export class InputChannelPolicyController {
         && channel?.readyState === "open"
         && channel.bufferedAmount > MAX_PARTIALLY_RELIABLE_MOUSE_BUFFER_BYTES
       ) {
+        if (this.pendingMouseMotion !== null) {
+          this.dependencies.onMouseMotionDropped?.();
+        }
         this.pendingMouseMotion = payload.slice();
         return;
       }

@@ -101,6 +101,7 @@ test("partial-reliable mouse drops stale motion under browser backpressure but p
   const channelPackets: Uint8Array[] = [];
   let bufferedAmount = 40 * 1024;
   let bufferedAmountLowListener: () => void = () => {};
+  let staleMouseDrops = 0;
   const channel = {
     readyState: "open",
     get bufferedAmount() {
@@ -125,6 +126,9 @@ test("partial-reliable mouse drops stale motion under browser backpressure but p
     {
       getPartiallyReliableChannel: () => channel,
       sendReliable: (payload) => reliablePackets.push(payload),
+      onMouseMotionDropped: () => {
+        staleMouseDrops += 1;
+      },
     },
   );
   const payload = new Uint8Array([1, 2, 3]);
@@ -132,6 +136,7 @@ test("partial-reliable mouse drops stale motion under browser backpressure but p
 
   controller.sendInput(payload, INPUT_MOUSE_REL);
   controller.sendInput(newerPayload, INPUT_MOUSE_REL);
+  assert.equal(staleMouseDrops, 1);
   assert.equal(channelPackets.length, 0);
   assert.equal(reliablePackets.length, 0);
 
