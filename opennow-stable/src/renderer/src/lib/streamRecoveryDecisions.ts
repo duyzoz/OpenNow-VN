@@ -2,7 +2,7 @@ import type { ActiveSessionInfo } from "@shared/gfn";
 
 import type { StreamStatus } from "./appTypes";
 import type { RuntimeSnapshot } from "./runtimeSnapshot";
-import { isExpectedNativeSessionClose } from "./streamSessionHelpers";
+import { isExpectedSessionClose } from "./streamSessionHelpers";
 
 export type SignalingDisconnectDecision =
   | "ignore-app-unloading"
@@ -30,9 +30,12 @@ export function decideSignalingDisconnect({
   pendingControlledDisconnects,
 }: SignalingDisconnectInput): SignalingDisconnectDecision {
   if (appUnloading) return "ignore-app-unloading";
-  if (streamStatus !== "idle" && isExpectedNativeSessionClose(reason)) {
+  // A BYE/socket close before remote ICE is an attach failure, not a clean end.
+  // The old ordering silently reset the UI to the library during the first-frame wait.
+  if (streamStatus !== "idle" && hasConfirmedRemoteIce && isExpectedSessionClose(reason)) {
     return "expected-session-close";
   }
+  if (!hasConfirmedRemoteIce) return "fail-before-remote-ice";
   if (
     (hasConfirmedRemoteIce && iceState === "new")
     || iceState === "connected"
@@ -41,8 +44,9 @@ export function decideSignalingDisconnect({
   ) {
     return "ignore-active-ice";
   }
-  if (!hasConfirmedRemoteIce) return "fail-before-remote-ice";
-  if (pendingControlledDisconnects > 0) return "ignore-controlled-disconnect";
+  if (pendingControlledDisconnects > 0) {
+    return "ignore-controlled-disconnect";
+  }
   return "recover";
 }
 

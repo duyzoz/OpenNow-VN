@@ -15,7 +15,7 @@ export {
   SIGNALING_RECOVERY_ATTEMPT_DELAYS_MS,
   SIGNALING_RECOVERY_STABLE_RESET_DELAY_MS,
   SIGNALING_REMOTE_ICE_GRACE_MS,
-  isExpectedNativeSessionClose,
+  isExpectedSessionClose,
   readStreamClipboardText,
   sendStreamClipboardPaste,
   sleep,

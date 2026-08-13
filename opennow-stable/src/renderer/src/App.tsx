@@ -1746,7 +1746,7 @@ export function App(): JSX.Element {
     resolveSubscriptionInfoForLaunch,
   ]);
 
-  const handleExpectedNativeSessionClose = useCallback((reason: string): void => {
+  const handleExpectedSessionClose = useCallback((reason: string): void => {
     console.log("[Recovery] Treating signaling close as ended session:", reason);
     const activeGameId = streamingGameRef.current?.id;
     if (activeGameId) {
@@ -1764,7 +1764,7 @@ export function App(): JSX.Element {
     runtime: streamRuntime,
     attemptSessionRecovery,
     diagnosticsStore,
-    handleExpectedNativeSessionClose,
+    handleExpectedSessionClose,
     markDiscordStreamStarted,
     refreshNavbarActiveSession,
     resetLaunchRuntime,

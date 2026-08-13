@@ -98,6 +98,22 @@ test("disconnect recovery honors remote ICE grace and controlled disconnect orde
   }), "fail-before-remote-ice");
   assert.equal(decideSignalingDisconnect({
     appUnloading: false,
+    streamStatus: "connecting",
+    reason: "BYE",
+    hasConfirmedRemoteIce: false,
+    iceState: "new",
+    pendingControlledDisconnects: 0,
+  }), "fail-before-remote-ice");
+  assert.equal(decideSignalingDisconnect({
+    appUnloading: false,
+    streamStatus: "streaming",
+    reason: "socket closed",
+    hasConfirmedRemoteIce: true,
+    iceState: "failed",
+    pendingControlledDisconnects: 0,
+  }), "expected-session-close");
+  assert.equal(decideSignalingDisconnect({
+    appUnloading: false,
     streamStatus: "streaming",
     reason: "network lost",
     hasConfirmedRemoteIce: true,

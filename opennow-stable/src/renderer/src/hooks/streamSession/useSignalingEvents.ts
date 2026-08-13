@@ -25,7 +25,7 @@ export interface SignalingEventOptions {
   runtime: StreamRuntimeState;
   attemptSessionRecovery: (reason: string) => Promise<boolean>;
   diagnosticsStore: StreamDiagnosticsStore;
-  handleExpectedNativeSessionClose: (reason: string) => void;
+  handleExpectedSessionClose: (reason: string) => void;
   markDiscordStreamStarted: () => void;
   refreshNavbarActiveSession: () => Promise<void>;
   resetLaunchRuntime: ResetLaunchRuntime;
@@ -38,7 +38,7 @@ export function useSignalingEvents({
   runtime,
   attemptSessionRecovery,
   diagnosticsStore,
-  handleExpectedNativeSessionClose,
+  handleExpectedSessionClose,
   markDiscordStreamStarted,
   refreshNavbarActiveSession,
   resetLaunchRuntime,
@@ -252,7 +252,7 @@ export function useSignalingEvents({
             return;
           }
           if (decision === "expected-session-close") {
-            handleExpectedNativeSessionClose(event.reason);
+            handleExpectedSessionClose(event.reason);
             return;
           }
           if (decision === "ignore-active-ice") {
