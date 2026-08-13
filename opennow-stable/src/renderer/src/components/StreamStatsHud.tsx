@@ -121,7 +121,7 @@ export function StreamStatsHud({
   const advancedLines = useMemo(() => {
     const lines: string[] = [];
     lines.push(
-      `Input queue peak ${(stats.inputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · PR peak ${(stats.partiallyReliableInputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · drops ${stats.inputQueueDropCount} · sched ${stats.inputQueueMaxSchedulingDelayMs.toFixed(1)}ms · residual ${mouseResidualText}`,
+      `Input queue peak ${(stats.inputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · PR peak ${(stats.partiallyReliableInputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · ${stats.nativeRendererActive ? "coalesced" : "drops"} ${stats.inputQueueDropCount} · sched ${stats.inputQueueMaxSchedulingDelayMs.toFixed(1)}ms${stats.nativeRendererActive ? "" : ` · mouse batch ${stats.mouseBatchAgeMs.toFixed(1)}ms`} · residual ${mouseResidualText}`,
     );
     lines.push(
       gstreamerEnabled
