@@ -110,8 +110,8 @@ export class DecoderPressureController {
   private currentBitrateCeilingKbps = 0;
   private recoveryAction: DecoderRecoveryAction = "none";
   private readonly receiverLatencyTargets: Record<"video" | "audio", number | null> = {
-    video: 0,
-    audio: 0,
+    video: null,
+    audio: null,
   };
   private activeReceivers: Array<{
     receiver: RTCRtpReceiver;
@@ -180,8 +180,8 @@ export class DecoderPressureController {
     this.negotiatedMaxBitrateKbps = 0;
     this.currentBitrateCeilingKbps = 0;
     this.recoveryAction = "none";
-    this.receiverLatencyTargets.video = 0;
-    this.receiverLatencyTargets.audio = 0;
+    this.receiverLatencyTargets.video = null;
+    this.receiverLatencyTargets.audio = null;
     this.activeReceivers = [];
     this.emitState();
   }
@@ -222,7 +222,7 @@ export class DecoderPressureController {
 
     if (keyframeRequested || bitrateReduced) {
       this.recoveryAttemptCount++;
-      this.lastRecoveryAtMs = this.dependencies.now?.() ?? performance.now();
+      this.lastRecoveryAtMs = now;
       this.emitState();
     }
   }
@@ -242,12 +242,12 @@ export class DecoderPressureController {
     this.pressureActive = active;
     this.receiverLatencyTargets.video = active
       ? VIDEO_PRESSURE_JITTER_TARGET_MS
-      : 0;
+      : null;
     this.receiverLatencyTargets.audio = active
       ? AUDIO_PRESSURE_JITTER_TARGET_MS
-      : 0;
+      : null;
     this.dependencies.log(
-      `Decoder pressure mode ${active ? "enabled" : "cleared"}; receiver targets video=${this.receiverLatencyTargets.video}ms audio=${this.receiverLatencyTargets.audio}ms`,
+      `Decoder pressure mode ${active ? "enabled" : "cleared"}; receiver targets video=${this.receiverLatencyTargets.video ?? "adaptive"} audio=${this.receiverLatencyTargets.audio ?? "adaptive"}`,
     );
     for (const { receiver, kind } of this.activeReceivers) {
       this.configureReceiver(receiver, kind);

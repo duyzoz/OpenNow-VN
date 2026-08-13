@@ -731,16 +731,23 @@ export class GfnWebRtcClient {
    * because it replaces the existing line rather than injecting a new one.
    */
   private replaceVideoBitrateInSdp(sdp: string, maxBitrateKbps: number): string {
-    const parts = sdp.split(/(\r\nm=)/);
-    let inVideo = sdp.startsWith("m=video"); // Check if the first line is m=video (unlikely, but possible)
-    for (let i = 0; i < parts.length; i++) {
-      if (parts[i] === "\r\nm=") {
-        inVideo = parts[i + 1]?.startsWith("video") ?? false;
-      } else if (inVideo) {
-        parts[i] = parts[i].replace(/(\r\nb=AS:)\d+/, `$1${maxBitrateKbps}`);
+    const lines = sdp.split("\r\n");
+    let inVideoSection = false;
+    let bitrateReplaced = false;
+    const result: string[] = [];
+    for (const line of lines) {
+      if (line.startsWith("m=")) {
+        inVideoSection = line.startsWith("m=video");
+        bitrateReplaced = false;
       }
+      if (inVideoSection && !bitrateReplaced && line.startsWith("b=AS:")) {
+        result.push(`b=AS:${maxBitrateKbps}`);
+        bitrateReplaced = true;
+        continue;
+      }
+      result.push(line);
     }
-    return parts.join("");
+    return result.join("\r\n");
   }
 
   /**
@@ -1714,19 +1721,21 @@ export class GfnWebRtcClient {
 
     let packet = payload;
     if (this.inputProtocolVersion > 2) {
-      // Re-stamp outer timestamp in place when possible to avoid GC allocation overhead.
-      packet = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
-        ? payload
-        : payload.slice();
+      packet = payload.slice();
       restampProtocolV3OuterTimestamp(packet, sendTimestampUs());
+    } else if (payload.byteOffset !== 0 || payload.byteLength !== payload.buffer.byteLength) {
+      packet = payload.slice();
     }
 
     this.sendReliable(packet);
   }
 
   private sendNativeInput(payload: Uint8Array, partiallyReliable: boolean): void {
+    const safePayload = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
+      ? payload
+      : payload.slice();
     window.openNow.sendNativeInput({
-      payload,
+      payload: safePayload,
       partiallyReliable,
     });
   }
@@ -1738,7 +1747,10 @@ export class GfnWebRtcClient {
     }
 
     if (this.reliableInputChannel?.readyState === "open") {
-      this.reliableInputChannel.send(payload as unknown as ArrayBufferView<ArrayBuffer>);
+      const view = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
+        ? payload
+        : payload.slice();
+      this.reliableInputChannel.send(view as unknown as ArrayBufferView<ArrayBuffer>);
     } else if (!this.reliableDropLogged) {
       this.reliableDropLogged = true;
       this.log(`Reliable channel not open (state=${this.reliableInputChannel?.readyState ?? "null"}), dropping event (${payload.length} bytes)`);
