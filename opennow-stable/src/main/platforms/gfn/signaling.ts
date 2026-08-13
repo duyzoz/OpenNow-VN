@@ -67,6 +67,13 @@ export class GfnSignalingClient {
     return () => this.listeners.delete(listener);
   }
 
+  isActive(): boolean {
+    return this.ws !== null && (
+      this.ws.readyState === WebSocket.OPEN
+      || this.ws.readyState === WebSocket.CONNECTING
+    );
+  }
+
   private emit(event: MainToRendererSignalingEvent): void {
     for (const listener of this.listeners) {
       listener(event);
@@ -217,7 +224,7 @@ export class GfnSignalingClient {
 
     if (parsed.error === "peerRemoved") {
       console.log("[Signaling] Received peerRemoved signaling error");
-      this.emit({ type: "disconnected", reason: "peerRemoved" });
+      this.terminateForPeerDisconnect("peerRemoved");
       return;
     }
 
@@ -233,7 +240,7 @@ export class GfnSignalingClient {
     const peerMessage = parsed.peer_msg.msg.trim();
     if (peerMessage === "BYE") {
       console.log("[Signaling] Received BYE peer message");
-      this.emit({ type: "disconnected", reason: "BYE" });
+      this.terminateForPeerDisconnect("BYE");
       return;
     }
 
@@ -351,6 +358,15 @@ export class GfnSignalingClient {
       this.ws = null;
       socket.close();
     }
+  }
+
+  private terminateForPeerDisconnect(reason: string): void {
+    this.connectionGeneration += 1;
+    this.clearHeartbeat();
+    const socket = this.ws;
+    this.ws = null;
+    socket?.close();
+    this.emit({ type: "disconnected", reason });
   }
 }
 

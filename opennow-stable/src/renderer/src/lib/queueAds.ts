@@ -129,7 +129,21 @@ export function mergePolledSessionState(previous: SessionInfo, next: SessionInfo
   const appLaunchMode = next.appLaunchMode ?? previous.appLaunchMode;
   const appId = next.appId ?? previous.appId;
   if (isSessionReadyForConnect(next.status)) {
-    return { ...next, appId, appLaunchMode };
+    // A ready poll can be sparse and omit connection coordinates that were
+    // present in the create-session response. Preserve the last known values
+    // so the renderer never enters WebRTC signaling with an incomplete ready
+    // SessionInfo. New values from the ready response still take precedence.
+    return {
+      ...next,
+      appId,
+      appLaunchMode,
+      streamingBaseUrl: next.streamingBaseUrl ?? previous.streamingBaseUrl,
+      serverIp: next.serverIp || previous.serverIp,
+      signalingServer: next.signalingServer || previous.signalingServer,
+      signalingUrl: next.signalingUrl || previous.signalingUrl,
+      iceServers: next.iceServers.length > 0 ? next.iceServers : previous.iceServers,
+      mediaConnectionInfo: next.mediaConnectionInfo ?? previous.mediaConnectionInfo,
+    };
   }
 
   return {

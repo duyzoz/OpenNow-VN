@@ -99,8 +99,12 @@ export class SignalingCoordinator {
   private async connectSignaling(payload: SignalingConnectRequest): Promise<void> {
     const nextKey = `${payload.sessionId}|${payload.signalingServer}|${payload.signalingUrl ?? ""}`;
 
-    if (this.signalingClient && this.signalingClientKey === nextKey) {
-      console.log("[Signaling] Reuse existing signaling connection (duplicate connect request ignored)");
+    if (
+      this.signalingClient
+      && this.signalingClientKey === nextKey
+      && this.signalingClient.isActive()
+    ) {
+      console.log("[Signaling] Reuse active signaling connection (duplicate connect request ignored)");
       return;
     }
 
