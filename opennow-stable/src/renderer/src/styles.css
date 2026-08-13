@@ -10850,6 +10850,9 @@ button.game-card-store-chip.owned.active:hover {
   gap: clamp(20px, 2.8vh, 32px);
   padding: clamp(26px, 4vw, 50px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  contain: layout paint;
   border: 1px solid rgba(255, 255, 255, 0.105);
   border-radius: 30px;
   background:
@@ -11013,6 +11016,30 @@ button.game-card-store-chip.owned.active:hover {
   line-height: 1.5;
 }
 
+.sload-queue-sync,
+.sload-queue-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: rgba(225, 237, 230, 0.58);
+  font-size: 0.74rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.sload-queue-sync-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #63f296;
+  box-shadow: 0 0 0 4px rgba(99, 242, 150, 0.08);
+}
+
+.sload-queue-progress {
+  color: #63f296;
+}
+
 .sload-telemetry {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -11117,6 +11144,11 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sload-backdrop-art {
+    filter: none;
+    transform: none;
+  }
+
   .shader-atmosphere canvas {
     display: none !important;
   }
@@ -11144,7 +11176,18 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 .sload-backdrop-art {
-  display: none;
+  position: absolute;
+  inset: -4%;
+  z-index: 0;
+  display: block;
+  width: 108%;
+  height: 108%;
+  object-fit: cover;
+  opacity: 0.2;
+  filter: blur(18px) saturate(0.82);
+  transform: scale(1.04);
+  pointer-events: none;
+  user-select: none;
 }
 
 .sload-backdrop-wash {

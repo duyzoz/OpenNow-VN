@@ -277,6 +277,7 @@ export function App(): JSX.Element {
     queueModalGame, setQueueModalGame,
     queueModalData, setQueueModalData,
     sessionStartedAtMs, setSessionStartedAtMs,
+    launchStartedAtMs, setLaunchStartedAtMs,
     remoteStreamWarning, setRemoteStreamWarning,
     localSessionTimerWarning, setLocalSessionTimerWarning,
     streamVolume, setStreamVolume,
@@ -673,6 +674,7 @@ export function App(): JSX.Element {
     setSession(null);
     setStreamStatus("idle");
     setQueuePosition(undefined);
+    setLaunchStartedAtMs(null);
     setSessionStartedAtMs(null);
     setRemoteStreamWarning(null);
     setLocalSessionTimerWarning(null);
@@ -2915,6 +2917,7 @@ export function App(): JSX.Element {
               gameCover={streamingGame?.imageUrl}
               platformStore={streamingStore ?? undefined}
               status={loadingStatus}
+              launchStartedAtMs={launchStartedAtMs ?? undefined}
               queuePosition={queuePosition}
               adState={effectiveAdState}
               activeAd={activeQueueAd}

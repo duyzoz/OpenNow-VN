@@ -296,6 +296,8 @@
       "gameLaunchFailed": "Game launch failed",
       "queuePaused": "Session queue paused",
       "positionInQueue": "Position #{{position}} in queue",
+      "syncingQueue": "Syncing your queue position...",
+      "syncingQueueDetail": "Connecting to the live queue and securing your place.",
       "waitingInQueue": "Waiting in queue...",
       "settingUpRig": "Setting up your gaming rig...",
       "startingStream": "Starting stream...",
@@ -319,8 +321,13 @@
     },
     "telemetry": {
       "queuePosition": "Queue position",
+      "syncing": "Syncing",
       "calculating": "Calculating",
       "cleared": "Cleared",
+      "queueMoved": "Moved ahead {{count}} place",
+      "queueMoved_plural": "Moved ahead {{count}} places",
+      "lessThanMinute": "Under 1 min estimated",
+      "minutes": "About {{count}} min estimated",
       "elapsed": "Elapsed",
       "session": "Session",
       "protected": "Secured"

@@ -296,6 +296,8 @@
       "gameLaunchFailed": "Khởi chạy trò chơi thất bại",
       "queuePaused": "Hàng chờ phiên bị tạm dừng",
       "positionInQueue": "Vị trí #{{position}} trong hàng chờ",
+      "syncingQueue": "Đang đồng bộ vị trí hàng chờ...",
+      "syncingQueueDetail": "Đang kết nối hàng chờ trực tiếp và giữ chỗ cho bạn.",
       "waitingInQueue": "Đang chờ trong hàng...",
       "settingUpRig": "Đang thiết lập máy chơi game của bạn...",
       "startingStream": "Đang bắt đầu phát trực tuyến...",
@@ -319,8 +321,13 @@
     },
     "telemetry": {
       "queuePosition": "Vị trí hàng chờ",
+      "syncing": "Đang đồng bộ",
       "calculating": "Đang tính",
       "cleared": "Đã vào",
+      "queueMoved": "Đã tiến lên {{count}} vị trí",
+      "queueMoved_plural": "Đã tiến lên {{count}} vị trí",
+      "lessThanMinute": "Ước tính dưới 1 phút",
+      "minutes": "Ước tính khoảng {{count}} phút",
       "elapsed": "Đã qua",
       "session": "Phiên",
       "protected": "Đã bảo đảm"

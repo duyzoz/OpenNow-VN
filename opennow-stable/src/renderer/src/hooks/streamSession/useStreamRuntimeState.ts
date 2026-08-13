@@ -38,6 +38,7 @@ export function useStreamRuntimeState() {
   const [queueModalGame, setQueueModalGame] = useState<GameInfo | null>(null);
   const [queueModalData, setQueueModalData] = useState<PrintedWasteQueueData | null>(null);
   const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
+  const [launchStartedAtMs, setLaunchStartedAtMs] = useState<number | null>(null);
   const [remoteStreamWarning, setRemoteStreamWarning] = useState<StreamWarningState | null>(null);
   const [localSessionTimerWarning, setLocalSessionTimerWarning] = useState<LocalSessionTimerWarningState | null>(null);
   const [streamVolume, setStreamVolume] = useState(1);
@@ -104,6 +105,7 @@ export function useStreamRuntimeState() {
     queueModalGame, setQueueModalGame,
     queueModalData, setQueueModalData,
     sessionStartedAtMs, setSessionStartedAtMs,
+    launchStartedAtMs, setLaunchStartedAtMs,
     remoteStreamWarning, setRemoteStreamWarning,
     localSessionTimerWarning, setLocalSessionTimerWarning,
     streamVolume, setStreamVolume,

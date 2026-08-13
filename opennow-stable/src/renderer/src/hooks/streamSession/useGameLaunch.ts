@@ -31,6 +31,7 @@ import type { StreamRuntimeState } from "./useStreamRuntimeState";
 
 const SESSION_READY_POLL_INTERVAL_MS = 2000;
 const SESSION_AD_POLL_INTERVAL_MS = 30000;
+const FAST_QUEUE_PROBE_DELAYS_MS = [500, 1000, 2000] as const;
 
 type TranslateFunction = typeof import("../../i18n").t;
 type ResetLaunchRuntime = (options?: {
@@ -100,6 +101,7 @@ export function useGameLaunch({
     navbarSessionActionInFlightRef,
     sessionRef,
     setLaunchError,
+    setLaunchStartedAtMs,
     setLocalSessionTimerWarning,
     setNavbarActiveSession,
     setQueuePosition,
@@ -156,6 +158,7 @@ export function useGameLaunch({
       setStreamStatus(next);
     };
 
+    setLaunchStartedAtMs(Date.now());
     setSessionStartedAtMs(null);
     setRemoteStreamWarning(null);
     setLocalSessionTimerWarning(null);
@@ -286,14 +289,19 @@ export function useGameLaunch({
       let finalSession: SessionInfo | null = null;
       let latestSession = newSession;
       let isInQueueMode = isSessionInQueue(newSession);
+      let hasInitialQueuePosition = typeof newSession.queuePosition === "number" && Number.isFinite(newSession.queuePosition);
       let attempt = 0;
 
       while (true) {
         attempt++;
 
-        const pollIntervalMs = shouldUseQueueAdPolling(latestSession, subscriptionInfo, authSession)
-          ? SESSION_AD_POLL_INTERVAL_MS
-          : SESSION_READY_POLL_INTERVAL_MS;
+        const fastProbeDelayMs = !hasInitialQueuePosition && isInQueueMode && attempt <= FAST_QUEUE_PROBE_DELAYS_MS.length
+          ? FAST_QUEUE_PROBE_DELAYS_MS[attempt - 1]
+          : null;
+        const pollIntervalMs = fastProbeDelayMs
+          ?? (shouldUseQueueAdPolling(latestSession, subscriptionInfo, authSession)
+            ? SESSION_AD_POLL_INTERVAL_MS
+            : SESSION_READY_POLL_INTERVAL_MS);
 
         // Sleep in small ticks during ad-polling intervals so the loop can react
         // quickly when reportSessionAd clears isAdsRequired (which only updates
@@ -359,6 +367,9 @@ export function useGameLaunch({
 
         setSession(mergedSession);
         setQueuePosition(mergedSession.queuePosition);
+        if (typeof mergedSession.queuePosition === "number" && Number.isFinite(mergedSession.queuePosition)) {
+          hasInitialQueuePosition = true;
+        }
 
         // Check if queue just cleared so the loading UI can transition to setup mode.
         isInQueueMode = isSessionInQueue(mergedSession);

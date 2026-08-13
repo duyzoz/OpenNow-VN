@@ -1,5 +1,5 @@
 import { Cpu, Monitor, Radio, Wifi, X, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JSX, Ref } from "react";
 import { m, useReducedMotion } from "motion/react";
 import {
@@ -30,6 +30,7 @@ export interface StreamLoadingProps {
   gameCover?: string;
   platformStore?: string;
   status: "queue" | "setup" | "starting" | "connecting";
+  launchStartedAtMs?: number;
   queuePosition?: number;
   estimatedWait?: string;
   adState?: SessionAdState;
@@ -61,7 +62,7 @@ function getStatusMessage(
     case "queue":
       return queuePosition
         ? t("streamLoading.status.positionInQueue", { position: queuePosition })
-        : t("streamLoading.status.waitingInQueue");
+        : t("streamLoading.status.syncingQueue");
     case "setup":
       return t("streamLoading.status.settingUpRig");
     case "starting":
@@ -125,6 +126,7 @@ export function StreamLoading({
   gameCover,
   platformStore,
   status,
+  launchStartedAtMs,
   queuePosition,
   estimatedWait,
   adState,
@@ -139,28 +141,68 @@ export function StreamLoading({
   const { t } = useTranslation();
   const reducedMotion = useReducedMotion();
   const statusPulseMotion = getStatusPulseMotion(reducedMotion);
-  const [startedAt] = useState(() => Date.now());
+  const [mountedAt] = useState(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [queueSamples, setQueueSamples] = useState<Array<{ position: number; at: number }>>([]);
+  const [queueMovement, setQueueMovement] = useState(0);
+  const previousQueuePositionRef = useRef<number | null>(null);
 
   const hasError = Boolean(error);
+  const effectiveStartedAt = launchStartedAtMs ?? mountedAt;
   const statusMessage = getStatusMessage(t, status, queuePosition, adState, hasError);
   const platformName = platformStore ? getStoreDisplayName(platformStore) : "";
   const PlatformIcon = platformStore ? getStoreIconComponent(platformStore) : null;
   const adSummary = getAdSummary(t, adState);
   const cachedAdMediaUrl = activeAdMediaUrl ?? getPreferredSessionAdMediaUrl(activeAd);
   const activeStage = getActiveStage(status);
+  const hasQueuePosition = typeof queuePosition === "number" && Number.isFinite(queuePosition) && queuePosition > 0;
+  const computedQueueWaitSeconds = (() => {
+    if (!hasQueuePosition || queueSamples.length < 2) return undefined;
+    const first = queueSamples[0];
+    const last = queueSamples[queueSamples.length - 1];
+    const dropped = first.position - last.position;
+    const elapsed = (last.at - first.at) / 1000;
+    if (dropped <= 0 || elapsed < 2) return undefined;
+    return Math.max(1, Math.round((queuePosition / dropped) * elapsed));
+  })();
+  const computedWaitLabel = computedQueueWaitSeconds === undefined
+    ? undefined
+    : computedQueueWaitSeconds < 60
+      ? t("streamLoading.telemetry.lessThanMinute")
+      : t("streamLoading.telemetry.minutes", { count: Math.ceil(computedQueueWaitSeconds / 60) });
+
+  useEffect(() => {
+    if (!hasQueuePosition || queuePosition === undefined) {
+      previousQueuePositionRef.current = null;
+      return;
+    }
+
+    const now = Date.now();
+    const previous = previousQueuePositionRef.current;
+    if (previous !== null && previous !== queuePosition) {
+      setQueueMovement(queuePosition < previous ? previous - queuePosition : 0);
+    }
+    previousQueuePositionRef.current = queuePosition;
+    setQueueSamples((current) => {
+      const recent = current.filter((sample) => now - sample.at <= 120_000);
+      const last = recent[recent.length - 1];
+      if (last?.position === queuePosition) return recent;
+      return [...recent, { position: queuePosition, at: now }].slice(-5);
+    });
+  }, [hasQueuePosition, queuePosition]);
 
   useEffect(() => {
     if (hasError) return undefined;
     const timer = window.setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+      setElapsedSeconds(Math.floor((Date.now() - effectiveStartedAt) / 1000));
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [hasError, startedAt]);
+  }, [effectiveStartedAt, hasError]);
 
   return (
     <div className={`sload${hasError ? " sload--error" : ""}`}>
       <div className="sload-backdrop" />
+      {gameCover && <img className="sload-backdrop-art" src={gameCover} alt="" aria-hidden="true" />}
       {!hasError && <LazyShaderAtmosphere variant={status === "queue" ? "queue" : "connecting"} />}
       <div className="sload-backdrop-wash" />
 
@@ -224,6 +266,15 @@ export function StreamLoading({
           <div className="sload-status-text">
             <p className="sload-message" role="status" aria-live="polite">{statusMessage}</p>
             {!hasError && <p className="sload-detail">{getPhaseDetail(t, status)}</p>}
+            {!hasError && status === "queue" && !hasQueuePosition && (
+              <p className="sload-queue-sync" role="status" aria-live="polite">
+                <span className="sload-queue-sync-dot" aria-hidden="true" />
+                {t("streamLoading.status.syncingQueueDetail")}
+              </p>
+            )}
+            {!hasError && status === "queue" && queueMovement > 0 && (
+              <p className="sload-queue-progress">{t("streamLoading.telemetry.queueMoved", { count: queueMovement })}</p>
+            )}
             {hasError && error && (
               <>
                 <p className="sload-error-title">{error.title}</p>
@@ -238,7 +289,7 @@ export function StreamLoading({
           <div className="sload-facts">
             <div className="sload-fact">
               <p>{t("streamLoading.telemetry.queuePosition")}</p>
-              <strong>{status === "queue" && queuePosition ? `#${queuePosition}` : status === "queue" ? t("streamLoading.telemetry.calculating") : t("streamLoading.telemetry.cleared")}</strong>
+              <strong>{status === "queue" && hasQueuePosition ? `#${queuePosition}` : status === "queue" ? t("streamLoading.telemetry.syncing") : t("streamLoading.telemetry.cleared")}</strong>
             </div>
             <div className="sload-fact">
               <p>{t("streamLoading.telemetry.elapsed")}</p>
@@ -268,8 +319,8 @@ export function StreamLoading({
           </div>
         )}
 
-        {status === "queue" && estimatedWait && !hasError && (
-          <p className="sload-queue"><span className="sload-wait">~{estimatedWait}</span></p>
+        {status === "queue" && !hasError && (estimatedWait || computedWaitLabel) && (
+          <p className="sload-queue"><span className="sload-wait">{estimatedWait ?? computedWaitLabel}</span></p>
         )}
 
         <div className="sload-actions">
