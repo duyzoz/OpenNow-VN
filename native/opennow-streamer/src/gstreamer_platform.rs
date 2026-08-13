@@ -1188,11 +1188,14 @@ pub(crate) mod win32_renderer_window {
         }
         if keycode == VK_ESCAPE {
             drop(keys);
-            // In the internal renderer Electron must intercept the legacy Escape
-            // before Chromium exits fullscreen, then forward exactly one tap over
-            // IPC. RawInput still owns every other key in this mode. The external
-            // native window has no Electron interception and keeps this path.
+            // Escape is an explicit capture escape hatch in the internal renderer:
+            // release the relative mouse capture immediately, then let Electron
+            // continue handling the window-level Escape semantics. This prevents
+            // users from becoming trapped in NativeStream when F8 is unknown.
             if crate::gstreamer_config::use_internal_renderer() {
+                if pressed && captured_hwnd().is_some() {
+                    release_current_input_capture();
+                }
                 return;
             }
             handle_escape_keyboard_state(scancode, pressed);
@@ -1556,6 +1559,7 @@ pub(crate) mod win32_renderer_window {
     }
 
     unsafe fn handle_shortcut_action(action: NativeStreamerShortcutAction) {
+        let input_was_captured = captured_hwnd().is_some();
         match action {
             NativeStreamerShortcutAction::TogglePointerLock => {
                 if let Some(hwnd) = captured_hwnd().or_else(protected_hwnd) {
@@ -1576,10 +1580,11 @@ pub(crate) mod win32_renderer_window {
                 if shortcut_action_releases_input_capture(action) {
                     release_current_input_capture();
                 }
-                // Internal: Electron already owns UI shortcuts via keydown.
-                // Suppress the key from GFN (caller marks suppressed) without
-                // emitting Shortcut, or Electron would double-fire.
-                if crate::gstreamer_config::use_internal_renderer() {
+                // When the internal renderer is not capturing RawInput, Electron's
+                // normal keydown listener owns the shortcut. While capture is active,
+                // however, RawInput suppresses the key before Chromium can see it;
+                // forward exactly one native-shortcut event so F3 and Quick Menu work.
+                if crate::gstreamer_config::use_internal_renderer() && !input_was_captured {
                     return;
                 }
                 emit_input_event(NativeWindowInputEvent::Shortcut { action });
@@ -1592,6 +1597,7 @@ pub(crate) mod win32_renderer_window {
             action,
             NativeStreamerShortcutAction::ToggleFullscreen
                 | NativeStreamerShortcutAction::StopStream
+                | NativeStreamerShortcutAction::ToggleQuickMenu
         )
     }
 

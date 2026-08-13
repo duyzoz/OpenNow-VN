@@ -27,6 +27,7 @@ export type NativeStreamerShortcutAction =
   | "stopStream"
   | "toggleAntiAfk"
   | "toggleMicrophone"
+  | "toggleQuickMenu"
   | "screenshot"
   | "toggleRecording";
 
@@ -37,6 +38,7 @@ export interface NativeStreamerShortcutBindings {
   stopStream: string;
   toggleAntiAfk: string;
   toggleMicrophone: string;
+  toggleQuickMenu: string;
   screenshot: string;
   toggleRecording: string;
 }

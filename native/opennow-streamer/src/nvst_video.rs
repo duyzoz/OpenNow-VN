@@ -167,7 +167,9 @@ pub fn parse_nvst_rtp_payload(packet: &[u8]) -> Option<(NvVideoPacket, &[u8])> {
 #[derive(Debug, Default)]
 pub struct NvstFrameAssembler {
     current_frame: Option<u32>,
+    last_stream_packet_index: Option<u32>,
     buffer: Vec<u8>,
+    frame_corrupt: bool,
 }
 
 impl NvstFrameAssembler {
@@ -181,27 +183,51 @@ impl NvstFrameAssembler {
             return None;
         }
 
+        let starts_frame = header.flags & FLAG_SOF != 0;
         match self.current_frame {
             Some(frame) if frame != header.frame_index => {
+                // A new frame is the only safe resynchronization point. Never
+                // decode a partial AU after a packet loss or an unexpected frame
+                // transition; feeding it to h264parse/h265parse can produce a
+                // visibly corrupt (blurred) frame.
                 self.buffer.clear();
+                self.current_frame = None;
+                self.last_stream_packet_index = None;
+                self.frame_corrupt = false;
+                if !starts_frame {
+                    return None;
+                }
                 self.current_frame = Some(header.frame_index);
             }
             None => {
+                // Ignore mid-frame packets until an explicit SOF arrives.
+                if !starts_frame {
+                    return None;
+                }
                 self.current_frame = Some(header.frame_index);
             }
             _ => {}
         }
 
+        if let Some(previous) = self.last_stream_packet_index {
+            if header.stream_packet_index != previous.wrapping_add(1) {
+                self.frame_corrupt = true;
+            }
+        }
+        self.last_stream_packet_index = Some(header.stream_packet_index);
         self.buffer.extend_from_slice(payload);
 
-        if header.is_eof() {
-            let au = std::mem::take(&mut self.buffer);
-            self.current_frame = None;
-            if au.is_empty() {
-                None
-            } else {
-                Some(au)
-            }
+        if !header.is_eof() {
+            return None;
+        }
+
+        let au = std::mem::take(&mut self.buffer);
+        let frame_valid = !self.frame_corrupt;
+        self.current_frame = None;
+        self.last_stream_packet_index = None;
+        self.frame_corrupt = false;
+        if frame_valid && !au.is_empty() {
+            Some(au)
         } else {
             None
         }
@@ -520,6 +546,42 @@ mod tests {
         assert!(asm.push(&sof, b"AA").is_none());
         let au = asm.push(&eof, b"BB").expect("AU");
         assert_eq!(au, b"AABB");
+    }
+
+    #[test]
+    fn discard_frame_with_packet_gap() {
+        let mut asm = NvstFrameAssembler::new();
+        let sof = NvVideoPacket {
+            stream_packet_index: 10,
+            frame_index: 8,
+            flags: FLAG_SOF | FLAG_CONTAINS_PIC_DATA,
+            extra_flags: 0,
+            multi_fec_flags: 0,
+            multi_fec_blocks: 0,
+            fec_info: 0,
+        };
+        let gap = NvVideoPacket {
+            stream_packet_index: 12,
+            flags: FLAG_EOF | FLAG_CONTAINS_PIC_DATA,
+            ..sof
+        };
+        assert!(asm.push(&sof, b"partial").is_none());
+        assert!(asm.push(&gap, b"corrupt").is_none());
+    }
+
+    #[test]
+    fn ignore_mid_frame_until_sof() {
+        let mut asm = NvstFrameAssembler::new();
+        let eof_without_sof = NvVideoPacket {
+            stream_packet_index: 20,
+            frame_index: 9,
+            flags: FLAG_EOF | FLAG_CONTAINS_PIC_DATA,
+            extra_flags: 0,
+            multi_fec_flags: 0,
+            multi_fec_blocks: 0,
+            fec_info: 0,
+        };
+        assert!(asm.push(&eof_without_sof, b"partial").is_none());
     }
 
     #[test]

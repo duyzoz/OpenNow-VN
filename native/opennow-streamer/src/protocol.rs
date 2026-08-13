@@ -329,6 +329,8 @@ pub struct NativeStreamerShortcutBindings {
     #[serde(default)]
     pub toggle_microphone: String,
     #[serde(default)]
+    pub toggle_quick_menu: String,
+    #[serde(default)]
     pub screenshot: String,
     #[serde(default)]
     pub toggle_recording: String,
@@ -343,6 +345,7 @@ pub enum NativeStreamerShortcutAction {
     StopStream,
     ToggleAntiAfk,
     ToggleMicrophone,
+    ToggleQuickMenu,
     Screenshot,
     ToggleRecording,
 }

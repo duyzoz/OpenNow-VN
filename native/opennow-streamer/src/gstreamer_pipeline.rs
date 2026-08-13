@@ -47,6 +47,10 @@ use std::thread;
 const WEBRTC_LATENCY_MS: u32 = 2;
 const DEFAULT_GFN_STUN_SERVER: &str = "stun://stun2.l.google.com:19302";
 const VIDEO_COMPRESSED_QUEUE_MAX_BUFFERS: u32 = 6;
+/// Keep the classic NVST appsrc close to the live edge when decode/present
+/// briefly falls behind. AUs are complete access units, so dropping the oldest
+/// queued AU is preferable to accumulating visible latency.
+const NVST_APP_SOURCE_MAX_BUFFERS: u64 = 3;
 pub(crate) const VIDEO_QUEUE_MAX_BUFFERS: u32 = DEFAULT_VIDEO_QUEUE_DEPTH;
 const AUDIO_QUEUE_MAX_BUFFERS: u32 = 2;
 
@@ -607,9 +611,20 @@ impl GstreamerPipeline {
             .map_err(|error| format!("Invalid NVST appsrc caps: {error}"))?;
         appsrc.set_property("caps", &caps);
         set_property_if_supported(&appsrc, "is-live", true);
+        set_property_if_supported(&appsrc, "do-timestamp", true);
         set_property_from_str_if_supported(&appsrc, "format", "time");
         set_property_if_supported(&appsrc, "block", false);
+        set_property_if_supported(&appsrc, "max-buffers", NVST_APP_SOURCE_MAX_BUFFERS);
         set_property_if_supported(&appsrc, "max-bytes", 0u64);
+        set_property_if_supported(&appsrc, "max-time", 0u64);
+        // GStreamer 1.20+ exposes appsrc's leaky policy as `leaky-type`;
+        // older builds used `leaky`. Configure whichever exists without making
+        // startup depend on a particular bundled GStreamer minor version.
+        if appsrc.find_property("leaky-type").is_some() {
+            set_property_from_str_if_supported(&appsrc, "leaky-type", "downstream");
+        } else {
+            set_property_from_str_if_supported(&appsrc, "leaky", "downstream");
+        }
         set_property_from_str_if_supported(&appsrc, "stream-type", "stream");
 
         let streaming_reported = Arc::new(AtomicBool::new(false));

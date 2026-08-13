@@ -1023,6 +1023,9 @@ export function App(): JSX.Element {
     stopStream: shortcuts.stopStream.canonical,
     toggleAntiAfk: shortcuts.toggleAntiAfk.canonical,
     toggleMicrophone: shortcuts.toggleMicrophone.canonical,
+    toggleQuickMenu: typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform)
+      ? "Meta+G"
+      : "Ctrl+G",
     screenshot: "",
     toggleRecording: "",
   }), [shortcuts]);
@@ -2311,6 +2314,11 @@ export function App(): JSX.Element {
               void requestPointerLockCapture(targetVideo);
             }
           }
+        }
+        return;
+      case "toggleQuickMenu":
+        if (streamStatus === "streaming" || streamStatus === "connecting") {
+          dispatchStreamShortcutAction("toggleSidebar");
         }
         return;
       case "toggleFullscreen":

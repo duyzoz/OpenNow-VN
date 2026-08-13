@@ -105,6 +105,11 @@ impl NativeShortcutMatcher {
         );
         append_binding(
             &mut parsed,
+            NativeStreamerShortcutAction::ToggleQuickMenu,
+            &bindings.toggle_quick_menu,
+        );
+        append_binding(
+            &mut parsed,
             NativeStreamerShortcutAction::Screenshot,
             &bindings.screenshot,
         );
@@ -283,6 +288,7 @@ mod tests {
             stop_stream: "Ctrl+Shift+Q".to_owned(),
             toggle_anti_afk: "Ctrl+Shift+K".to_owned(),
             toggle_microphone: "Ctrl+Shift+M".to_owned(),
+            toggle_quick_menu: "Ctrl+G".to_owned(),
             screenshot: "F11".to_owned(),
             toggle_recording: "F12".to_owned(),
         }
@@ -311,6 +317,10 @@ mod tests {
             Some(NativeStreamerShortcutAction::StopStream)
         );
         assert_eq!(matcher.match_keydown(u16::from(b'Q'), 0, MODIFIER_CTRL), None);
+        assert_eq!(
+            matcher.match_keydown(u16::from(b'G'), 0, MODIFIER_CTRL),
+            Some(NativeStreamerShortcutAction::ToggleQuickMenu)
+        );
         assert_eq!(
             matcher.match_keydown(
                 u16::from(b'Q'),

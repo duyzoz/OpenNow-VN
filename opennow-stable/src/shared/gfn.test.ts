@@ -164,6 +164,7 @@ test("buildNativeStreamerSessionContext forwards requested/finalized streaming f
       stopStream: "Ctrl+Shift+Q",
       toggleAntiAfk: "Ctrl+Shift+K",
       toggleMicrophone: "Ctrl+Shift+M",
+      toggleQuickMenu: "Ctrl+G",
       screenshot: "F11",
       toggleRecording: "F12",
     },
