@@ -147,6 +147,21 @@ export class MouseDeltaFilter {
       this.pendingY = 0;
     }
 
+    // pointerrawupdate is already the browser's raw HID path. Do not apply
+    // motion-outlier or direction-reversal rejection to it: a legitimate
+    // 1000 Hz correction can look like an outlier when sampled against the
+    // previous HID report, and dropping it is perceived as a mouse hitch.
+    if (this.relaxedForRawInput) {
+      this.x = dx;
+      this.y = dy;
+      this.lastTsMs = tsMs;
+      this.velocityX = 0;
+      this.velocityY = 0;
+      this.rejectedX = 0;
+      this.rejectedY = 0;
+      return true;
+    }
+
     const dot = dx * this.x + dy * this.y;
     const magIncoming = dx * dx + dy * dy;
     const magPrev = this.x * this.x + this.y * this.y;

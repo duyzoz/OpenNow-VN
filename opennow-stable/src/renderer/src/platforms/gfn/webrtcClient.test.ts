@@ -14,6 +14,7 @@ import {
   subsampleCoalescedPointerEvents,
 } from "./webrtcClient";
 import { INPUT_KEY_DOWN, INPUT_MOUSE_REL } from "./inputProtocol";
+import { MouseDeltaFilter } from "./webrtc/mouseInput";
 
 test("decoder pressure requires a coupled backlog, drop burst, or decode saturation", () => {
   const stable = classifyDecoderPressureSample({
@@ -155,6 +156,16 @@ test("quantizeMouseDeltaWithResidual preserves precision across sends", () => {
   const c = quantizeMouseDeltaWithResidual(b.residual + 0.2);
   assert.equal(c.send, 0);
   assert.ok(Math.abs(c.residual) < 1e-9);
+});
+
+test("raw mouse filter preserves rapid direction corrections", () => {
+  const filter = new MouseDeltaFilter();
+  filter.setRelaxedForRawInput(true);
+
+  assert.equal(filter.update(18, 0, 1), true);
+  assert.equal(filter.update(-18, 0, 2), true);
+  assert.equal(filter.getX(), -18);
+  assert.equal(filter.getY(), 0);
 });
 
 test("adaptive flush on reliable mouse tightens toward min under low pressure", () => {

@@ -13,6 +13,8 @@ export class PeerMediaLifecycleController {
   private audioGainNode: GainNode | null = null;
   private outputVolume = 1;
   private visibilityChangeListener: (() => void) | null = null;
+  private videoFrameCallbackId: number | null = null;
+  private videoFrameCallbackGeneration = 0;
 
   constructor(private readonly dependencies: PeerMediaLifecycleDependencies) {
     dependencies.videoElement.srcObject = this.videoStream;
@@ -28,14 +30,18 @@ export class PeerMediaLifecycleController {
   attachTrack(track: MediaStreamTrack): void {
     if (track.kind === "video") {
       this.replaceTrackInStream(this.videoStream, track);
+      this.stopVideoFrameCallbacks();
       const video = this.dependencies.videoElement;
+      const generation = this.videoFrameCallbackGeneration;
       const frameCallback = () => {
-        this.dependencies.onRenderFrame();
-        if (this.videoStream.active) {
-          video.requestVideoFrameCallback(frameCallback);
+        this.videoFrameCallbackId = null;
+        if (generation !== this.videoFrameCallbackGeneration || !this.videoStream.active) {
+          return;
         }
+        this.dependencies.onRenderFrame();
+        this.videoFrameCallbackId = video.requestVideoFrameCallback(frameCallback);
       };
-      video.requestVideoFrameCallback(frameCallback);
+      this.videoFrameCallbackId = video.requestVideoFrameCallback(frameCallback);
 
       this.dependencies.log(
         `Video element before play: paused=${video.paused}, readyState=${video.readyState}, size=${video.videoWidth}x${video.videoHeight}`,
@@ -139,6 +145,7 @@ export class PeerMediaLifecycleController {
 
   reset(): void {
     this.cleanupAudioRouting();
+    this.stopVideoFrameCallbacks();
     this.clearTracks();
   }
 
@@ -147,11 +154,24 @@ export class PeerMediaLifecycleController {
   }
 
   clearTracks(): void {
+    this.stopVideoFrameCallbacks();
     for (const track of this.videoStream.getTracks()) {
       this.videoStream.removeTrack(track);
     }
     for (const track of this.audioStream.getTracks()) {
       this.audioStream.removeTrack(track);
+    }
+  }
+
+  private stopVideoFrameCallbacks(): void {
+    this.videoFrameCallbackGeneration += 1;
+    if (this.videoFrameCallbackId !== null) {
+      try {
+        this.dependencies.videoElement.cancelVideoFrameCallback(this.videoFrameCallbackId);
+      } catch {
+        // Ignore cancellation failures during media teardown.
+      }
+      this.videoFrameCallbackId = null;
     }
   }
 
