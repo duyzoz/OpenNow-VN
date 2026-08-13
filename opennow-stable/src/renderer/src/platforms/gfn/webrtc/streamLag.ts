@@ -1,8 +1,6 @@
 import type { StreamLagReason } from "./streamDiagnosticsTypes";
 
 export interface ClassifyStreamLagReasonParams {
-  nativeInputActive: boolean;
-  nativeRendererActive: boolean;
   framesReceived: number;
   framesDecoded: number;
   decodeTimeMs: number;
@@ -25,13 +23,6 @@ export interface ClassifyStreamLagReasonParams {
 export function classifyStreamLagReason(
   params: ClassifyStreamLagReasonParams,
 ): { reason: StreamLagReason; detail: string } {
-  if (params.nativeInputActive || params.nativeRendererActive) {
-    return {
-      reason: "stable",
-      detail: "Native streamer input bridge active",
-    };
-  }
-
   const networkSignals: string[] = [];
   if (params.packetLossPercent >= 1) networkSignals.push(`${params.packetLossPercent.toFixed(1)}% loss`);
   if (params.rttMs >= 75) networkSignals.push(`RTT ${params.rttMs.toFixed(0)}ms`);

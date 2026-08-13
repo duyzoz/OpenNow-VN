@@ -1,0 +1,37 @@
+Starting video analysis...
+Submitting video analysis task...
+Task submitted (ID: video-analysis-2d4a169d-1cc8-4e01-941c-a9a46fb7e190)
+[8s] Status: Analyzing video content with AI...
+[22s] Status: Analysis completed
+[22s] Analysis completed!
+Full analysis result saved to: /home/ubuntu/video_bandicam2026-08-1310-40-09-898_analysis_20260813_034504.md
+Note: This tool performs AI-based visual and audio analysis, not verbatim transcription. For detailed speech transcription, use `manus-speech-to-text` instead.
+Analysis result:
+
+The video features a game session of *Wuthering Waves* with a persistent stream statistics overlay in the bottom-left corner. The following metrics were extracted from this overlay throughout the video:
+
+### **Network and Stream Performance Metrics**
+*   **RTT (Round Trip Time):** Consistently high, ranging between **207ms and 215ms**.
+*   **Bitrate:** Highly variable depending on on-screen activity. It peaks at approximately **33.3 Mbps** during gameplay and drops as low as **5.4 Mbps** during static loading screens.
+*   **Jitter:** Stable at approximately **1.1ms to 1.9ms**.
+*   **Loss:** Remained at **0.00%** throughout the recording.
+*   **FPS:** Generally fluctuates between **50 and 60 FPS**.
+
+### **Decoding and Rendering Timing**
+*   **Decode Time:** Consistently low at **0.1ms to 0.2ms**.
+*   **Render Time:** Consistently low at **0.1ms to 0.2ms**.
+*   **Input Queue:** Remained at **0.0ms**, indicating no significant local buffering of input commands before transmission.
+
+### **Input and Scheduler Data**
+*   **Partial Reliable (PR) Mean:** Approximately **0.043**.
+*   **PR Drops:** **0**.
+*   **Scheduler Delay (sched):** Consistently around **351.3ms**.
+*   **Mouse Flush Cadence:** **0.000**.
+*   **Mouse Batch Age:** **0.000**.
+*   **Input Drops:** **0**.
+*   **Coalesced Inputs:** **0**.
+
+### **Behavioral Analysis**
+The high **RTT (>200ms)** is the most significant factor affecting the user experience. Visible delays are apparent when the player navigates menus or performs combat maneuvers; there is a noticeable lag between mouse clicks/drags and the corresponding on-screen action. 
+
+Because the **Input Queue** remains at **0.0ms** and **Input Drops** are non-existent, the latency does not appear to be caused by client-side queueing or local processing bottlenecks. Instead, the behavior strongly suggests a **network/server round-trip delay**, where the high RTT necessitates a significant wait time for the server to acknowledge and reflect the player's inputs in the stream.

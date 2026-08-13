@@ -6,12 +6,9 @@ import {
   ICE_DISCONNECTED_RECOVERY_GRACE_MS,
   RECOVERABLE_STREAM_STATUSES,
   SIGNALING_REMOTE_ICE_GRACE_MS,
-  isExpectedNativeSessionClose,
   readStreamClipboardText,
-  sendStreamClipboardPaste,
 } from "../../lib/streamSessionHelpers";
 import { streamStatusToLoadingStage } from "../../lib/sessionState";
-import { mergeNativeStreamStats } from "../../lib/streamDiagnostics";
 import { decideSignalingDisconnect } from "../../lib/streamRecoveryDecisions";
 import { warningMessage, warningTone } from "../../lib/sessionWarnings";
 import { GfnWebRtcClient } from "../../platforms/gfn/webrtcClient";
@@ -55,21 +52,15 @@ export function useSignalingEvents({
     awaitingRecoveryRemoteIceRef,
     clientRef,
     hasConfirmedRemoteIceRef,
-    handleStreamShortcutActionRef,
     iceDisconnectedRecoveryTimerRef,
     latestIceConnectionStateRef,
     launchInFlightRef,
-    nativeInputBridgeReady,
-    nativeInputProtocolVersionRef,
-    nativeStreamingRef,
     pendingControlledDisconnectsRef,
     remoteIceGraceTimerRef,
     remoteIceRecoveryGenerationRef,
     remoteIceSeenForSessionRef,
     sessionRef,
     setLaunchError,
-    setNativeInputBridgeReady,
-    setNativeInputCaptureActive,
     setRemoteStreamWarning,
     setStreamStatus,
     signalingRecoveryRef,
@@ -163,53 +154,6 @@ export function useSignalingEvents({
       return clientRef.current;
     };
 
-    const activateNativeInputForCurrentSession = (protocolVersion?: number): void => {
-      const activeSession = sessionRef.current;
-      if (!activeSession) {
-        console.warn("[App] Received native stream event but no active session in sessionRef!");
-        return;
-      }
-      const client = ensureWebRtcClient();
-      if (!client) {
-        console.warn("[App] Native stream event received before media elements were ready");
-        return;
-      }
-
-      nativeStreamingRef.current = true;
-      pendingControlledDisconnectsRef.current = 0;
-      const isWindowsHost = navigator.platform.toLowerCase().includes("win");
-      const electronInputBridge =
-        /linux/i.test(`${navigator.platform} ${navigator.userAgent}`)
-        || (!settings.nativeExternalRenderer && !isWindowsHost);
-      client.activateNativeInput(
-        protocolVersion,
-        {
-          codec: settings.codec,
-          colorQuality: settings.colorQuality,
-          resolution: settings.resolution,
-          fps: settings.fps,
-          maxBitrateKbps: settings.maxBitrateMbps * 1000,
-        },
-        {
-          // Windows internal: RawInput on the child HWND (Electron click-through is flaky).
-          // Linux: always Electron → IPC (External floating renderer is unsupported).
-          // macOS internal: Electron → IPC. External floating window: always OS capture.
-          electronInputBridge,
-        },
-      );
-      // The external native window exclusively owns Escape through RawInput.
-      // Internal mode leaves Escape with Electron so it can prevent Chromium's
-      // fullscreen exit and forward one synthetic tap to the native streamer.
-      window.openNow.notifyNativeInputModeChange(
-        true,
-        isWindowsHost && settings.nativeExternalRenderer,
-      );
-      setLaunchError(null);
-      setStreamStatus("streaming");
-      markDiscordStreamStarted();
-      scheduleStableRecoveryReset(activeSession.sessionId);
-    };
-
     const unsubscribe = window.openNow.onSignalingEvent(async (event: MainToRendererSignalingEvent) => {
       console.log(`[App] Signaling event: ${event.type}`, event.type === "offer" ? `(SDP ${event.sdp.length} chars)` : "", event.type === "remote-ice" ? event.candidate : "");
       try {
@@ -271,7 +215,6 @@ export function useSignalingEvents({
               resolution: settings.resolution,
               fps: settings.fps,
               maxBitrateKbps: settings.maxBitrateMbps * 1000,
-              nativeTransitionDiagnostics: settings.nativeTransitionDiagnostics,
             });
             setLaunchError(null);
             setStreamStatus("streaming");
@@ -284,101 +227,6 @@ export function useSignalingEvents({
                 ? `${activeSession.mediaConnectionInfo.ip}:${activeSession.mediaConnectionInfo.port}`
                 : "n/a",
             );
-          }
-        } else if (event.type === "native-stream-started") {
-          console.log("[App] Native streamer started:", event.message ?? "");
-          activateNativeInputForCurrentSession(nativeInputProtocolVersionRef.current ?? undefined);
-        } else if (event.type === "native-input-ready") {
-          console.log("[App] Native input protocol ready:", event.protocolVersion);
-          nativeInputProtocolVersionRef.current = event.protocolVersion;
-          setNativeInputBridgeReady(true);
-          clientRef.current?.setNativeInputProtocolVersion(event.protocolVersion);
-          if (nativeStreamingRef.current || sessionRef.current) {
-            activateNativeInputForCurrentSession(event.protocolVersion);
-          }
-        } else if (event.type === "native-shortcut") {
-          handleStreamShortcutActionRef.current?.(event.action);
-        } else if (event.type === "native-clipboard-paste") {
-          if (settings.clipboardPaste && (!nativeStreamingRef.current || nativeInputBridgeReady)) {
-            void sendStreamClipboardPaste(clientRef.current);
-          }
-        } else if (event.type === "native-input-capture-changed") {
-          setNativeInputCaptureActive(event.captured);
-          // Treat OS RawInput capture like pointer lock so main-process Escape
-          // interception keeps Chromium from exiting fullscreen on tap.
-          try {
-            window.openNow.notifyPointerLockChange(event.captured);
-          } catch {
-            /* best-effort */
-          }
-        } else if (event.type === "native-stream-stats") {
-          diagnosticsStore.set(mergeNativeStreamStats(
-            diagnosticsStore.getSnapshot(),
-            event.stats,
-          ));
-        } else if (event.type === "native-stream-transition") {
-          diagnosticsStore.set({
-            ...diagnosticsStore.getSnapshot(),
-            nativeRendererActive: true,
-            nativeTransitionSummary: event.transition.summary,
-            nativeRequestedFps: event.transition.requestedFps,
-            nativeCapsFramerate: event.transition.capsFramerate,
-            nativeQueueMode: event.transition.queueMode,
-            lagReasonDetail: event.transition.summary ?? "Native video transition detected",
-          });
-        } else if (event.type === "native-stream-stopped") {
-          const reason = event.reason ?? "Native streamer stopped";
-          console.warn("[App] Native streamer stopped:", reason);
-          nativeStreamingRef.current = false;
-          nativeInputProtocolVersionRef.current = null;
-          setNativeInputBridgeReady(false);
-          setNativeInputCaptureActive(false);
-          window.openNow.notifyNativeInputModeChange(false, false);
-          try {
-            window.openNow.notifyPointerLockChange(false, true);
-          } catch {
-            /* best-effort */
-          }
-          clientRef.current?.dispose();
-          clientRef.current = null;
-          launchInFlightRef.current = false;
-
-          if (appUnloadingRef.current) {
-            console.log("[Recovery] Ignoring native streamer stop during app shutdown");
-            return;
-          }
-          if (streamStatusRef.current === "streaming" && isExpectedNativeSessionClose(reason)) {
-            handleExpectedNativeSessionClose(reason);
-            return;
-          }
-          if (
-            signalingRecoveryRef.current.explicitShutdown
-            || !RECOVERABLE_STREAM_STATUSES.includes(streamStatusRef.current)
-          ) {
-            console.log("[Recovery] Ignoring native streamer stop after explicit shutdown or non-recoverable status");
-            return;
-          }
-
-          const recovered = await attemptSessionRecovery(reason).catch((error) => {
-            console.error("[Recovery] Native streamer recovery failed:", error);
-            return false;
-          });
-          if (!recovered) {
-            if (
-              signalingRecoveryRef.current.explicitShutdown
-              || !RECOVERABLE_STREAM_STATUSES.includes(streamStatusRef.current)
-            ) {
-              console.log("[Recovery] Ignoring native streamer stop after explicit shutdown or non-recoverable status");
-              return;
-            }
-            setLaunchError({
-              stage: streamStatusToLoadingStage(streamStatusRef.current),
-              title: t("errors.nativeStreamerStoppedTitle"),
-              description: t("errors.nativeStreamerStoppedDescription"),
-            });
-            resetLaunchRuntime({ keepLaunchError: true, keepStreamingContext: true });
-            void refreshNavbarActiveSession();
-            launchInFlightRef.current = false;
           }
         } else if (event.type === "remote-ice") {
           remoteIceSeenForSessionRef.current = sessionRef.current?.sessionId ?? null;
@@ -491,6 +339,6 @@ export function useSignalingEvents({
     });
 
     return () => unsubscribe();
-  }, [attemptSessionRecovery, diagnosticsStore, handleExpectedNativeSessionClose, markDiscordStreamStarted, nativeInputBridgeReady, refreshNavbarActiveSession, resetLaunchRuntime, scheduleStableRecoveryReset, settings, streamMicLevel, streamVolume, t]);
+  }, [attemptSessionRecovery, diagnosticsStore, markDiscordStreamStarted, refreshNavbarActiveSession, resetLaunchRuntime, scheduleStableRecoveryReset, settings, streamMicLevel, streamVolume, t]);
 
 }

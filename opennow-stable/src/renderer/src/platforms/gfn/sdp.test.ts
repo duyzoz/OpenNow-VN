@@ -7,7 +7,6 @@ import * as sdp from "./sdp";
 
 test("sdp barrel preserves the public API", () => {
   assert.deepEqual(Object.keys(sdp).sort(), [
-    "buildNvstSdp",
     "extractIceCredentials",
     "extractIceUfragFromOffer",
     "extractPublicIp",

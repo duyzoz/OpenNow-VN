@@ -1,7 +1,15 @@
+export interface VideoFramePresentationMetadata {
+  expectedDisplayTime?: number;
+  presentationTime?: number;
+  processingDuration?: number;
+  presentedFrames?: number;
+  receiveTime?: number;
+}
+
 interface PeerMediaLifecycleDependencies {
   videoElement: HTMLVideoElement;
   audioElement: HTMLAudioElement;
-  onRenderFrame: () => void;
+  onRenderFrame: (metadata: VideoFramePresentationMetadata | null) => void;
   log: (message: string) => void;
 }
 
@@ -33,11 +41,14 @@ export class PeerMediaLifecycleController {
       this.cancelVideoFrameCallback();
       const video = this.dependencies.videoElement;
       const generation = this.videoFrameCallbackGeneration;
-      const frameCallback = () => {
+      const frameCallback = (
+        _now: number,
+        metadata: VideoFramePresentationMetadata,
+      ) => {
         if (generation !== this.videoFrameCallbackGeneration) {
           return;
         }
-        this.dependencies.onRenderFrame();
+        this.dependencies.onRenderFrame(metadata);
         if (
           this.videoStream.active
           && this.videoStream.getVideoTracks()[0] === track

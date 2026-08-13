@@ -15,13 +15,12 @@ export type ThanksLoadState = "idle" | "loading" | "loaded" | "error";
 export type StorageResetState = "idle" | "resetting" | "success" | "error";
 export type GameAccountBusyAction = "link" | "unlink" | "resync";
 
-export type SettingsSectionId = "account" | "stream" | "native-streamer" | "game" | "audio" | "input" | "interface" | "about" | "thanks";
+export type SettingsSectionId = "account" | "stream" | "game" | "audio" | "input" | "interface" | "about" | "thanks";
 export type SettingsSearchScopeId =
   | "account-storage"
   | "stream-region"
   | "stream-video"
   | "stream-codec-diagnostics"
-  | "native-streamer"
   | "game"
   | "audio"
   | "input"
@@ -114,29 +113,6 @@ export const SETTINGS_SCOPE_SEARCH_TERMS: Record<SettingsSearchScopeId, readonly
     "gpu",
     "cpu",
     "test codecs",
-  ],
-  "native-streamer": [
-    "native",
-    "streamer",
-    "native streaming",
-    "gstreamer",
-    "backend",
-    "directx",
-    "dx11",
-    "dx12",
-    "cloud gsync",
-    "diagnostics",
-    "stats",
-    "overlay",
-    "experimental",
-    "shortcuts",
-    "alt-tab",
-    "exit",
-    "issue",
-    "github",
-    "discord",
-    "report",
-    "bug",
   ],
   game: ["game", "language", "keyboard layout", "store", "launch", "graphics settings", "in-game settings", "persistence"],
   audio: ["audio", "microphone", "mic", "push to talk", "voice activity"],

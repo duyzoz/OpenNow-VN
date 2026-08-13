@@ -179,8 +179,6 @@ let pendingDirectLaunchRequest: DirectLaunchRequest | null = createDirectLaunchR
 // Runtime pointer-lock state (updated by renderer)
 let isPointerLockActiveRuntime = false;
 let pointerLockEscapeCaptureUntilMs = 0;
-let isStreamInputActiveRuntime = false;
-let nativeRawInputOwnsEscapeRuntime = false;
 
 function createDirectLaunchRequest(args: DirectLaunchArgs): DirectLaunchRequest {
   return {
@@ -437,14 +435,6 @@ function createMainWindowDeps() {
     setPointerLockEscapeCaptureUntilMs: (value: number) => {
       pointerLockEscapeCaptureUntilMs = value;
     },
-    getStreamInputActive: () => isStreamInputActiveRuntime,
-    setStreamInputActive: (active: boolean) => {
-      isStreamInputActiveRuntime = active;
-    },
-    getNativeRawInputOwnsEscape: () => nativeRawInputOwnsEscapeRuntime,
-    setNativeRawInputOwnsEscape: (ownsEscape: boolean) => {
-      nativeRawInputOwnsEscapeRuntime = ownsEscape;
-    },
     isQuittingFully: () => isShutdownRequested || skipCloseChoicePrompt,
     setQuittingFully: (value: boolean) => {
       skipCloseChoicePrompt = value;
@@ -503,10 +493,6 @@ function registerIpcHandlers(): void {
     settingsManager,
     getMainWindow: () => mainWindow,
   });
-
-  // PERF: probe GStreamer/native-streamer once in the background after boot so the
-  // Settings > Native streamer tab reads a warm cache instead of stalling the UI.
-  signalingCoordinator.warmNativeStreamerStatus();
 
   registerCoreIpcHandlers({
     ipcMain,

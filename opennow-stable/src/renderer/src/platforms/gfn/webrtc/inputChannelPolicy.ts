@@ -45,9 +45,7 @@ export function canUsePartiallyReliableInput(
 }
 
 interface InputChannelPolicyControllerDependencies {
-  isNativeInputActive: () => boolean;
   getPartiallyReliableChannel: () => RTCDataChannel | null;
-  sendNativeInput: (payload: Uint8Array, partiallyReliable: boolean) => void;
   sendReliable: (payload: Uint8Array) => void;
 }
 
@@ -61,7 +59,6 @@ export class InputChannelPolicyController {
     if (
       !channel
       || channel.readyState !== "open"
-      || this.dependencies.isNativeInputActive()
       || this.dependencies.getPartiallyReliableChannel() !== channel
     ) {
       this.pendingMouseMotion = null;
@@ -115,9 +112,6 @@ export class InputChannelPolicyController {
   }
 
   isPartiallyReliableOpen(): boolean {
-    if (this.dependencies.isNativeInputActive()) {
-      return true;
-    }
     return this.dependencies.getPartiallyReliableChannel()?.readyState === "open";
   }
 
@@ -138,11 +132,6 @@ export class InputChannelPolicyController {
   }
 
   sendPartiallyReliable(payload: Uint8Array): void {
-    if (this.dependencies.isNativeInputActive()) {
-      this.dependencies.sendNativeInput(payload, true);
-      return;
-    }
-
     const channel = this.dependencies.getPartiallyReliableChannel();
     if (channel?.readyState === "open") {
       const view = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
@@ -155,9 +144,7 @@ export class InputChannelPolicyController {
   }
 
   sendInput(payload: Uint8Array, inputType: number): void {
-    const channel = this.dependencies.isNativeInputActive()
-      ? null
-      : this.dependencies.getPartiallyReliableChannel();
+    const channel = this.dependencies.getPartiallyReliableChannel();
     this.syncLowWatermarkChannel(channel);
 
     if (this.canSendInput(inputType)) {

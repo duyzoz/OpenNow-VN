@@ -1,4 +1,4 @@
-import { Search, X, Users, Wifi, Cpu, Globe, Mic, Keyboard, Monitor, Info, Heart } from "lucide-react";
+import { Search, X, Users, Wifi, Globe, Mic, Keyboard, Monitor, Info, Heart } from "lucide-react";
 import { useMemo, type JSX } from "react";
 import { useTranslation } from "../../i18n";
 import type { SettingsNavGroup, SettingsSectionId } from "./settingsTypes";
@@ -31,7 +31,6 @@ export function SettingsNav({
       label: "Phát trực tuyến",
       items: [
         { id: "stream", label: t("settings.sections.stream"), icon: <Wifi size={15} /> },
-        { id: "native-streamer", label: t("settings.sections.nativeStreamer"), icon: <Cpu size={15} /> },
       ],
     },
     {

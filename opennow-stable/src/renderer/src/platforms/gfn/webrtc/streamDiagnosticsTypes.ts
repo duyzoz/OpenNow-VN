@@ -1,11 +1,9 @@
-import type { NativeQueueMode } from "@shared/gfn";
 import type { MicState } from "../microphoneManager";
 
 export interface StreamDiagnostics {
   // Connection state
   connectionState: RTCPeerConnectionState | "closed";
   inputReady: boolean;
-  nativeRendererActive: boolean;
   connectedGamepads: number;
 
   // Video stats
@@ -18,6 +16,11 @@ export interface StreamDiagnostics {
   targetBitrateKbps: number;
   decodeFps: number;
   renderFps: number;
+  videoFrameCallbackSupported: boolean;
+  videoPresentationLatencyP50Ms: number;
+  videoPresentationLatencyP95Ms: number;
+  videoProcessingTimeMs: number;
+  videoFrameQueueDepth: number;
 
   // Network stats
   packetsLost: number;
@@ -43,6 +46,8 @@ export interface StreamDiagnostics {
   partiallyReliableInputQueuePeakBufferedBytes: number;
   inputQueueDropCount: number;
   inputQueueMaxSchedulingDelayMs: number;
+  inputQueueSchedulingDelayP50Ms: number;
+  inputQueueSchedulingDelayP95Ms: number;
   partiallyReliableInputOpen: boolean;
   mouseMoveTransport: "reliable" | "partially_reliable";
   mouseFlushIntervalMs: number;
@@ -50,6 +55,8 @@ export interface StreamDiagnostics {
   mouseResidualMagnitude: number;
   /** Độ tuổi của mouse batch gần nhất lúc dispatch, chỉ phản ánh client-side queueing. */
   mouseBatchAgeMs: number;
+  mouseBatchAgeP50Ms: number;
+  mouseBatchAgeP95Ms: number;
   mouseAdaptiveFlushActive: boolean;
 
   lagReason: StreamLagReason;
@@ -63,15 +70,6 @@ export interface StreamDiagnostics {
   decoderPressureActive: boolean;
   decoderRecoveryAttempts: number;
   decoderRecoveryAction: string;
-  nativeRequestedFps?: number;
-  nativeCapsFramerate?: string;
-  nativeQueueMode?: NativeQueueMode;
-  nativeFramesPendingToPresent?: number;
-  nativePartialFlushCount?: number;
-  nativeCompleteFlushCount?: number;
-  nativeTransitionSummary?: string;
-  nativeRequestedStreamingFeaturesSummary?: string;
-  nativeFinalizedStreamingFeaturesSummary?: string;
 
   // Microphone state
   micState: MicState;

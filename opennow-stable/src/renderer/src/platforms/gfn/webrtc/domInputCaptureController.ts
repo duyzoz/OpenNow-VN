@@ -17,6 +17,7 @@ import {
   MouseDeltaFilter,
   quantizeMouseDeltaWithResidual,
   subsampleCoalescedPointerEvents,
+  RollingPercentileWindow,
 } from "./mouseInput";
 
 interface DomInputCaptureDependencies {
@@ -24,8 +25,6 @@ interface DomInputCaptureDependencies {
   inputEncoder: InputEncoder;
   isInputReady: () => boolean;
   isInputBlocked: () => boolean;
-  isNativeInputActive: () => boolean;
-  isNativeElectronInputBridge: () => boolean;
   shouldAutoFullscreen: () => boolean;
   getCurrentResolution: () => string;
   getKeyboardLayout: () => KeyboardLayout | undefined;
@@ -48,6 +47,9 @@ export interface MouseInputDiagnostics {
   residualMagnitude: number;
   /** Thời gian sample chuột cũ nhất chờ trước lần gửi gần nhất; chỉ đo phía client. */
   batchAgeMs: number;
+  /** Percentile tuổi batch trong cửa sổ telemetry gần nhất; chỉ đo phía client. */
+  batchAgeP50Ms: number;
+  batchAgeP95Ms: number;
   adaptiveFlushActive: boolean;
 }
 
@@ -89,6 +91,9 @@ export class DomInputCaptureController {
   private pendingMouseTimestampUs: bigint | null = null;
   private mouseBatchFirstQueuedAtMs: number | null = null;
   private mouseLastBatchAgeMs = 0;
+  private mouseBatchAgeP50Ms = 0;
+  private mouseBatchAgeP95Ms = 0;
+  private readonly mouseBatchAgeWindow = new RollingPercentileWindow(64);
   private readonly mouseDeltaFilter = new MouseDeltaFilter();
   private mouseSensitivity = 1;
   private mouseAccelerationPercent = 1;
@@ -183,6 +188,9 @@ export class DomInputCaptureController {
     this.pendingMouseTimestampUs = null;
     this.mouseBatchFirstQueuedAtMs = null;
     this.mouseLastBatchAgeMs = 0;
+    this.mouseBatchAgeP50Ms = 0;
+    this.mouseBatchAgeP95Ms = 0;
+    this.mouseBatchAgeWindow.reset();
     this.mouseDeltaFilter.reset();
     this.mouseFlushLastSendMs = 0;
     this.mouseCoalescedBatchEntries = 0;
@@ -196,12 +204,18 @@ export class DomInputCaptureController {
   }
 
   getMouseDiagnostics(): MouseInputDiagnostics {
+    // Percentiles are intentionally evaluated only on the diagnostics poll;
+    // the pointer event and packet paths remain allocation-free.
+    this.mouseBatchAgeP50Ms = this.mouseBatchAgeWindow.getPercentile(50);
+    this.mouseBatchAgeP95Ms = this.mouseBatchAgeWindow.getPercentile(95);
     return {
       flushBaseIntervalMs: this.mouseFlushBaseIntervalMs,
       flushIntervalMs: this.mouseFlushIntervalMs,
       packetsPerSecond: this.mousePacketsPerSecond,
       residualMagnitude: Math.hypot(this.pendingMouseDxFloat, this.pendingMouseDyFloat),
       batchAgeMs: this.mouseLastBatchAgeMs,
+      batchAgeP50Ms: this.mouseBatchAgeP50Ms,
+      batchAgeP95Ms: this.mouseBatchAgeP95Ms,
       adaptiveFlushActive: this.mouseAdaptiveFlushActive,
     };
   }
@@ -515,6 +529,9 @@ export class DomInputCaptureController {
     this.pendingMouseTimestampUs = null;
     this.mouseBatchFirstQueuedAtMs = null;
     this.mouseLastBatchAgeMs = 0;
+    this.mouseBatchAgeP50Ms = 0;
+    this.mouseBatchAgeP95Ms = 0;
+    this.mouseBatchAgeWindow.reset();
     this.mousePacketsPerSecond = 0;
     this.mousePacketsSentInWindow = 0;
     this.mousePacketRateWindowStartedAtMs = mouseInitNow;
@@ -684,6 +701,7 @@ export class DomInputCaptureController {
       const expectedSendAt = this.mouseFlushLastSendMs + this.mouseFlushIntervalMs;
       this.dependencies.recordSchedulingDelay(Math.max(0, tickNow - expectedSendAt));
       this.mouseLastBatchAgeMs = Math.max(0, tickNow - (this.mouseBatchFirstQueuedAtMs ?? tickNow));
+      this.mouseBatchAgeWindow.add(this.mouseLastBatchAgeMs);
       this.pendingMouseTimestampUs = null;
       this.mouseBatchFirstQueuedAtMs = null;
       this.mouseCoalescedBatchEntries = 0;
@@ -1305,11 +1323,7 @@ export class DomInputCaptureController {
         document.exitPointerLock();
       }
       // Pause forwarding while window is not focused (host overlay pause is separate).
-      // In native mode the renderer sink can be a separate no-activate window,
-      // so a focus transition is not enough reason to stop controller polling.
-      if (!this.dependencies.isNativeInputActive()) {
-        this.dependencies.setWindowInputPaused(true);
-      }
+      this.dependencies.setWindowInputPaused(true);
     };
 
     const onVisibilityChange = () => {
@@ -1361,12 +1375,10 @@ export class DomInputCaptureController {
     } else {
       window.addEventListener("mousemove", onMouseMove);
     }
-    // Use document capture for buttons/wheel in native internal mode so clicks
-    // still reach us even if the native child HWND is topmost for a frame.
-    const buttonTarget: HTMLElement | Document = this.dependencies.isNativeElectronInputBridge()
-      ? document
-      : pointerLockTarget;
-    const buttonCapture = this.dependencies.isNativeElectronInputBridge();
+    // WebRTC Ultra owns the input surface in this renderer; pointer-lock target
+    // receives buttons/wheel without a second native window or IPC bridge.
+    const buttonTarget: HTMLElement = pointerLockTarget;
+    const buttonCapture = false;
     buttonTarget.addEventListener("mousedown", onMouseDown as EventListener, buttonCapture);
     buttonTarget.addEventListener("mouseup", onMouseUp as EventListener, buttonCapture);
     buttonTarget.addEventListener("wheel", onWheel as EventListener, {
@@ -1422,7 +1434,7 @@ export class DomInputCaptureController {
     };
 
     // Fallback: some environments may not produce pointerover relatedTarget=null
-    // when entering the native window. Listen for the first mousemove while we
+    // when entering the stream window. Listen for the first mousemove while we
     // believe the pointer is outside the window and treat that as an entry.
     const onFirstMouseMoveIntoWindow = (ev: MouseEvent | PointerEvent) => {
       if (mouseInStreamView) return;

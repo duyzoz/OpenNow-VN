@@ -285,14 +285,9 @@ export class GfnSignalingClient {
   async sendAnswer(payload: SendAnswerRequest): Promise<void> {
     console.log(`[Signaling] Sending ANSWER SDP (${payload.sdp.length} chars), first 500 chars:`);
     console.log(payload.sdp.slice(0, 500));
-    if (payload.nvstSdp) {
-      console.log(`[Signaling] Sending nvstSdp (${payload.nvstSdp.length} chars):`);
-      console.log(payload.nvstSdp);
-    }
     const answer = {
       type: "answer",
       sdp: payload.sdp,
-      ...(payload.nvstSdp ? { nvstSdp: payload.nvstSdp } : {}),
     };
 
     console.log(`[Signaling] Sending answer peer_msg from=${this.peerId} to=${this.remotePeerId}`);

@@ -262,8 +262,6 @@ export function registerCoreIpcHandlers(deps: CoreIpcHandlerDeps): void {
       .getAppUpdater()
       ?.setAutomaticChecksEnabled(resetSettings.autoCheckForUpdates);
     deps.getAppUpdater()?.setUpdateChannel(resetSettings.updateChannel);
-    deps.getSignalingCoordinator()?.stopNativeStreamer("settings reset");
-    deps.getSignalingCoordinator()?.resetNativeStreamerContext();
     syncMainTelemetry(settingsManager);
     return resetSettings;
   });

@@ -35,10 +35,6 @@ interface StreamViewProps {
   audioRef: React.Ref<HTMLAudioElement>;
   diagnosticsStore: StreamDiagnosticsStore;
   showStats: boolean;
-  showNativeStats?: boolean;
-  nativeInputCaptureActive?: boolean;
-  gstreamerEnabled: boolean;
-  nativeExternalRenderer?: boolean;
   shortcuts: {
     toggleStats: string;
     togglePointerLock: string;
@@ -88,7 +84,6 @@ interface StreamViewProps {
   onMouseAccelerationChange: (value: number) => void;
   onRequestPointerLock?: () => void;
   onReleasePointerLock?: () => void;
-  onNativeInputPaused?: (paused: boolean) => void;
   microphoneMode: MicrophoneMode;
   onMicrophoneModeChange: (value: MicrophoneMode) => void;
   onScreenshotShortcutChange: (value: string) => void;
@@ -107,10 +102,6 @@ export function StreamView({
   audioRef,
   diagnosticsStore,
   showStats,
-  showNativeStats = false,
-  nativeInputCaptureActive = false,
-  gstreamerEnabled,
-  nativeExternalRenderer = false,
   shortcuts,
   serverRegion,
   antiAfkEnabled,
@@ -142,7 +133,6 @@ export function StreamView({
   onMouseAccelerationChange,
   onRequestPointerLock,
   onReleasePointerLock,
-  onNativeInputPaused,
   microphoneMode,
   onMicrophoneModeChange,
   onScreenshotShortcutChange,
@@ -162,10 +152,6 @@ export function StreamView({
   const [isPointerLocked, setIsPointerLocked] = useState(false);
   const [pointerLockHintVisible, setPointerLockHintVisible] = useState(false);
   const pointerLockHintTimerRef = useRef<number | null>(null);
-  const nativeRendererActive = useStreamDiagnosticsSelector(
-    diagnosticsStore,
-    (stats) => stats.nativeRendererActive,
-  );
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localAudioRef = useRef<HTMLAudioElement | null>(null);
   const shaderPipelineRef = useRef<VideoShaderPipeline | null>(null);
@@ -205,7 +191,7 @@ export function StreamView({
   const streamVideoReady = streamHasVideo || videoElementHasFrame;
   const [sessionReadySplashVisible, setSessionReadySplashVisible] = useState(false);
   const sessionReadySplashShownRef = useRef(false);
-  const showStatsHud = showStats && !nativeRendererActive && !isConnecting;
+  const showStatsHud = showStats && !isConnecting;
 
   useEffect(() => {
     if (isConnecting) {
@@ -214,8 +200,7 @@ export function StreamView({
       return;
     }
     if (
-      nativeRendererActive
-      || !streamVideoReady
+      !streamVideoReady
       || !streamRevealComplete
       || sessionReadySplashShownRef.current
     ) {
@@ -223,7 +208,7 @@ export function StreamView({
     }
     sessionReadySplashShownRef.current = true;
     setSessionReadySplashVisible(true);
-  }, [isConnecting, nativeRendererActive, streamRevealComplete, streamVideoReady]);
+  }, [isConnecting, streamRevealComplete, streamVideoReady]);
 
   const handleSessionReadySplashFinished = useCallback(() => {
     setSessionReadySplashVisible(false);
@@ -373,21 +358,18 @@ export function StreamView({
   });
   const suppressVideoFocusOnSidebarCloseRef = useRef(false);
 
-  // Video shader post-processing pipeline (embedded WebRTC path only; the
-  // native streamer renders outside Chromium so shaders cannot apply there).
+  // WebRTC Ultra keeps presentation inside Chromium, so GPU shader controls
+  // apply directly to the decoded video without a second native surface.
   useEffect(() => {
     const video = localVideoRef.current;
     if (!video) return;
-    const effective = gstreamerEnabled || nativeRendererActive
-      ? { ...videoShader, enabled: false }
-      : videoShader;
     if (!shaderPipelineRef.current) {
-      if (!effective.enabled) return;
-      shaderPipelineRef.current = new VideoShaderPipeline(video, effective);
+      if (!videoShader.enabled) return;
+      shaderPipelineRef.current = new VideoShaderPipeline(video, videoShader);
     } else {
-      shaderPipelineRef.current.updateSettings(effective);
+      shaderPipelineRef.current.updateSettings(videoShader);
     }
-  }, [videoShader, gstreamerEnabled, nativeRendererActive]);
+  }, [videoShader]);
 
   useEffect(() => () => {
     shaderPipelineRef.current?.dispose();
@@ -413,90 +395,13 @@ export function StreamView({
   }, [audioRef]);
 
   useEffect(() => {
-    const updateSurface = window.openNow?.updateNativeRenderSurface;
-    if (typeof updateSurface !== "function") {
-      return undefined;
-    }
-
-    let frame = 0;
-    const publish = (): void => {
-      const element = localVideoRef.current;
-      const dpr = window.devicePixelRatio || 1;
-      if (!element || document.visibilityState === "hidden") {
-        updateSurface({ rect: null, visible: false, deviceScaleFactor: dpr });
-        return;
-      }
-
-      const rect = element.getBoundingClientRect();
-      const width = Math.round(rect.width * dpr);
-      const height = Math.round(rect.height * dpr);
-      const visible = width >= 2 && height >= 2 && !showSideBar && !exitPrompt.open;
-      updateSurface({
-        deviceScaleFactor: dpr,
-        visible,
-        showStats: showStats || showNativeStats,
-        rect: visible
-          ? {
-              x: Math.round(rect.left * dpr),
-              y: Math.round(rect.top * dpr),
-              width,
-              height,
-            }
-          : null,
-      });
-    };
-
-    const schedule = (): void => {
-      if (frame !== 0) {
-        return;
-      }
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        publish();
-      });
-    };
-
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
-    if (observer && localVideoRef.current) {
-      observer.observe(localVideoRef.current);
-    }
-
-    window.addEventListener("resize", schedule);
-    window.addEventListener("fullscreenchange", schedule);
-    document.addEventListener("visibilitychange", schedule);
-    window.visualViewport?.addEventListener("resize", schedule);
-    window.visualViewport?.addEventListener("scroll", schedule);
-    schedule();
-
-    return () => {
-      if (frame !== 0) {
-        window.cancelAnimationFrame(frame);
-      }
-      observer?.disconnect();
-      window.removeEventListener("resize", schedule);
-      window.removeEventListener("fullscreenchange", schedule);
-      document.removeEventListener("visibilitychange", schedule);
-      window.visualViewport?.removeEventListener("resize", schedule);
-      window.visualViewport?.removeEventListener("scroll", schedule);
-      updateSurface({
-        rect: null,
-        visible: false,
-        deviceScaleFactor: window.devicePixelRatio || 1,
-        showStats: false,
-      });
-    };
-  }, [exitPrompt.open, showNativeStats, showSideBar, showStats]);
-
-  useEffect(() => {
     const handlePointerLockChange = () => {
-      setIsPointerLocked(
-        document.pointerLockElement === localVideoRef.current || nativeInputCaptureActive,
-      );
+      setIsPointerLocked(document.pointerLockElement === localVideoRef.current);
     };
     handlePointerLockChange();
     document.addEventListener("pointerlockchange", handlePointerLockChange);
     return () => document.removeEventListener("pointerlockchange", handlePointerLockChange);
-  }, [nativeInputCaptureActive]);
+  }, []);
 
   useEffect(() => {
     // Show a transient HUD hint when pointer lock is acquired
@@ -524,14 +429,6 @@ export function StreamView({
     };
   }, [isPointerLocked]);
 
-  useEffect(() => {
-    onNativeInputPaused?.(showSideBar);
-    return () => {
-      if (showSideBar) {
-        onNativeInputPaused?.(false);
-      }
-    };
-  }, [onNativeInputPaused, showSideBar]);
 
   useEffect(() => {
     if (showSideBar) {
@@ -622,45 +519,26 @@ export function StreamView({
     };
   }, [exitPrompt.open, isConnecting, showSideBar]);
 
-  const nativeInternalHole =
-    (nativeRendererActive || gstreamerEnabled) && !nativeExternalRenderer;
-
   return (
-    <div className={["sv", streamVideoReady ? "sv--video-ready" : "sv--video-pending", nativeInternalHole ? "sv--native-hole" : "", className].filter(Boolean).join(" ")}>
-      {nativeInternalHole ? (
-        <video
-          ref={setVideoRef}
-          autoPlay
-          playsInline
-          muted
-          tabIndex={-1}
-          className="sv-video sv-video--native-hole"
-          onClick={() => {
-            if (localVideoRef.current && document.activeElement !== localVideoRef.current) {
-              localVideoRef.current.focus({ preventScroll: true });
-            }
-          }}
-        />
-      ) : (
-        <m.video
-          ref={setVideoRef}
-          autoPlay
-          playsInline
-          muted
-          tabIndex={-1}
-          className="sv-video"
-          initial={false}
-          animate={streamVideoReady
-            ? { opacity: 1, scale: 1 }
-            : { opacity: 0, scale: 1.008 }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          onClick={() => {
-            if (localVideoRef.current && document.activeElement !== localVideoRef.current) {
-              localVideoRef.current.focus({ preventScroll: true });
-            }
-          }}
-        />
-      )}
+    <div className={["sv", streamVideoReady ? "sv--video-ready" : "sv--video-pending", className].filter(Boolean).join(" ")}>
+      <m.video
+        ref={setVideoRef}
+        autoPlay
+        playsInline
+        muted
+        tabIndex={-1}
+        className="sv-video"
+        initial={false}
+        animate={streamVideoReady
+          ? { opacity: 1, scale: 1 }
+          : { opacity: 0, scale: 1.008 }}
+        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+        onClick={() => {
+          if (localVideoRef.current && document.activeElement !== localVideoRef.current) {
+            localVideoRef.current.focus({ preventScroll: true });
+          }
+        }}
+      />
       <audio ref={setAudioRef} autoPlay playsInline />
       <VideoFocusOnReady
         diagnosticsStore={diagnosticsStore}
@@ -706,7 +584,6 @@ export function StreamView({
         onMouseSensitivityChange={onMouseSensitivityChange}
         mouseAcceleration={mouseAcceleration}
         onMouseAccelerationChange={onMouseAccelerationChange}
-        gstreamerEnabled={gstreamerEnabled}
         videoShader={videoShader}
         onVideoShaderChange={onVideoShaderChange}
         microphoneMode={microphoneMode}
@@ -790,8 +667,7 @@ export function StreamView({
           <StreamStatsHud
             key="stream-stats-hud"
             diagnosticsStore={diagnosticsStore}
-            gstreamerEnabled={gstreamerEnabled}
-            serverRegion={serverRegion}
+                serverRegion={serverRegion}
             sessionTimeRemainingText={showSessionTimeRemainingInStats ? sessionTimeRemainingText : null}
             hintsVisible={showHints}
           />

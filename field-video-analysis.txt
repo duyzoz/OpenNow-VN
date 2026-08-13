@@ -1,0 +1,44 @@
+Starting video analysis...
+Submitting video analysis task...
+Task submitted (ID: video-analysis-ae4e2977-3756-4d1c-a11d-1f8dabd1738b)
+[8s] Status: Analyzing video content with AI...
+[26s] Status: Analysis completed
+[26s] Analysis completed!
+Full analysis result saved to: /home/ubuntu/video_bandicam2026-08-1310-01-58-114_analysis_20260813_030623.md
+Note: This tool performs AI-based visual and audio analysis, not verbatim transcription. For detailed speech transcription, use `manus-speech-to-text` instead.
+Analysis result:
+
+Dưới đây là phân tích chi tiết về trải nghiệm Cloud Gaming dựa trên video được cung cấp:
+
+### 1. Phân tích chuyển động và thao tác (Input Analysis)
+
+*   **Thao tác trong Menu (00:00 - 00:42):**
+    *   **Cuộn và Kéo:** Khi người dùng kéo danh sách Echo (00:05 - 00:15), có một độ trễ phản hồi (input lag) nhất định. Chuyển động của danh sách không bám sát hoàn toàn theo con trỏ chuột, tạo cảm giác "nặng" (floaty).
+    *   **Click chọn:** Các thao tác click vào các icon Echo (00:33 - 00:37) có phản hồi hình ảnh chậm hơn một vài khung hình so với thời điểm click thực tế.
+*   **Chuyển động Camera và Nhân vật (00:43 - 01:00):**
+    *   **Xoay Camera:** Khi người chơi xoay camera để quan sát môi trường, có hiện tượng "overshoot" nhẹ (camera tiếp tục di chuyển một chút sau khi chuột đã dừng). Điều này cho thấy độ trễ từ máy chủ đến máy khách đang ở mức có thể nhận thấy được.
+    *   **Di chuyển (WASD):** Thao tác nhảy và chạy của nhân vật có độ trễ phản hồi thấp hơn so với xoay camera, nhưng vẫn thiếu độ "nhạy" tức thời so với chơi trên phần cứng cục bộ.
+*   **Thao tác Kỹ năng và Chiến đấu (01:01 - 01:15):**
+    *   Khi kích hoạt kỹ năng Ultimate (01:03), hiệu ứng bắt đầu gần như ngay lập tức, nhưng các đòn đánh thường sau đó (01:10) cho thấy sự ngắt quãng nhẹ giữa các hoạt ảnh, có khả năng do biến động băng thông (jitter).
+
+### 2. Độ mượt khung hình và Hiệu suất (Performance)
+
+*   **Tốc độ khung hình:** Dựa trên thông số hiển thị (Overlay), game đang chạy ở mức ~60 FPS. Tuy nhiên, trong các đoạn có hiệu ứng phức tạp (01:05), xuất hiện tình trạng sụt khung hình nhẹ hoặc "micro-stuttering".
+*   **Thông số mạng (Overlay):** Chỉ số **RTT (Round Trip Time) hiển thị lên tới 217ms** (tại giây 00:00). Đây là mức ping rất cao đối với cloud gaming, giải thích cho cảm giác phản hồi chậm trong toàn bộ video.
+
+### 3. Các mốc thời gian (Timecodes) để so sánh
+
+*   **00:05 - 00:15:** So sánh độ bám của danh sách khi kéo chuột (Menu lag).
+*   **00:51 - 00:58:** So sánh tốc độ phản hồi của camera khi di chuyển chuột nhanh (Camera latency).
+*   **01:03 - 01:10:** So sánh độ mượt của hoạt ảnh kỹ năng khi có nhiều hiệu ứng hạt (VFX stutter).
+*   **01:22 - 01:24:** **Điểm so sánh quan trọng nhất:** Người dùng mở Menu Start của Windows (máy cục bộ). Menu Start hiện ra tức thì, trong khi các thao tác trong game trước đó đều có độ trễ. Đây là bằng chứng rõ nhất về sự khác biệt giữa xử lý cục bộ và xử lý đám mây.
+
+### 4. Giới hạn của việc suy ra End-to-End Latency từ video
+
+Việc phân tích qua video màn hình chỉ cung cấp cái nhìn tương đối về độ trễ vì những lý do sau:
+*   **Thiếu thời điểm Input thực tế:** Video chỉ ghi lại kết quả hiển thị trên màn hình, không ghi lại khoảnh khắc ngón tay người dùng thực sự nhấn phím hoặc click chuột.
+*   **Tốc độ khung hình bản ghi:** Video được ghi ở một tốc độ khung hình nhất định (ví dụ 60fps), có thể che giấu các hiện tượng xé hình hoặc trễ nhỏ hơn 16.6ms.
+*   **Độ trễ mã hóa (Encoding Delay):** Video không thể hiện được bao nhiêu phần trễ là do mạng, bao nhiêu là do quá trình nén/giải nén hình ảnh của dịch vụ Cloud.
+*   **Độ trễ hiển thị (Display Lag):** Video không tính đến độ trễ của chính màn hình mà người dùng đang sử dụng.
+
+**Kết luận:** Dịch vụ Cloud Gaming này đang gặp vấn đề về độ trễ mạng (Ping cao >200ms), gây ảnh hưởng rõ rệt đến trải nghiệm điều khiển, dù tốc độ khung hình vẫn duy trì ổn định ở mức khá.

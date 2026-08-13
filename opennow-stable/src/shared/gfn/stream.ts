@@ -1,5 +1,6 @@
 export type VideoCodec = "H264" | "H265" | "AV1";
 export type VideoAccelerationPreference = "auto" | "hardware" | "software";
+/** Legacy persisted mode retained only for deserializing old session payloads; runtime always uses WebRTC web mode. */
 export type StreamClientMode = "web" | "native";
 /**
  * How the server-side session should present launched games.
@@ -7,7 +8,6 @@ export type StreamClientMode = "web" | "native";
  * "gamepadFriendly" so launchers (e.g. Steam) start in big picture mode.
  */
 export type AppLaunchMode = "default" | "gamepadFriendly" | "touchFriendly";
-export type NativeQueueMode = "auto" | "fixed" | "adaptive" | "vrr";
 
 /** Color quality (bit depth + chroma subsampling), matching Rust ColorQuality enum */
 export type ColorQuality = "8bit_420" | "8bit_444" | "10bit_420" | "10bit_444";
@@ -66,10 +66,4 @@ export interface StreamingFeatures {
   chromaFormat?: number;
   enabledL4S?: boolean;
   trueHdr?: boolean;
-}
-
-export interface NativeTransitionDiagnostics {
-  disableDynamicSplitEncodeUpdates?: boolean;
-  forceQueueMode?: NativeQueueMode;
-  disableTransitionFlushEscalation?: boolean;
 }

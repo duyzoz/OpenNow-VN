@@ -11,5 +11,4 @@ export {
   rewriteH265LevelIdByProfile,
   rewriteH265TierFlag,
 } from "./sdp/codec";
-export { buildNvstSdp } from "./sdp/nvstOffer";
 export { mungeAnswerSdp } from "./sdp/answer";

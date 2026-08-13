@@ -1,0 +1,40 @@
+Starting video analysis...
+Submitting video analysis task...
+Task submitted (ID: video-analysis-e66402f9-8e73-44a8-a5fb-d338fca43847)
+[8s] Status: Analyzing video content with AI...
+[33s] Still processing, please wait...
+[35s] Status: Analysis completed
+[35s] Analysis completed!
+Full analysis result saved to: /home/ubuntu/video_bandicam2026-08-1310-56-33-653_analysis_20260813_040520.md
+Note: This tool performs AI-based visual and audio analysis, not verbatim transcription. For detailed speech transcription, use `manus-speech-to-text` instead.
+Analysis result:
+
+This video analysis identifies several issues with the NativeStream game session as observed and described by the speaker.
+
+### Mouse Responsiveness and Pointer Lock/Release
+*   **Slow Rotation:** At **00:09** and **01:15**, the speaker notes that mouse rotation is very slow ("chuột quay rất chậm").
+*   **Input Delay:** At **00:40** and **04:30**, the speaker reports a significant delay in mouse responsiveness ("chuột cảm giác delay khá lớn").
+*   **Pointer Lock/Release:** At **00:49**, the speaker explains that **F8** is required to release the mouse pointer. He warns that users who do not know this will become "trapped" ("bị kẹt") within the stream.
+*   **Windows Key:** At **01:00**, pressing the Windows key fails to release the mouse pointer from the stream.
+
+### Keyboard Shortcuts and Menus
+*   **F3 Shortcut:** At **00:21**, the speaker presses **F3**, which opens the game library (OpenNow). He describes the behavior as "chaotic" or glitchy ("loạn loạn").
+*   **Quick Menu:** At **00:34**, the **Ctrl+G** shortcut successfully opens the Quick Menu.
+*   **Windows Menu:** At **05:00**, the Windows Start menu appears over the game, but the mouse remains focused on the stream window.
+
+### Stream Performance and Statistics
+*   **Statistics:** The stream runs at **1920x1080** using the **H264** codec. While initial stats show **59-60 FPS** for both decoding and rendering, performance degrades later.
+*   **Lag and Errors:** At **03:55**, the speaker notes significant lag, followed by a "Resonating error. Reconnecting" message at **04:00**.
+*   **Frame Pacing:** During gameplay at **04:30**, there is visible stuttering and poor frame pacing. The render FPS is seen dropping as low as **37 FPS** (at **04:55**) despite the decoder remaining at 60 FPS.
+*   **Comparison:** At **04:30**, the speaker states that the experience is very laggy and "not as good as WebRTC."
+
+### Speaker's Stated Symptoms
+*   **00:05:** "NativeStream... has many limitations."
+*   **00:09:** "Mouse rotation is very slow."
+*   **00:21:** "I pressed F3... it's chaotic/glitchy."
+*   **00:40:** "Mouse feels like it has a quite large delay."
+*   **00:49:** "F8 releases the mouse for you. Anyone who doesn't read carefully will get trapped."
+*   **01:10:** "It's not smooth yet... mouse rotation is very slow."
+*   **03:55:** "It's lagging now."
+*   **04:10:** "NativeStream has many errors."
+*   **04:30:** "It's very laggy... delay is obvious. Not as good as WebRTC."

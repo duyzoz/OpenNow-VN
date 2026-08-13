@@ -199,3 +199,46 @@ export class MouseDeltaFilter {
     return false;
   }
 }
+
+
+/**
+ * Small fixed-size percentile window for hot-path telemetry.
+ * Samples are overwritten in a ring so mouse input never grows an array or
+ * allocates per pointer event. Percentiles are evaluated only on the 500 ms
+ * diagnostics poll, not while dispatching packets.
+ */
+export class RollingPercentileWindow {
+  private readonly samples: number[];
+  private cursor = 0;
+  private count = 0;
+
+  constructor(private readonly capacity = 64) {
+    this.samples = new Array(Math.max(1, Math.trunc(capacity)));
+  }
+
+  add(value: number): void {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    this.samples[this.cursor] = Math.max(0, value);
+    this.cursor = (this.cursor + 1) % this.samples.length;
+    this.count = Math.min(this.count + 1, this.samples.length);
+  }
+
+  getPercentile(percentile: number): number {
+    if (this.count === 0) {
+      return 0;
+    }
+    const sorted = this.samples.slice(0, this.count).sort((a, b) => a - b);
+    const rank = Math.min(
+      sorted.length - 1,
+      Math.max(0, Math.ceil((Math.max(0, Math.min(100, percentile)) / 100) * sorted.length) - 1),
+    );
+    return sorted[rank] ?? 0;
+  }
+
+  reset(): void {
+    this.cursor = 0;
+    this.count = 0;
+  }
+}
