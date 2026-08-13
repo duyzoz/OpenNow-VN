@@ -13,6 +13,11 @@ export interface IceCandidatePayload {
 
 export interface SendAnswerRequest {
   sdp: string;
+  /**
+   * GFN negotiation metadata carried alongside the browser WebRTC answer.
+   * This is a server handshake contract, not a NativeStream transport.
+   */
+  nvstSdp?: string;
 }
 
 export interface KeyframeRequest {

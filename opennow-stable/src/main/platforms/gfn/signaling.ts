@@ -295,8 +295,12 @@ export class GfnSignalingClient {
     const answer = {
       type: "answer",
       sdp: payload.sdp,
+      ...(payload.nvstSdp ? { nvstSdp: payload.nvstSdp } : {}),
     };
 
+    if (payload.nvstSdp) {
+      console.log(`[Signaling] Sending nvstSdp (${payload.nvstSdp.length} chars)`);
+    }
     console.log(`[Signaling] Sending answer peer_msg from=${this.peerId} to=${this.remotePeerId}`);
     this.sendJson({
       peer_msg: {

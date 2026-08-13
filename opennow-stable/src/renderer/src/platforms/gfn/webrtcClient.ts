@@ -30,6 +30,7 @@ import {
   type ClipboardTracingData,
 } from "./clipboardProtocol";
 import {
+  buildNvstSdp,
   extractIceCredentials,
   fixServerIp,
   mungeAnswerSdp,
@@ -2143,10 +2144,26 @@ export class GfnWebRtcClient {
 
     const credentials = extractIceCredentials(finalSdp);
     this.log(`Extracted ICE credentials: ufrag=${credentials.ufrag}, pwd=${credentials.pwd.slice(0, 8)}...`);
+    const { width, height } = parseResolution(settings.resolution);
+    const nvstSdp = buildNvstSdp({
+      width,
+      height,
+      fps: settings.fps,
+      maxBitrateKbps: settings.maxBitrateKbps,
+      partialReliableThresholdMs: this.partialReliableThresholdMs,
+      hidDeviceMask: this.riInputCapabilities.hidDeviceMask,
+      enablePartiallyReliableTransferGamepad:
+        this.riInputCapabilities.enablePartiallyReliableTransferGamepad,
+      enablePartiallyReliableTransferHid: this.riInputCapabilities.enablePartiallyReliableTransferHid,
+      codec: effectiveCodec,
+      colorQuality: settings.colorQuality,
+      credentials,
+    });
     await window.openNow.sendAnswer({
       sdp: finalSdp,
+      nvstSdp,
     });
-    this.log("Sent WebRTC Ultra SDP answer");
+    this.log(`Sent WebRTC Ultra SDP answer with GFN metadata (${nvstSdp.length} chars)`);
     answerSent = true;
     if (queuedLocalIce.length > 0) {
       this.log(`Flushing ${queuedLocalIce.length} queued local ICE candidates after answer`);

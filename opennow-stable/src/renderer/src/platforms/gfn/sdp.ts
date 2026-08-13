@@ -12,3 +12,4 @@ export {
   rewriteH265TierFlag,
 } from "./sdp/codec";
 export { mungeAnswerSdp } from "./sdp/answer";
+export { buildNvstSdp } from "./sdp/nvstOffer";
