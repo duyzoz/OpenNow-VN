@@ -83,6 +83,29 @@ export function quantizeMouseDeltaWithResidual(accumulatedDelta: number): { send
   };
 }
 
+/**
+ * Detect a genuine direction correction while preserving the normal raw-input
+ * coalescing window. Flushing only the already queued opposite movement avoids
+ * hiding a small correction behind a 4ms batch without turning a 1000Hz mouse
+ * into a 1000-packet/second sender.
+ */
+export function shouldFlushMouseDirectionCorrection(
+  pendingX: number,
+  pendingY: number,
+  nextX: number,
+  nextY: number,
+): boolean {
+  const pendingMagnitude = pendingX * pendingX + pendingY * pendingY;
+  const nextMagnitude = nextX * nextX + nextY * nextY;
+  if (pendingMagnitude < 0.25 || nextMagnitude < 0.25) {
+    return false;
+  }
+
+  const dot = pendingX * nextX + pendingY * nextY;
+  // Require a clear reversal, not a 90-degree turn caused by hand tremor.
+  return dot < 0 && dot * dot >= pendingMagnitude * nextMagnitude * 0.36;
+}
+
 /** Filters noisy/outlier relative mouse deltas before they enter the send path. */
 export class MouseDeltaFilter {
   private x = 0;
@@ -134,6 +157,28 @@ export class MouseDeltaFilter {
     }
 
     this.sawZero = false;
+
+    // Raw pointer events already come from the HID sampling path. Do not run
+    // the reversal/outlier heuristic on them: at 1000Hz, legitimate micro
+    // corrections can arrive within the same millisecond and look like noise.
+    // Forward the finite sample directly while retaining the same public
+    // filter state used by the batching and telemetry code.
+    if (this.relaxedForRawInput) {
+      if (!Number.isFinite(dx) || !Number.isFinite(dy)) {
+        return false;
+      }
+      this.x = dx;
+      this.y = dy;
+      this.lastTsMs = Number.isFinite(tsMs) ? Math.max(this.lastTsMs, tsMs) : this.lastTsMs;
+      this.velocityX = dx;
+      this.velocityY = dy;
+      this.rejectedX = 0;
+      this.rejectedY = 0;
+      this.pendingX = 0;
+      this.pendingY = 0;
+      return true;
+    }
+
     if (this.pendingX === 0 && this.pendingY === 0) {
       if (tsMs < this.lastTsMs) {
         this.pendingX = dx;

@@ -16,6 +16,7 @@ import { GfnCursorOverlayController } from "../cursorChannel";
 import {
   MouseDeltaFilter,
   quantizeMouseDeltaWithResidual,
+  shouldFlushMouseDirectionCorrection,
   subsampleCoalescedPointerEvents,
   RollingPercentileWindow,
 } from "./mouseInput";
@@ -860,6 +861,22 @@ export class DomInputCaptureController {
 
       if (!this.mouseDeltaFilter.update(dx, dy, eventTimestampMs)) {
         return;
+      }
+
+      // A high-polling-rate mouse can reverse direction between two 4ms
+      // dispatches. Flush only the queued opposite movement before adding the
+      // correction; ordinary raw samples remain batched to protect CPU/network
+      // usage and frame pacing.
+      if (
+        hasPointerRawUpdate
+        && shouldFlushMouseDirectionCorrection(
+          this.pendingMouseDxFloat,
+          this.pendingMouseDyFloat,
+          dx,
+          dy,
+        )
+      ) {
+        flushMouse();
       }
 
       // Apply user-configured sensitivity, then optional software acceleration.

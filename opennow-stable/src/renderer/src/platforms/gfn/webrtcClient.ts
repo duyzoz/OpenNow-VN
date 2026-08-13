@@ -409,6 +409,9 @@ export class GfnWebRtcClient {
       {
         getPartiallyReliableChannel: () => this.partiallyReliableInputChannel,
         sendReliable: (payload) => this.sendReliable(payload),
+        onMouseMotionDropped: () => {
+          this.inputQueueDropCount += 1;
+        },
       },
     );
     this.gamepadController = new GamepadController({
@@ -1868,6 +1871,10 @@ export class GfnWebRtcClient {
 
     const rtcConfig: RTCConfiguration = {
       iceServers: toRtcIceServers(session.iceServers),
+      // Pre-gather a small candidate pool before negotiation. This reduces
+      // first-media setup latency without changing the negotiated SDP or the
+      // signaling payload required by the GFN service.
+      iceCandidatePoolSize: 2,
       bundlePolicy: "max-bundle",
       rtcpMuxPolicy: "require",
     };
