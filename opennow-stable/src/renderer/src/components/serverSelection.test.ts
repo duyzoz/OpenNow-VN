@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   getServerSelectionHint,
+  getServerRouteAdvice,
   getServerSelectionScore,
   sortServerCandidates,
   type ServerSelectionCandidate,
@@ -57,4 +58,36 @@ test("server hint exposes congestion and recent-choice state", () => {
     getServerSelectionHint(candidate({ lastSelectedAtMs: nowMs - 5 * 60 * 1000 }), nowMs),
     "recommended",
   );
+});
+
+test("prefer-us changes only the preference weight, not the measured-ping contract", () => {
+  const us = candidate({ zoneId: "US-OK", region: "US", pingMs: 80, queuePosition: 10 });
+  const ranked = sortServerCandidates([
+    candidate({ zoneId: "EU-FAST", region: "EU", pingMs: 40, queuePosition: 10 }),
+    us,
+  ], nowMs, { strategy: "prefer-us" });
+
+  assert.equal(ranked[0]?.zoneId, "EU-FAST");
+  assert.ok(getServerSelectionScore(us, nowMs, { strategy: "prefer-us" }).preferenceBonus > 0);
+});
+
+test("a route marked avoid is pushed below a healthy alternative", () => {
+  const ranked = sortServerCandidates([
+    candidate({ zoneId: "LAST-BAD", pingMs: 70, queuePosition: 5, routeAdvice: "avoid" }),
+    candidate({ zoneId: "NEXT-GOOD", pingMs: 95, queuePosition: 5, routeAdvice: "healthy" }),
+  ], nowMs);
+
+  assert.equal(ranked[0]?.zoneId, "NEXT-GOOD");
+  assert.equal(getServerRouteAdvice({
+    zoneId: "LAST-BAD",
+    preLaunchPingMs: 70,
+    queuePosition: 5,
+    selectedAtMs: nowMs - 10 * 60 * 1000,
+    observedAtMs: nowMs - 60 * 1000,
+    observedRttMs: 340,
+    observedJitterMs: 28,
+    observedPacketLossPercent: 0,
+    poorSamples: 3,
+    goodSamples: 0,
+  }, nowMs), "avoid");
 });

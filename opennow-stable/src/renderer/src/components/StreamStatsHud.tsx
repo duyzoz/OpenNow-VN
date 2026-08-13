@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { AlertTriangle, ChevronDown } from "lucide-react";
 import type { JSX } from "react";
 import type { StreamLagReason } from "../platforms/gfn/webrtcClient";
 import type { StreamDiagnosticsStore } from "../utils/streamDiagnosticsStore";
 import { useStreamDiagnosticsStore } from "../utils/streamDiagnosticsStore";
+import { loadLatestServerSelectionTelemetry, recordServerRouteHealth } from "./serverSelection";
 import {
   getBitratePerformanceColor,
   getInputQueueColor,
@@ -71,6 +72,7 @@ export function StreamStatsHud({
   const reducedMotion = useReducedMotion();
   const statusPulseMotion = getStatusPulseMotion(reducedMotion);
   const stats = useStreamDiagnosticsStore(diagnosticsStore);
+  const [lastRouteTelemetry] = useState(loadLatestServerSelectionTelemetry);
   const [expanded, setExpanded] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
@@ -110,6 +112,15 @@ export function StreamStatsHud({
   const inputLive = stats.inputReady && stats.connectionState === "connected";
   const inputQueueColor = getInputQueueColor(stats.inputQueueBufferedBytes, stats.inputQueueDropCount);
   const inputQueueText = `${(stats.inputQueueBufferedBytes / 1024).toFixed(1)}KB`;
+
+  useEffect(() => {
+    if (stats.connectionState !== "connected" || stats.rttMs <= 0) return;
+    recordServerRouteHealth(lastRouteTelemetry, {
+      rttMs: stats.rttMs,
+      jitterMs: stats.jitterMs,
+      packetLossPercent: stats.packetLossPercent,
+    });
+  }, [lastRouteTelemetry, stats.connectionState, stats.jitterMs, stats.packetLossPercent, stats.rttMs]);
   const partiallyReliableQueueText = `${(stats.partiallyReliableInputQueueBufferedBytes / 1024).toFixed(1)}KB`;
   const mouseResidualText = `${stats.mouseResidualMagnitude.toFixed(2)}px`;
   const rttColor = getRttColor(stats.rttMs);
@@ -159,6 +170,11 @@ export function StreamStatsHud({
     }
     const gpuRegion = [stats.gpuType, regionLabel].filter(Boolean).join(" · ");
     if (gpuRegion) lines.push(gpuRegion);
+    if (lastRouteTelemetry) {
+      const pre = lastRouteTelemetry.preLaunchPingMs === null ? "--" : `${lastRouteTelemetry.preLaunchPingMs.toFixed(0)}ms`;
+      const observed = lastRouteTelemetry.observedRttMs === undefined ? "--" : `${lastRouteTelemetry.observedRttMs.toFixed(0)}ms`;
+      lines.push(`Route ${lastRouteTelemetry.zoneId} · pre ${pre} · observed ${observed} · samples ${lastRouteTelemetry.goodSamples}/${lastRouteTelemetry.poorSamples}`);
+    }
     if (hasLagIssue) {
       lines.push(`Lag source ${getLagReasonLabel(stats.lagReason).toLowerCase()} · ${stats.lagReasonDetail}`);
     }
@@ -167,6 +183,7 @@ export function StreamStatsHud({
     gstreamerEnabled,
     hasLagIssue,
     mouseResidualText,
+    lastRouteTelemetry,
     regionLabel,
     stats,
   ]);

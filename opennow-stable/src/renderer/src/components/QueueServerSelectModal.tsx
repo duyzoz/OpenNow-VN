@@ -4,14 +4,22 @@ import { m } from "motion/react";
 import type { GameInfo, PrintedWasteQueueData, PrintedWasteZone } from "@shared/gfn";
 import { buildGfnZoneStreamingBaseUrl, isStandardGfnZone } from "@shared/gfn";
 import {
-  loadStoredPrintedWastePingResults,
+  loadStoredPrintedWastePingSnapshot,
+  PING_CACHE_MAX_AGE_MS,
   saveStoredPrintedWastePingResults,
 } from "../utils/pingResultsStorage";
 import { t as translate, useTranslation } from "../i18n";
+import type { ServerSelectionPreferences } from "./serverSelection";
 import {
+  getServerRouteAdvice,
   getServerSelectionHint,
+  loadLatestServerSelectionTelemetry,
+  loadServerSelectionFrequency,
   loadServerSelectionHistory,
+  loadServerSelectionPreferences,
+  recordServerSelection,
   rememberServerSelection,
+  saveServerSelectionPreferences,
   sortServerCandidates,
 } from "./serverSelection";
 import { spinnerTransition } from "./MotionProvider";
@@ -50,17 +58,30 @@ function getRegionLabel(region: string, t: Translate): string {
 
 function getPingColor(ms: number | null): string {
   if (ms === null) return "#6b7280";
-  if (ms < 30)  return "#58d98a";
-  if (ms < 80)  return "#84cc16";
-  if (ms < 150) return "#eab308";
+  if (ms < 200) return "#22c55e";
+  if (ms <= 300) return "#f59e0b";
   return "#ef4444";
 }
 
 function getQueueColor(q: number): string {
-  if (q <= 5)  return "#58d98a";
-  if (q <= 15) return "#84cc16";
-  if (q <= 30) return "#eab308";
+  if (q <= 10) return "#22c55e";
+  if (q <= 100) return "#f59e0b";
   return "#ef4444";
+}
+
+function getQueueLabel(q: number, t: Translate): string {
+  if (q <= 10) return t("serverSelection.queueLow");
+  if (q <= 100) return t("serverSelection.queueMedium");
+  return t("serverSelection.queueHigh");
+}
+
+function formatCacheAge(savedAtMs: number | null, t: Translate): string {
+  if (savedAtMs === null) return t("serverSelection.cacheStale");
+  const ageMs = Math.max(0, Date.now() - savedAtMs);
+  if (ageMs < 15_000) return t("serverSelection.cacheFresh");
+  const minutes = Math.floor(ageMs / 60_000);
+  if (minutes < 1) return t("serverSelection.cacheUpdated", { time: `${Math.floor(ageMs / 1000)}s` });
+  return t("serverSelection.cacheUpdated", { time: `${minutes}m` });
 }
 
 const REGION_META: Record<string, { label: string; flag: string }> = {
@@ -85,6 +106,7 @@ interface ZoneInfo {
   routingUrl: string; // always set for standard zones
   pingMs: number | null;
   lastSelectedAtMs?: number;
+  selectionCount?: number;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -106,27 +128,40 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
   // Ping state — populated after queue data loads
   const [zonePings,  setZonePings]  = useState<Map<string, number | null> | null>(null);
   const [isPinging,  setIsPinging]  = useState(false);
+  const [pingCacheSavedAtMs, setPingCacheSavedAtMs] = useState<number | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const [selected, setSelected] = useState<"auto" | "closest" | string>("auto");
   const [serverSelectionHistory] = useState(loadServerSelectionHistory);
+  const [serverSelectionFrequency] = useState(loadServerSelectionFrequency);
+  const [selectionPreferences, setSelectionPreferences] = useState(loadServerSelectionPreferences);
+  const [lastRouteTelemetry] = useState(loadLatestServerSelectionTelemetry);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   // ── Fetch queue data ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (initialQueueData) return;
+    if (initialQueueData && refreshNonce === 0) return;
     let cancelled = false;
+    if (refreshNonce > 0) setIsRefreshing(true);
     void (async () => {
       try {
         const data = await window.openNow.fetchPrintedWasteQueue();
-        if (!cancelled) setQueueData(data);
+        if (!cancelled) {
+          setQueueData(data);
+          setFetchError(null);
+        }
       } catch {
         if (!cancelled) setFetchError("serverSelection.fetchError");
       } finally {
-        if (!cancelled) setQueueLoading(false);
+        if (!cancelled) {
+          setQueueLoading(false);
+          setIsRefreshing(false);
+        }
       }
     })();
     return () => { cancelled = true; };
-  }, [initialQueueData]);
+  }, [initialQueueData, refreshNonce]);
 
   // Keep queue data fresh while modal is open.
   useEffect(() => {
@@ -211,7 +246,11 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
     }
 
     let cancelled = false;
-    const cachedPings = loadStoredPrintedWastePingResults();
+    const cachedSnapshot = loadStoredPrintedWastePingSnapshot();
+    const cachedPings = cachedSnapshot.results;
+    setPingCacheSavedAtMs(cachedSnapshot.savedAtMs);
+    const cacheIsFresh = cachedSnapshot.savedAtMs !== null
+      && Date.now() - cachedSnapshot.savedAtMs <= PING_CACHE_MAX_AGE_MS;
     const seedMap = new Map<string, number | null>();
     for (const zone of allStandardZones) {
       if (cachedPings.has(zone.routingUrl)) {
@@ -246,8 +285,8 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
     }
     const regionsToTest = zonesToPing.map((zone) => ({ name: zone.zoneId, url: zone.routingUrl }));
 
-    // If we have cached pings, don't block recommendation cards with a loading spinner
-    setIsPinging(seedMap.size === 0);
+    // Fresh cache paints immediately; stale cache is shown while it is revalidated.
+    setIsPinging(seedMap.size === 0 || !cacheIsFresh);
     void (async () => {
       try {
         const results = await window.openNow.pingRegions(regionsToTest);
@@ -255,7 +294,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
         const map = new Map(seedMap);
         for (const r of results) map.set(r.url, r.pingMs);
         setZonePings(map);
-        saveStoredPrintedWastePingResults(map);
+        setPingCacheSavedAtMs(saveStoredPrintedWastePingResults(map));
       } catch {
         // Ping failures are non-fatal
       } finally {
@@ -266,6 +305,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
   }, [queueData, nukedZoneIds]);
 
   // ── Build enriched zone list (standard zones only) ────────────────────────
+  const lastRouteAdvice = getServerRouteAdvice(lastRouteTelemetry);
   const zones = useMemo<ZoneInfo[]>(() => {
     if (!queueData) return [];
     return Object.entries(queueData)
@@ -281,9 +321,11 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
           routingUrl,
           pingMs,
           lastSelectedAtMs: serverSelectionHistory[zoneId],
+          selectionCount: serverSelectionFrequency[zoneId] ?? 0,
+          routeAdvice: lastRouteTelemetry?.zoneId === zoneId ? lastRouteAdvice : undefined,
         };
       });
-  }, [queueData, zonePings, nukedZoneIds]);
+  }, [lastRouteAdvice, lastRouteTelemetry, queueData, serverSelectionFrequency, zonePings, nukedZoneIds]);
 
   // If queue refresh removes a previously selected manual zone, fall back to auto.
   useEffect(() => {
@@ -300,8 +342,8 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
   // This keeps the top recommendation explainable and prevents a crowded
   // low-ping region from winning on latency alone.
   const rankedZones = useMemo(
-    () => sortServerCandidates(zones, Date.now()),
-    [zones],
+    () => sortServerCandidates(zones, Date.now(), selectionPreferences),
+    [selectionPreferences, zones],
   );
   const autoZone = rankedZones[0] ?? null;
 
@@ -320,10 +362,10 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
       g[z.pwRegion].push(z);
     }
     for (const k of Object.keys(g)) {
-      g[k] = sortServerCandidates(g[k], Date.now());
+      g[k] = sortServerCandidates(g[k], Date.now(), selectionPreferences);
     }
     return g;
-  }, [zones]);
+  }, [selectionPreferences, zones]);
 
   const regionOrder = useMemo(() => {
     const present = Object.keys(groupedZones);
@@ -331,7 +373,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
       const bestA = groupedZones[a]?.[0];
       const bestB = groupedZones[b]?.[0];
       if (!bestA || !bestB) return a.localeCompare(b);
-      const ranked = sortServerCandidates([bestA, bestB], Date.now());
+      const ranked = sortServerCandidates([bestA, bestB], Date.now(), selectionPreferences);
       if (ranked[0]?.zoneId !== ranked[1]?.zoneId) {
         return ranked[0]?.zoneId === bestA.zoneId ? -1 : 1;
       }
@@ -340,7 +382,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
       return (preferredA < 0 ? Number.MAX_SAFE_INTEGER : preferredA)
         - (preferredB < 0 ? Number.MAX_SAFE_INTEGER : preferredB);
     });
-  }, [groupedZones]);
+  }, [groupedZones, selectionPreferences]);
 
   // ── Confirm ───────────────────────────────────────────────────────────────
   const handleConfirm = useCallback(() => {
@@ -350,8 +392,9 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
       ? closestZone ?? autoZone
       : zones.find((z) => z.zoneId === selected) ?? autoZone;
 
-    if (selectedZone && selected !== "auto") {
-      rememberServerSelection(selectedZone.zoneId);
+    if (selectedZone) {
+      recordServerSelection({ ...selectedZone, region: selectedZone.pwRegion });
+      if (selected !== "auto") rememberServerSelection(selectedZone.zoneId);
     }
 
     onConfirm(selectedZone?.routingUrl ?? null);
@@ -363,6 +406,14 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
   }, [onCancel, handleConfirm]);
 
   const isLoading = queueLoading || nukedZoneIds === null;
+  const cacheLabel = formatCacheAge(pingCacheSavedAtMs, t);
+  const cacheIsFresh = pingCacheSavedAtMs !== null
+    && Date.now() - pingCacheSavedAtMs <= PING_CACHE_MAX_AGE_MS;
+  const handlePreferenceChange = (strategy: ServerSelectionPreferences["strategy"]): void => {
+    const next = { strategy };
+    setSelectionPreferences(next);
+    saveServerSelectionPreferences(next);
+  };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -394,6 +445,37 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
           <p style={{ margin: "12px 0 0", fontSize: 11, lineHeight: 1.45, color: "var(--ink-dim)" }}>
             {t("serverSelection.rankingHint")}
           </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 11, color: "var(--ink-muted)" }}>
+              <span>{t("serverSelection.strategyLabel")}</span>
+              <select
+                value={selectionPreferences.strategy}
+                onChange={(event) => handlePreferenceChange(event.target.value as ServerSelectionPreferences["strategy"])}
+                style={strategySelectStyle}
+              >
+                <option value="balanced">{t("serverSelection.strategyBalanced")}</option>
+                <option value="prefer-us">{t("serverSelection.strategyPreferUs")}</option>
+                <option value="lowest-latency">{t("serverSelection.strategyLowestLatency")}</option>
+                <option value="shortest-queue">{t("serverSelection.strategyShortestQueue")}</option>
+              </select>
+            </label>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 11, color: cacheIsFresh ? "#22c55e" : "var(--ink-dim)" }}>
+              <span>{cacheLabel}</span>
+              <button
+                type="button"
+                onClick={() => setRefreshNonce((value) => value + 1)}
+                disabled={isRefreshing || queueLoading}
+                style={refreshBtnStyle}
+              >
+                {isRefreshing ? t("serverSelection.pinging") : t("serverSelection.refreshData")}
+              </button>
+            </div>
+          </div>
+          {lastRouteAdvice !== "unknown" && (
+            <div style={{ marginTop: 9, fontSize: 11, color: lastRouteAdvice === "avoid" ? "#ef4444" : "#22c55e" }}>
+              {lastRouteAdvice === "avoid" ? t("serverSelection.lastRoutePoor") : t("serverSelection.lastRouteHealthy")}
+            </div>
+          )}
           <div style={{ height: 1, background: "var(--panel-border)", margin: "16px 0 0" }} />
         </div>
 
@@ -713,16 +795,23 @@ function ZoneRow({ t, zone, isAuto, isClosest, isPinging, selected, onClick }: Z
             {t("serverSelection.nearestBadge")}
           </span>
         )}
-        {(hint === "recommended" || hint === "congested") && (
+        {(hint === "recommended" || hint === "frequent" || hint === "congested") && (
           <span style={{
             fontSize: 10,
-            background: hint === "congested" ? "rgba(234, 179, 8, 0.14)" : "var(--accent-surface)",
-            color: hint === "congested" ? "#eab308" : "var(--accent)",
+            background: hint === "congested" ? "rgba(239, 68, 68, 0.14)" : "var(--accent-surface)",
+            color: hint === "congested" ? "#ef4444" : "var(--accent)",
             borderRadius: 4,
             padding: "1px 5px",
             fontWeight: 700,
+            whiteSpace: "nowrap",
           }}>
-            {t(hint === "congested" ? "serverSelection.congestedBadge" : "serverSelection.recentBadge")}
+            {t(
+              hint === "congested"
+                ? "serverSelection.congestedBadge"
+                : hint === "frequent"
+                ? "serverSelection.frequentBadge"
+                : "serverSelection.recentBadge",
+            )}
           </span>
         )}
       </div>
@@ -736,7 +825,10 @@ function ZoneRow({ t, zone, isAuto, isClosest, isPinging, selected, onClick }: Z
             {zone.pingMs}ms
           </span>
         ) : null}
-        <span style={{ fontSize: 12, color: getQueueColor(zone.queuePosition), fontWeight: 700, minWidth: 32, textAlign: "right" }}>
+        <span
+          title={getQueueLabel(zone.queuePosition, t)}
+          style={{ fontSize: 12, color: getQueueColor(zone.queuePosition), fontWeight: 700, minWidth: 32, textAlign: "right" }}
+        >
           {t("serverSelection.queue", { count: zone.queuePosition })}
         </span>
         {zone.etaMs !== undefined && (
@@ -838,6 +930,9 @@ const scrollBody: React.CSSProperties = {
   padding: "16px 24px",
   scrollbarWidth: "thin",
   scrollbarColor: "rgba(255,255,255,0.08) transparent",
+  overscrollBehavior: "contain",
+  WebkitOverflowScrolling: "touch",
+  contain: "layout paint",
 };
 
 const footerStyle: React.CSSProperties = {
@@ -848,6 +943,26 @@ const footerStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: 12,
+};
+
+const strategySelectStyle: React.CSSProperties = {
+  background: "var(--bg-c)",
+  border: "1px solid var(--panel-border-solid)",
+  borderRadius: 6,
+  color: "var(--ink-soft)",
+  fontSize: 11,
+  padding: "4px 7px",
+  outline: "none",
+};
+
+const refreshBtnStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "1px solid var(--panel-border)",
+  borderRadius: 5,
+  color: "var(--ink-muted)",
+  cursor: "pointer",
+  fontSize: 10,
+  padding: "3px 6px",
 };
 
 const closeBtn: React.CSSProperties = {
