@@ -200,9 +200,30 @@ export function StreamLoading({
   }, [effectiveStartedAt, hasError]);
 
   return (
-    <div className={`sload${hasError ? " sload--error" : ""}`}>
+    <div
+      className={`sload${hasError ? " sload--error" : ""}`}
+      onPointerMove={(event) => {
+        if (reducedMotion) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        const x = rect.width > 0 ? ((event.clientX - rect.left) / rect.width) * 100 : 50;
+        const y = rect.height > 0 ? ((event.clientY - rect.top) / rect.height) * 100 : 50;
+        const driftX = Math.max(-14, Math.min(14, ((x - 50) / 50) * 14));
+        const driftY = Math.max(-10, Math.min(10, ((y - 50) / 50) * 10));
+        event.currentTarget.style.setProperty("--sload-pointer-x", `${Math.max(0, Math.min(100, x))}%`);
+        event.currentTarget.style.setProperty("--sload-pointer-y", `${Math.max(0, Math.min(100, y))}%`);
+        event.currentTarget.style.setProperty("--sload-drift-x", `${driftX.toFixed(2)}px`);
+        event.currentTarget.style.setProperty("--sload-drift-y", `${driftY.toFixed(2)}px`);
+      }}
+      onPointerLeave={(event) => {
+        event.currentTarget.style.setProperty("--sload-pointer-x", "50%");
+        event.currentTarget.style.setProperty("--sload-pointer-y", "50%");
+        event.currentTarget.style.setProperty("--sload-drift-x", "0px");
+        event.currentTarget.style.setProperty("--sload-drift-y", "0px");
+      }}
+    >
       <div className="sload-backdrop" />
-      {gameCover && <img className="sload-backdrop-art" src={gameCover} alt="" aria-hidden="true" />}
+      {gameCover && <img className="sload-backdrop-art" src={gameCover} alt="" aria-hidden="true" draggable={false} />}
+      <div className="sload-backdrop-mosaic" aria-hidden="true" />
       {!hasError && <LazyShaderAtmosphere variant={status === "queue" ? "queue" : "connecting"} />}
       <div className="sload-backdrop-wash" />
 
