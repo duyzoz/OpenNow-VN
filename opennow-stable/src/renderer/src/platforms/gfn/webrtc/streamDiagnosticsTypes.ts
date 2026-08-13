@@ -71,6 +71,16 @@ export interface StreamDiagnostics {
   nativeRequestedStreamingFeaturesSummary?: string;
   nativeFinalizedStreamingFeaturesSummary?: string;
 
+  // Audio/video timing telemetry (optional for backwards-compatible native fixtures)
+  audioOutputMode?: "direct" | "audio_context";
+  audioContextState?: AudioContextState | "none";
+  audioContextBaseLatencyMs?: number;
+  audioContextOutputLatencyMs?: number;
+  audioSampleRate?: number;
+  audioCurrentTime?: number;
+  videoCurrentTime?: number;
+  videoAudioOffsetMs?: number;
+
   // Microphone state
   micState: MicState;
   micEnabled: boolean;
