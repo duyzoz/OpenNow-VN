@@ -62,7 +62,10 @@ import {
 } from "./webrtc/inputChannelPolicy";
 import { GamepadController } from "./webrtc/gamepadController";
 import { DomInputCaptureController } from "./webrtc/domInputCaptureController";
-import { PeerMediaLifecycleController } from "./webrtc/peerMediaLifecycleController";
+import {
+  PeerMediaLifecycleController,
+  type AudioOutputMode,
+} from "./webrtc/peerMediaLifecycleController";
 
 export type {
   StreamDiagnostics,
@@ -79,6 +82,7 @@ export {
   subsampleCoalescedPointerEvents,
   type AdaptiveMouseFlushDecisionParams,
 } from "./webrtc/mouseInput";
+export { calculateMouseBatchAgeMs } from "./webrtc/domInputCaptureController";
 export {
   evaluateControllerOverlayShortcutGate,
   type ControllerOverlayChordState,
@@ -160,6 +164,8 @@ interface ClientOptions {
   readClipboardText?: () => Promise<string>;
   /** Maximum UTF-8 clipboard bytes to advertise/send. */
   clipboardMaxBytes?: number;
+  /** Audio output path; direct element playback is the low-latency default. */
+  audioOutputMode?: AudioOutputMode;
   onLog: (line: string) => void;
   onStats?: (stats: StreamDiagnostics) => void;
   onTimeWarning?: (warning: StreamTimeWarning) => void;
@@ -398,6 +404,14 @@ export class GfnWebRtcClient {
     nativeFinalizedStreamingFeaturesSummary: undefined,
     micState: "uninitialized",
     micEnabled: false,
+    audioOutputMode: "direct",
+    audioContextState: "none",
+    audioContextBaseLatencyMs: 0,
+    audioContextOutputLatencyMs: 0,
+    audioSampleRate: 0,
+    audioCurrentTime: 0,
+    videoCurrentTime: 0,
+    videoAudioOffsetMs: 0,
   };
 
   constructor(private readonly options: ClientOptions) {
@@ -488,6 +502,7 @@ export class GfnWebRtcClient {
     this.peerMediaController = new PeerMediaLifecycleController({
       videoElement: options.videoElement,
       audioElement: options.audioElement,
+      audioOutputMode: options.audioOutputMode ?? "direct",
       onRenderFrame: () => this.updateRenderFps(),
       log: (message) => this.log(message),
     });
@@ -794,6 +809,8 @@ export class GfnWebRtcClient {
     this.videoDecodeStallWarningSent = false;
     this.decoderPressureController.reset();
     const mouseDiagnostics = this.domInputController.getMouseDiagnostics();
+    const framePacingDiagnostics = this.peerMediaController.getFramePacingDiagnostics();
+    const audioDiagnostics = this.peerMediaController.getAudioDiagnostics();
     this.diagnostics = {
       connectionState: this.pc?.connectionState ?? "closed",
       inputReady: false,
@@ -831,6 +848,9 @@ export class GfnWebRtcClient {
       mousePacketsPerSecond: mouseDiagnostics.packetsPerSecond,
       mouseResidualMagnitude: 0,
       mouseAdaptiveFlushActive: mouseDiagnostics.adaptiveFlushActive,
+      mouseBatchAgeMs: mouseDiagnostics.batchAgeMs,
+      frameAgeMs: framePacingDiagnostics.frameAgeMs,
+      framePacingVarianceMs: framePacingDiagnostics.framePacingVarianceMs,
       lagReason: "unknown",
       lagReasonDetail: "Waiting for stream stats",
       gpuType: this.gpuType,
@@ -849,6 +869,14 @@ export class GfnWebRtcClient {
       nativeFinalizedStreamingFeaturesSummary: undefined,
       micState: this.micState,
       micEnabled: this.micManager?.isEnabled() ?? false,
+      audioOutputMode: audioDiagnostics.outputMode,
+      audioContextState: audioDiagnostics.audioContextState,
+      audioContextBaseLatencyMs: audioDiagnostics.audioContextBaseLatencyMs,
+      audioContextOutputLatencyMs: audioDiagnostics.audioContextOutputLatencyMs,
+      audioSampleRate: audioDiagnostics.audioSampleRate,
+      audioCurrentTime: audioDiagnostics.audioCurrentTime,
+      videoCurrentTime: audioDiagnostics.videoCurrentTime,
+      videoAudioOffsetMs: audioDiagnostics.videoAudioOffsetMs,
     };
     this.emitStats();
   }
@@ -966,6 +994,18 @@ export class GfnWebRtcClient {
 
     const report = await this.pc.getStats();
     const now = performance.now();
+    const framePacingDiagnostics = this.peerMediaController.getFramePacingDiagnostics();
+    this.diagnostics.frameAgeMs = Math.round(framePacingDiagnostics.frameAgeMs * 10) / 10;
+    this.diagnostics.framePacingVarianceMs = Math.round(framePacingDiagnostics.framePacingVarianceMs * 10) / 10;
+    const audioDiagnostics = this.peerMediaController.getAudioDiagnostics();
+    this.diagnostics.audioOutputMode = audioDiagnostics.outputMode;
+    this.diagnostics.audioContextState = audioDiagnostics.audioContextState;
+    this.diagnostics.audioContextBaseLatencyMs = audioDiagnostics.audioContextBaseLatencyMs;
+    this.diagnostics.audioContextOutputLatencyMs = audioDiagnostics.audioContextOutputLatencyMs;
+    this.diagnostics.audioSampleRate = audioDiagnostics.audioSampleRate;
+    this.diagnostics.audioCurrentTime = audioDiagnostics.audioCurrentTime;
+    this.diagnostics.videoCurrentTime = audioDiagnostics.videoCurrentTime;
+    this.diagnostics.videoAudioOffsetMs = audioDiagnostics.videoAudioOffsetMs;
     let inboundVideo: Record<string, unknown> | null = null;
     let activePair: Record<string, unknown> | null = null;
     const codecs = new Map<string, Record<string, unknown>>();
@@ -1159,6 +1199,7 @@ export class GfnWebRtcClient {
     this.diagnostics.mouseFlushIntervalMs = mouseDiagnostics.flushIntervalMs;
     this.diagnostics.mousePacketsPerSecond = mouseDiagnostics.packetsPerSecond;
     this.diagnostics.mouseResidualMagnitude = mouseDiagnostics.residualMagnitude;
+    this.diagnostics.mouseBatchAgeMs = Math.round(mouseDiagnostics.batchAgeMs * 10) / 10;
 
     // Intentional adaptive coalesce: only when mouse moves ride the reliable
     // channel (PR mouse keeps the fixed 4/8/16 ms official interval). Skip while
@@ -2360,6 +2401,20 @@ export class GfnWebRtcClient {
 
   setOutputVolume(volume: number): void {
     this.peerMediaController.setOutputVolume(volume);
+  }
+
+  setAudioOutputMode(mode: AudioOutputMode): void {
+    this.peerMediaController.setAudioOutputMode(mode);
+    const audioDiagnostics = this.peerMediaController.getAudioDiagnostics();
+    this.diagnostics.audioOutputMode = audioDiagnostics.outputMode;
+    this.diagnostics.audioContextState = audioDiagnostics.audioContextState;
+    this.diagnostics.audioContextBaseLatencyMs = audioDiagnostics.audioContextBaseLatencyMs;
+    this.diagnostics.audioContextOutputLatencyMs = audioDiagnostics.audioContextOutputLatencyMs;
+    this.diagnostics.audioSampleRate = audioDiagnostics.audioSampleRate;
+    this.diagnostics.audioCurrentTime = audioDiagnostics.audioCurrentTime;
+    this.diagnostics.videoCurrentTime = audioDiagnostics.videoCurrentTime;
+    this.diagnostics.videoAudioOffsetMs = audioDiagnostics.videoAudioOffsetMs;
+    this.emitStats(true);
   }
 
   getMicrophoneLevel(): number {

@@ -9,13 +9,16 @@ import { GameCardListItem, useCatalogCardActionsRef } from "./GameCardListItem";
 
 import { useTranslation } from "../i18n";
 import { GameInfoPanel } from "./GameInfoPanel";
-import { SearchSuggestions, type RecentSearch } from "./SearchSuggestions";
+import { SearchSuggestions } from "./SearchSuggestions";
+import { getGameSearchSuggestions } from "../lib/gameCatalog";
+import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
 import { SelectDropdown } from "./ui/SelectDropdown";
 import { MotionSpinner } from "./MotionSpinner";
 import { formatSortLabel } from "../utils/sortLabelFormat";
 
 export interface HomePageProps {
   games: GameInfo[];
+  allGames?: GameInfo[];
   searchQuery: string;
   onSearchChange: (query: string) => void;
   /**
@@ -55,9 +58,9 @@ export interface HomePageProps {
 
 export const HomePage = memo(function HomePage({
   games,
+  allGames = games,
   searchQuery,
   onSearchChange,
-  fetchSearchSuggestions,
   onPlayGame,
   isLoading,
   selectedGameId,
@@ -99,17 +102,7 @@ export const HomePage = memo(function HomePage({
   const [suggestions, setSuggestions] = useState<GameInfo[]>([]);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
-  const [recentSearches, setRecentSearches] = useState<RecentSearch[]>(() => {
-    try {
-      const stored = window.localStorage.getItem("opennow.recent-game-searches");
-      const parsed = stored ? JSON.parse(stored) : [];
-      return Array.isArray(parsed)
-        ? parsed.filter((item): item is RecentSearch => typeof item?.query === "string" && typeof item?.count === "number").slice(0, 8)
-        : [];
-    } catch {
-      return [];
-    }
-  });
+  const [recentGames, setRecentGames] = useState<RecentGame[]>(loadRecentGames);
 
   useEffect(() => {
     setDraftQuery(searchQuery);
@@ -123,55 +116,29 @@ export const HomePage = memo(function HomePage({
       setIsSuggesting(false);
       return undefined;
     }
-    let cancelled = false;
     setIsSuggesting(true);
     const handle = window.setTimeout(() => {
-      void fetchSearchSuggestions(trimmed).then((results) => {
-        if (cancelled) return;
-        setSuggestions(results);
-        setIsSuggesting(false);
-      });
-    }, 200);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(handle);
-    };
-  }, [draftQuery, fetchSearchSuggestions]);
+      setSuggestions(getGameSearchSuggestions(allGames, trimmed, 30));
+      setIsSuggesting(false);
+    }, 40);
+    return () => window.clearTimeout(handle);
+  }, [allGames, draftQuery]);
 
-  const rememberSearch = useCallback((value: string) => {
-    const normalized = value.trim();
-    if (!normalized) return;
-    setRecentSearches((current) => {
-      const existing = current.find((item) => item.query.toLowerCase() === normalized.toLowerCase());
-      const next = existing
-        ? [{ query: existing.query, count: existing.count + 1 }, ...current.filter((item) => item !== existing)]
-        : [{ query: normalized, count: 1 }, ...current];
-      const limited = next.slice(0, 8);
-      try {
-        window.localStorage.setItem("opennow.recent-game-searches", JSON.stringify(limited));
-      } catch {
-        // Local storage can be unavailable in hardened/private environments.
-      }
-      return limited;
-    });
+  const rememberGame = useCallback((game: GameInfo) => {
+    setRecentGames((current) => rememberRecentGame(current, game));
   }, []);
 
-  const clearRecentSearches = useCallback(() => {
-    setRecentSearches([]);
-    try {
-      window.localStorage.removeItem("opennow.recent-game-searches");
-    } catch {
-      // Ignore storage errors; the in-memory history is still cleared.
-    }
+  const clearRecentGamesHistory = useCallback(() => {
+    setRecentGames([]);
+    clearRecentGames();
   }, []);
 
   const commitSearch = useCallback((value: string) => {
     const normalized = value.trim();
-    if (normalized) rememberSearch(normalized);
     onSearchChange(normalized);
     setIsSearchFocused(false);
     setSelectedSuggestionIndex(-1);
-  }, [onSearchChange, rememberSearch]);
+  }, [onSearchChange]);
   const catalogActionsRef = useCatalogCardActionsRef({
     onPlayGame,
     onSelectGame,
@@ -356,7 +323,7 @@ export const HomePage = memo(function HomePage({
                   e.preventDefault();
                   const selected = selectedSuggestionIndex >= 0 ? suggestions[selectedSuggestionIndex] : undefined;
                   if (selected) {
-                    rememberSearch(draftQuery);
+                    rememberGame(selected);
                     setGameInfoGame(selected);
                     setIsSearchFocused(false);
                   } else {
@@ -378,14 +345,16 @@ export const HomePage = memo(function HomePage({
                 isLoading={isSuggesting}
                 maxResults={30}
                 selectedIndex={selectedSuggestionIndex}
-                recentSearches={recentSearches}
-                onSelectRecent={(query) => {
-                  setDraftQuery(query);
-                  commitSearch(query);
+                recentGames={recentGames}
+                onSelectRecent={(game) => {
+                  setDraftQuery(game.title);
+                  rememberGame(game);
+                  setGameInfoGame(game);
+                  setIsSearchFocused(false);
                 }}
-                onClearRecent={clearRecentSearches}
+                onClearRecent={clearRecentGamesHistory}
                 onSelect={(game) => {
-                  rememberSearch(draftQuery);
+                  rememberGame(game);
                   setGameInfoGame(game);
                   setIsSearchFocused(false);
                   setSelectedSuggestionIndex(-1);

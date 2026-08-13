@@ -1,9 +1,41 @@
+export type AudioOutputMode = "direct" | "audio_context";
+
+export interface PeerAudioDiagnostics {
+  outputMode: AudioOutputMode;
+  audioContextState: AudioContextState | "none";
+  audioContextBaseLatencyMs: number;
+  audioContextOutputLatencyMs: number;
+  audioSampleRate: number;
+  audioCurrentTime: number;
+  videoCurrentTime: number;
+  videoAudioOffsetMs: number;
+}
+
+export interface PeerFramePacingDiagnostics {
+  /** How late the most recent frame callback arrived after its expected display time. */
+  frameAgeMs: number;
+  /** Rolling standard deviation of callback-to-callback frame intervals, in ms. */
+  framePacingVarianceMs: number;
+}
+
 interface PeerMediaLifecycleDependencies {
   videoElement: HTMLVideoElement;
   audioElement: HTMLAudioElement;
+  audioOutputMode?: AudioOutputMode;
   onRenderFrame: () => void;
   log: (message: string) => void;
 }
+
+const EMPTY_AUDIO_DIAGNOSTICS: PeerAudioDiagnostics = {
+  outputMode: "direct",
+  audioContextState: "none",
+  audioContextBaseLatencyMs: 0,
+  audioContextOutputLatencyMs: 0,
+  audioSampleRate: 0,
+  audioCurrentTime: 0,
+  videoCurrentTime: 0,
+  videoAudioOffsetMs: 0,
+};
 
 export class PeerMediaLifecycleController {
   private readonly videoStream = new MediaStream();
@@ -12,9 +44,19 @@ export class PeerMediaLifecycleController {
   private audioSourceNode: MediaStreamAudioSourceNode | null = null;
   private audioGainNode: GainNode | null = null;
   private outputVolume = 1;
+  private audioOutputMode: AudioOutputMode = "direct";
   private visibilityChangeListener: (() => void) | null = null;
+  private frameAgeMs = 0;
+  private framePacingVarianceMs = 0;
+  private lastFrameCallbackMs: number | null = null;
+  private readonly frameIntervalsMs = new Float64Array(120);
+  private frameIntervalIndex = 0;
+  private frameIntervalCount = 0;
+  private frameIntervalSumMs = 0;
+  private frameIntervalSumSquaresMs = 0;
 
   constructor(private readonly dependencies: PeerMediaLifecycleDependencies) {
+    this.audioOutputMode = dependencies.audioOutputMode ?? "direct";
     dependencies.videoElement.srcObject = this.videoStream;
     dependencies.audioElement.srcObject = this.audioStream;
     dependencies.audioElement.muted = true;
@@ -25,11 +67,91 @@ export class PeerMediaLifecycleController {
     return this.videoStream.getVideoTracks()[0] ?? null;
   }
 
+  getFramePacingDiagnostics(): PeerFramePacingDiagnostics {
+    return {
+      frameAgeMs: this.frameAgeMs,
+      framePacingVarianceMs: this.framePacingVarianceMs,
+    };
+  }
+
+  getAudioDiagnostics(): PeerAudioDiagnostics {
+    const audioElement = this.dependencies.audioElement;
+    const videoElement = this.dependencies.videoElement;
+    const audioCurrentTime = Number.isFinite(audioElement.currentTime) ? audioElement.currentTime : 0;
+    const videoCurrentTime = Number.isFinite(videoElement.currentTime) ? videoElement.currentTime : 0;
+    const videoAudioOffsetMs = audioCurrentTime > 0 || videoCurrentTime > 0
+      ? (videoCurrentTime - audioCurrentTime) * 1000
+      : 0;
+
+    return {
+      outputMode: this.audioOutputMode,
+      audioContextState: this.audioContext?.state ?? "none",
+      audioContextBaseLatencyMs: this.audioContext
+        ? this.audioContext.baseLatency * 1000
+        : 0,
+      audioContextOutputLatencyMs: this.audioContext && "outputLatency" in this.audioContext
+        ? Number((this.audioContext as AudioContext & { outputLatency?: number }).outputLatency ?? 0) * 1000
+        : 0,
+      audioSampleRate: this.audioContext?.sampleRate ?? 0,
+      audioCurrentTime,
+      videoCurrentTime,
+      videoAudioOffsetMs,
+    };
+  }
+
+  setAudioOutputMode(mode: AudioOutputMode): void {
+    if (this.audioOutputMode === mode) {
+      return;
+    }
+
+    this.audioOutputMode = mode;
+    if (this.audioStream.getAudioTracks().length > 0) {
+      this.startAudioOutput("Audio output mode changed");
+    }
+  }
+
   attachTrack(track: MediaStreamTrack): void {
     if (track.kind === "video") {
       this.replaceTrackInStream(this.videoStream, track);
+      this.resetFramePacingDiagnostics();
       const video = this.dependencies.videoElement;
-      const frameCallback = () => {
+      const frameCallback = (
+        callbackNow: number,
+        metadata: VideoFrameCallbackMetadata,
+      ) => {
+        const expectedDisplayTime = Number(metadata.expectedDisplayTime);
+        const presentationTime = Number(metadata.presentationTime);
+        const displayTime = Number.isFinite(expectedDisplayTime)
+          ? expectedDisplayTime
+          : presentationTime;
+        if (Number.isFinite(displayTime)) {
+          this.frameAgeMs = Math.max(0, Math.min(1000, callbackNow - displayTime));
+        }
+
+        if (this.lastFrameCallbackMs !== null) {
+          const intervalMs = callbackNow - this.lastFrameCallbackMs;
+          if (intervalMs > 0 && intervalMs <= 1000) {
+            const oldIntervalMs = this.frameIntervalsMs[this.frameIntervalIndex];
+            if (this.frameIntervalCount === this.frameIntervalsMs.length) {
+              this.frameIntervalSumMs -= oldIntervalMs;
+              this.frameIntervalSumSquaresMs -= oldIntervalMs * oldIntervalMs;
+            } else {
+              this.frameIntervalCount += 1;
+            }
+            this.frameIntervalsMs[this.frameIntervalIndex] = intervalMs;
+            this.frameIntervalSumMs += intervalMs;
+            this.frameIntervalSumSquaresMs += intervalMs * intervalMs;
+            this.frameIntervalIndex = (this.frameIntervalIndex + 1) % this.frameIntervalsMs.length;
+            const meanMs = this.frameIntervalSumMs / this.frameIntervalCount;
+            const varianceMs = Math.max(
+              0,
+              this.frameIntervalSumSquaresMs / this.frameIntervalCount - meanMs * meanMs,
+            );
+            this.framePacingVarianceMs = Math.sqrt(varianceMs);
+          }
+        }
+        this.lastFrameCallbackMs = callbackNow;
+
         this.dependencies.onRenderFrame();
         if (this.videoStream.active) {
           video.requestVideoFrameCallback(frameCallback);
@@ -69,60 +191,7 @@ export class PeerMediaLifecycleController {
 
     if (track.kind === "audio") {
       this.replaceTrackInStream(this.audioStream, track);
-      this.cleanupAudioRouting();
-
-      let audioContext: AudioContext | null = null;
-      let audioSourceNode: MediaStreamAudioSourceNode | null = null;
-      let audioGainNode: GainNode | null = null;
-      try {
-        audioContext = new AudioContext({
-          latencyHint: "interactive",
-          sampleRate: 48000,
-        });
-        audioSourceNode = audioContext.createMediaStreamSource(this.audioStream);
-        audioGainNode = audioContext.createGain();
-        audioGainNode.gain.value = this.outputVolume;
-        audioSourceNode.connect(audioGainNode);
-        audioGainNode.connect(audioContext.destination);
-        if (audioContext.state === "suspended") {
-          void audioContext.resume();
-        }
-        
-        this.visibilityChangeListener = () => {
-          if (document.visibilityState === "visible" && audioContext?.state === "suspended") {
-            void audioContext.resume();
-          }
-        };
-        document.addEventListener("visibilitychange", this.visibilityChangeListener);
-
-        this.audioContext = audioContext;
-        this.audioSourceNode = audioSourceNode;
-        this.audioGainNode = audioGainNode;
-        this.dependencies.log(
-          `Audio routed through AudioContext (latency: ${(audioContext.baseLatency * 1000).toFixed(1)}ms, sampleRate: ${audioContext.sampleRate}Hz)`,
-        );
-      } catch (error) {
-        if (audioSourceNode) {
-          try {
-            audioSourceNode.disconnect();
-          } catch {
-            // Ignore cleanup errors from a partially-created node.
-          }
-        }
-        if (audioGainNode) {
-          try {
-            audioGainNode.disconnect();
-          } catch {
-            // Ignore cleanup errors from a partially-created node.
-          }
-        }
-        if (audioContext) {
-          void audioContext.close().catch(() => {});
-        }
-        this.startDirectAudioPlayback(
-          `AudioContext creation failed, falling back to audio element: ${String(error)}`,
-        );
-      }
+      this.startAudioOutput("Audio track attached");
     }
   }
 
@@ -140,6 +209,7 @@ export class PeerMediaLifecycleController {
   reset(): void {
     this.cleanupAudioRouting();
     this.clearTracks();
+    this.resetFramePacingDiagnostics();
   }
 
   cleanupAudio(): void {
@@ -147,12 +217,24 @@ export class PeerMediaLifecycleController {
   }
 
   clearTracks(): void {
+    this.resetFramePacingDiagnostics();
     for (const track of this.videoStream.getTracks()) {
       this.videoStream.removeTrack(track);
     }
     for (const track of this.audioStream.getTracks()) {
       this.audioStream.removeTrack(track);
     }
+  }
+
+  private resetFramePacingDiagnostics(): void {
+    this.frameAgeMs = 0;
+    this.framePacingVarianceMs = 0;
+    this.lastFrameCallbackMs = null;
+    this.frameIntervalIndex = 0;
+    this.frameIntervalCount = 0;
+    this.frameIntervalSumMs = 0;
+    this.frameIntervalSumSquaresMs = 0;
+    this.frameIntervalsMs.fill(0);
   }
 
   private replaceTrackInStream(
@@ -166,6 +248,73 @@ export class PeerMediaLifecycleController {
       stream.removeTrack(existingTrack);
     }
     stream.addTrack(track);
+  }
+
+  private startAudioOutput(reason: string): void {
+    this.cleanupAudioRouting();
+
+    if (this.audioOutputMode === "direct") {
+      this.startDirectAudioPlayback(reason);
+      return;
+    }
+
+    this.startAudioContextPlayback(reason);
+  }
+
+  private startAudioContextPlayback(reason: string): void {
+    let audioContext: AudioContext | null = null;
+    let audioSourceNode: MediaStreamAudioSourceNode | null = null;
+    let audioGainNode: GainNode | null = null;
+    try {
+      audioContext = new AudioContext({
+        latencyHint: "interactive",
+        sampleRate: 48000,
+      });
+      audioSourceNode = audioContext.createMediaStreamSource(this.audioStream);
+      audioGainNode = audioContext.createGain();
+      audioGainNode.gain.value = this.outputVolume;
+      audioSourceNode.connect(audioGainNode);
+      audioGainNode.connect(audioContext.destination);
+      if (audioContext.state === "suspended") {
+        void audioContext.resume();
+      }
+
+      this.visibilityChangeListener = () => {
+        if (document.visibilityState === "visible" && audioContext?.state === "suspended") {
+          void audioContext.resume();
+        }
+      };
+      document.addEventListener("visibilitychange", this.visibilityChangeListener);
+
+      this.audioContext = audioContext;
+      this.audioSourceNode = audioSourceNode;
+      this.audioGainNode = audioGainNode;
+      this.dependencies.log(
+        `${reason}; audio routed through AudioContext (latency: ${(audioContext.baseLatency * 1000).toFixed(1)}ms, sampleRate: ${audioContext.sampleRate}Hz)`,
+      );
+    } catch (error) {
+      if (audioSourceNode) {
+        try {
+          audioSourceNode.disconnect();
+        } catch {
+          // Ignore cleanup errors from a partially-created node.
+        }
+      }
+      if (audioGainNode) {
+        try {
+          audioGainNode.disconnect();
+        } catch {
+          // Ignore cleanup errors from a partially-created node.
+        }
+      }
+      if (audioContext) {
+        void audioContext.close().catch(() => {});
+      }
+      this.audioOutputMode = "direct";
+      this.startDirectAudioPlayback(
+        `AudioContext creation failed, falling back to direct audio: ${String(error)}`,
+      );
+    }
   }
 
   private cleanupAudioRouting(): void {
@@ -198,16 +347,23 @@ export class PeerMediaLifecycleController {
   }
 
   private startDirectAudioPlayback(reason: string): void {
-    this.dependencies.log(reason);
-    this.dependencies.audioElement.muted = false;
-    this.dependencies.audioElement.volume = this.outputVolume;
-    this.dependencies.audioElement
-      .play()
+    const audioElement = this.dependencies.audioElement;
+    audioElement.muted = false;
+    audioElement.volume = this.outputVolume;
+    audioElement.play()
       .then(() => {
-        this.dependencies.log("Audio track attached (fallback)");
+        this.dependencies.log(`${reason}; direct audio element playback started`);
       })
       .catch((playError) => {
-        this.dependencies.log(`Audio autoplay blocked: ${String(playError)}`);
+        this.dependencies.log(`Direct audio autoplay blocked: ${String(playError)}`);
+        if (this.audioOutputMode === "direct") {
+          this.audioOutputMode = "audio_context";
+          this.startAudioContextPlayback("Direct audio playback failed");
+        }
       });
   }
+}
+
+export function emptyPeerAudioDiagnostics(): PeerAudioDiagnostics {
+  return { ...EMPTY_AUDIO_DIAGNOSTICS };
 }

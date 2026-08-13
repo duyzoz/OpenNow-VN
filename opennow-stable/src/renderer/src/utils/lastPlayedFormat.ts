@@ -19,6 +19,24 @@ export function formatCatalogLastPlayed(t: TranslateFunction, date?: string): st
   return lastPlayed.toLocaleDateString();
 }
 
+export function formatCatalogAccessTime(date?: string): string {
+  if (!date) return "";
+  const timestamp = new Date(date).getTime();
+  if (!Number.isFinite(timestamp)) return "";
+  const elapsed = Math.max(0, Date.now() - timestamp);
+  if (elapsed < 60_000) return "Vừa truy cập";
+  if (elapsed < 3_600_000) return `Truy cập ${Math.max(1, Math.round(elapsed / 60_000))} phút trước`;
+  if (elapsed < 86_400_000) return `Truy cập ${Math.max(1, Math.round(elapsed / 3_600_000))} giờ trước`;
+  if (elapsed < 7 * 86_400_000) return `Truy cập ${Math.max(1, Math.round(elapsed / 86_400_000))} ngày trước`;
+  return `Truy cập lúc ${new Date(timestamp).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
+}
+
 export function formatPlaytimeLastPlayed(isoString: string | null): string {
   if (!isoString) return "Never";
   const then = new Date(isoString);

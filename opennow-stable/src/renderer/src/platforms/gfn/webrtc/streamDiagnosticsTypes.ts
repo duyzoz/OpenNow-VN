@@ -49,6 +49,11 @@ export interface StreamDiagnostics {
   mousePacketsPerSecond: number;
   mouseResidualMagnitude: number;
   mouseAdaptiveFlushActive: boolean;
+  mouseBatchAgeMs?: number;
+
+  // Presentation telemetry (optional for backwards-compatible fixtures)
+  frameAgeMs?: number;
+  framePacingVarianceMs?: number;
 
   lagReason: StreamLagReason;
   lagReasonDetail: string;
@@ -70,6 +75,16 @@ export interface StreamDiagnostics {
   nativeTransitionSummary?: string;
   nativeRequestedStreamingFeaturesSummary?: string;
   nativeFinalizedStreamingFeaturesSummary?: string;
+
+  // Audio/video timing telemetry (optional for backwards-compatible native fixtures)
+  audioOutputMode?: "direct" | "audio_context";
+  audioContextState?: AudioContextState | "none";
+  audioContextBaseLatencyMs?: number;
+  audioContextOutputLatencyMs?: number;
+  audioSampleRate?: number;
+  audioCurrentTime?: number;
+  videoCurrentTime?: number;
+  videoAudioOffsetMs?: number;
 
   // Microphone state
   micState: MicState;

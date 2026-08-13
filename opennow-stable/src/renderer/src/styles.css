@@ -12589,13 +12589,40 @@ button.game-card-store-chip.owned.active:hover {
   outline: none;
 }
 
-.search-history-query {
+.search-history-icon {
+  flex: 0 0 auto;
+  color: var(--ink-muted);
+}
+
+.search-history-thumb {
+  width: 42px;
+  height: 28px;
+}
+
+.search-history-main {
+  min-width: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-history-query {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.84rem;
   font-weight: 620;
+}
+
+.search-history-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink-muted);
+  font-size: 0.66rem;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .search-history-count {
@@ -12851,7 +12878,9 @@ button.game-card-store-chip.owned.active:hover {
   position: relative;
   overflow: visible !important;
   z-index: 1;
-  contain: layout style paint;
+  /* Do not use paint containment here: the card hover lift must remain visible
+     outside the wrapper, otherwise its top edge gets clipped while hovering. */
+  contain: layout style;
   will-change: transform, opacity;
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -12865,7 +12894,7 @@ button.game-card-store-chip.owned.active:hover {
   animation: cardBatchWave 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
   animation-delay: calc(var(--card-i, 0) * 10ms);
   will-change: transform, opacity;
-  contain: layout style paint;
+  contain: layout style;
 }
 
 @keyframes cardBatchWave {

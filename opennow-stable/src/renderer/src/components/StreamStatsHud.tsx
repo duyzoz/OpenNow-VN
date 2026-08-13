@@ -124,6 +124,18 @@ export function StreamStatsHud({
       `Input queue peak ${(stats.inputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · PR peak ${(stats.partiallyReliableInputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · drops ${stats.inputQueueDropCount} · sched ${stats.inputQueueMaxSchedulingDelayMs.toFixed(1)}ms · residual ${mouseResidualText}`,
     );
     lines.push(
+      `Mouse batch ${typeof stats.mouseBatchAgeMs === "number" ? stats.mouseBatchAgeMs.toFixed(1) : "0.0"}ms · frame age ${typeof stats.frameAgeMs === "number" ? stats.frameAgeMs.toFixed(1) : "0.0"}ms · pacing σ ${typeof stats.framePacingVarianceMs === "number" ? stats.framePacingVarianceMs.toFixed(1) : "0.0"}ms`,
+    );
+    const avOffset = typeof stats.videoAudioOffsetMs === "number" && Math.abs(stats.videoAudioOffsetMs) > 0.1
+      ? `${stats.videoAudioOffsetMs.toFixed(1)}ms`
+      : "--";
+    const audioBase = typeof stats.audioContextBaseLatencyMs === "number" && stats.audioContextBaseLatencyMs > 0
+      ? ` · base ${stats.audioContextBaseLatencyMs.toFixed(1)}ms`
+      : "";
+    lines.push(
+      `A/V ${stats.audioOutputMode ?? "direct"} · offset ${avOffset} · audio ${stats.audioContextState ?? "none"}${audioBase}`,
+    );
+    lines.push(
       gstreamerEnabled
         ? `GStreamer enabled · ${stats.nativeRendererActive ? "in use" : "not active"}`
         : "GStreamer disabled · Chromium WebRTC",

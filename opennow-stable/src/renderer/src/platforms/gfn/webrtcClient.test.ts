@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import {
   canUsePartiallyReliableGamepad,
   canUsePartiallyReliableInput,
+  calculateMouseBatchAgeMs,
   chooseAdaptiveMouseFlushInterval,
   classifyDecoderPressureSample,
   classifyStreamLagReason,
@@ -155,6 +156,13 @@ test("quantizeMouseDeltaWithResidual preserves precision across sends", () => {
   const c = quantizeMouseDeltaWithResidual(b.residual + 0.2);
   assert.equal(c.send, 0);
   assert.ok(Math.abs(c.residual) < 1e-9);
+});
+
+test("mouse batch age reports queue wait without affecting packet scheduling", () => {
+  assert.equal(calculateMouseBatchAgeMs(108, 100), 8);
+  assert.equal(calculateMouseBatchAgeMs(100, 108), 0);
+  assert.equal(calculateMouseBatchAgeMs(2_000, 0), 1_000);
+  assert.equal(calculateMouseBatchAgeMs(Number.NaN, 100), 0);
 });
 
 test("adaptive flush on reliable mouse tightens toward min under low pressure", () => {
