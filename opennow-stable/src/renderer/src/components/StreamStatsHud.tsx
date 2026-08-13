@@ -120,7 +120,7 @@ export function StreamStatsHud({
       `Input queue peak ${(stats.inputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · PR peak ${(stats.partiallyReliableInputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · drops ${stats.inputQueueDropCount} · sched max/p50/p95 ${stats.inputQueueMaxSchedulingDelayMs.toFixed(1)}/${stats.inputQueueSchedulingDelayP50Ms.toFixed(1)}/${stats.inputQueueSchedulingDelayP95Ms.toFixed(1)}ms · mouse batch last/p50/p95 ${stats.mouseBatchAgeMs.toFixed(1)}/${stats.mouseBatchAgeP50Ms.toFixed(1)}/${stats.mouseBatchAgeP95Ms.toFixed(1)}ms · residual ${mouseResidualText}`,
     );
     lines.push(
-      `WebRTC Ultra · Chromium WebRTC video path · present p50/p95 ${stats.videoPresentationLatencyP50Ms.toFixed(1)}/${stats.videoPresentationLatencyP95Ms.toFixed(1)}ms · processing ${stats.videoProcessingTimeMs.toFixed(1)}ms · frame queue ${stats.videoFrameQueueDepth}`,
+      `WebRTC Ultra · Chromium WebRTC video path · present p50/p95 ${stats.videoPresentationLatencyP50Ms.toFixed(1)}/${stats.videoPresentationLatencyP95Ms.toFixed(1)}ms · processing ${stats.videoProcessingTimeMs.toFixed(1)}ms · frame queue ${stats.videoFrameQueueDepth} · JB target ${stats.jitterBufferTargetMs.toFixed(0)}ms`,
     );
     const hwLine = [stats.hardwareAcceleration, stats.colorCodec].filter(Boolean).join(" · ");
     if (hwLine) lines.push(hwLine);

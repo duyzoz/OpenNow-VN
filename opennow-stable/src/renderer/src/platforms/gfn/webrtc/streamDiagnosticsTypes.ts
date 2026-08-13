@@ -38,6 +38,8 @@ export interface StreamDiagnostics {
   decodeTimeMs: number;
   renderTimeMs: number;
   jitterBufferDelayMs: number;
+  /** Current adaptive receiver target; 0 means live-edge mode. */
+  jitterBufferTargetMs: number;
 
   // Input channel pressure
   inputQueueBufferedBytes: number;

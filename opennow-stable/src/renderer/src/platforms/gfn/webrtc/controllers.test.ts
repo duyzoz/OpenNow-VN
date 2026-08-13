@@ -64,6 +64,40 @@ test("decoder recovery waits for three pressure polls and clears after six stabl
   });
 });
 
+test("adaptive jitter cushion waits for sustained jitter and clears after stable polls", () => {
+  const receiver = {
+    jitterBufferTarget: 0,
+    playoutDelayHint: 0,
+    track: {},
+  } as unknown as RTCRtpReceiver;
+  const controller = new DecoderPressureController({
+    log: () => {},
+    getPeerConnection: () => null,
+    getControlChannel: () => null,
+    requestSignalingKeyframe: async () => {},
+    setMaxBitrateKbps: async () => {},
+    onStateChange: () => {},
+  });
+
+  controller.configureReceiver(receiver, "video");
+  controller.updateNetworkConditions(10, 0);
+  controller.updateNetworkConditions(10, 0);
+  assert.equal((receiver as unknown as { jitterBufferTarget: number }).jitterBufferTarget, 0);
+
+  controller.updateNetworkConditions(10, 0);
+  assert.equal((receiver as unknown as { jitterBufferTarget: number }).jitterBufferTarget, 8);
+  assert.equal((receiver as unknown as { playoutDelayHint: number }).playoutDelayHint, 0.008);
+
+  for (let index = 0; index < 5; index++) {
+    controller.updateNetworkConditions(4, 0);
+  }
+  assert.equal((receiver as unknown as { jitterBufferTarget: number }).jitterBufferTarget, 8);
+
+  controller.updateNetworkConditions(4, 0);
+  assert.equal((receiver as unknown as { jitterBufferTarget: number }).jitterBufferTarget, 0);
+  assert.equal((receiver as unknown as { playoutDelayHint: number }).playoutDelayHint, 0);
+});
+
 test("input policy preserves partially-reliable and reliable fallback routes", () => {
   const reliablePackets: Uint8Array[] = [];
   const channelPackets: Uint8Array[] = [];

@@ -47,6 +47,12 @@ interface DecoderPressureControllerDependencies {
 
 const VIDEO_PRESSURE_JITTER_TARGET_MS = 30;
 const AUDIO_PRESSURE_JITTER_TARGET_MS = 32;
+const VIDEO_NETWORK_JITTER_TRIGGER_MS = 8;
+const VIDEO_NETWORK_JITTER_CLEAR_MS = 5;
+const VIDEO_NETWORK_JITTER_MIN_TARGET_MS = 8;
+const VIDEO_NETWORK_JITTER_MAX_TARGET_MS = 16;
+const NETWORK_JITTER_CONSECUTIVE_POLLS = 3;
+const NETWORK_JITTER_STABLE_POLLS = 6;
 const PRESSURE_CONSECUTIVE_POLLS = 3;
 const STABLE_CONSECUTIVE_POLLS = 6;
 const RECOVERY_COOLDOWN_MS = 1500;
@@ -109,6 +115,9 @@ export class DecoderPressureController {
   private negotiatedMaxBitrateKbps = 0;
   private currentBitrateCeilingKbps = 0;
   private recoveryAction: DecoderRecoveryAction = "none";
+  private networkJitterTargetMs = 0;
+  private networkJitterPressureConsecutivePolls = 0;
+  private networkJitterStableConsecutivePolls = 0;
   private readonly receiverLatencyTargets: Record<"video" | "audio", number | null> = {
     video: 0,
     audio: 0,
@@ -124,6 +133,10 @@ export class DecoderPressureController {
     return this.negotiatedMaxBitrateKbps;
   }
 
+  get videoJitterBufferTargetMs(): number {
+    return this.receiverLatencyTargets.video ?? 0;
+  }
+
   initializeBitrate(maxBitrateKbps: number): void {
     this.negotiatedMaxBitrateKbps = Math.max(
       DECODER_MIN_RECOVERY_BITRATE_KBPS,
@@ -134,6 +147,63 @@ export class DecoderPressureController {
 
   classifySample(sample: DecoderPressureSample): DecoderPressureSignal {
     return classifyDecoderPressureSample(sample);
+  }
+
+  /**
+   * Add only a small video cushion when RTP jitter stays elevated. A single
+   * noisy sample must not add latency, and the target is removed after a
+   * stable window so healthy streams remain on the live edge.
+   */
+  updateNetworkConditions(jitterMs: number, packetLossPercent: number): void {
+    if (!Number.isFinite(jitterMs) || !Number.isFinite(packetLossPercent)) {
+      return;
+    }
+
+    const networkJitterHigh = jitterMs >= VIDEO_NETWORK_JITTER_TRIGGER_MS
+      && packetLossPercent < 2;
+    const networkStable = jitterMs <= VIDEO_NETWORK_JITTER_CLEAR_MS
+      || packetLossPercent >= 2;
+
+    if (networkJitterHigh) {
+      this.networkJitterStableConsecutivePolls = 0;
+      this.networkJitterPressureConsecutivePolls++;
+      if (this.networkJitterPressureConsecutivePolls < NETWORK_JITTER_CONSECUTIVE_POLLS) {
+        return;
+      }
+
+      const targetMs = Math.min(
+        VIDEO_NETWORK_JITTER_MAX_TARGET_MS,
+        Math.max(
+          VIDEO_NETWORK_JITTER_MIN_TARGET_MS,
+          Math.round(jitterMs * 0.75),
+        ),
+      );
+      if (targetMs !== this.networkJitterTargetMs) {
+        this.networkJitterTargetMs = targetMs;
+        this.applyReceiverLatencyTargets();
+        this.dependencies.log(
+          `Network jitter cushion enabled: jitter=${jitterMs.toFixed(1)}ms target=${targetMs}ms`,
+        );
+      }
+      return;
+    }
+
+    if (!networkStable) {
+      return;
+    }
+
+    this.networkJitterPressureConsecutivePolls = 0;
+    this.networkJitterStableConsecutivePolls++;
+    if (
+      this.networkJitterStableConsecutivePolls < NETWORK_JITTER_STABLE_POLLS
+      || this.networkJitterTargetMs === 0
+    ) {
+      return;
+    }
+
+    this.networkJitterTargetMs = 0;
+    this.applyReceiverLatencyTargets();
+    this.dependencies.log("Network jitter cushion cleared; returning video to live edge");
   }
 
   configureReceiver(receiver: RTCRtpReceiver, kind: string): void {
@@ -180,6 +250,9 @@ export class DecoderPressureController {
     this.negotiatedMaxBitrateKbps = 0;
     this.currentBitrateCeilingKbps = 0;
     this.recoveryAction = "none";
+    this.networkJitterTargetMs = 0;
+    this.networkJitterPressureConsecutivePolls = 0;
+    this.networkJitterStableConsecutivePolls = 0;
     this.receiverLatencyTargets.video = 0;
     this.receiverLatencyTargets.audio = 0;
     this.activeReceivers = [];
@@ -242,17 +315,27 @@ export class DecoderPressureController {
     this.pressureActive = active;
     this.receiverLatencyTargets.video = active
       ? VIDEO_PRESSURE_JITTER_TARGET_MS
-      : 0;
+      : this.networkJitterTargetMs;
     this.receiverLatencyTargets.audio = active
       ? AUDIO_PRESSURE_JITTER_TARGET_MS
       : 0;
     this.dependencies.log(
       `Decoder pressure mode ${active ? "enabled" : "cleared"}; receiver targets video=${this.receiverLatencyTargets.video}ms audio=${this.receiverLatencyTargets.audio}ms`,
     );
+    this.applyReceiverLatencyTargets();
+    this.emitState();
+  }
+
+  private applyReceiverLatencyTargets(): void {
+    this.receiverLatencyTargets.video = this.pressureActive
+      ? VIDEO_PRESSURE_JITTER_TARGET_MS
+      : this.networkJitterTargetMs;
+    this.receiverLatencyTargets.audio = this.pressureActive
+      ? AUDIO_PRESSURE_JITTER_TARGET_MS
+      : 0;
     for (const { receiver, kind } of this.activeReceivers) {
       this.configureReceiver(receiver, kind);
     }
-    this.emitState();
   }
 
   private async requestKeyframe(

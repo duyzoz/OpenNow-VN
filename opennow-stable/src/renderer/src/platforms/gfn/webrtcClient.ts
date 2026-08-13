@@ -363,6 +363,7 @@ export class GfnWebRtcClient {
     decodeTimeMs: 0,
     renderTimeMs: 0,
     jitterBufferDelayMs: 0,
+    jitterBufferTargetMs: 0,
     inputQueueBufferedBytes: 0,
     inputQueuePeakBufferedBytes: 0,
     partiallyReliableInputQueueBufferedBytes: 0,
@@ -791,6 +792,7 @@ export class GfnWebRtcClient {
       decodeTimeMs: 0,
       renderTimeMs: 0,
       jitterBufferDelayMs: 0,
+      jitterBufferTargetMs: 0,
       inputQueueBufferedBytes: 0,
       inputQueuePeakBufferedBytes: 0,
       partiallyReliableInputQueueBufferedBytes: 0,
@@ -1070,6 +1072,10 @@ export class GfnWebRtcClient {
 
       // Jitter (converted to milliseconds)
       this.diagnostics.jitterMs = Math.round(Number(inboundVideo.jitter ?? 0) * 1000 * 10) / 10;
+      this.decoderPressureController.updateNetworkConditions(
+        this.diagnostics.jitterMs,
+        this.diagnostics.packetLossPercent,
+      );
 
       // Jitter buffer delay — the actual buffering latency added by the jitter buffer.
       // jitterBufferDelay is cumulative seconds, jitterBufferEmittedCount is cumulative frames.
@@ -1133,6 +1139,8 @@ export class GfnWebRtcClient {
         prevSample,
       });
       await this.decoderPressureController.recover(pressureSignal);
+      this.diagnostics.jitterBufferTargetMs =
+        this.decoderPressureController.videoJitterBufferTargetMs;
     }
 
     // RTT from active candidate pair

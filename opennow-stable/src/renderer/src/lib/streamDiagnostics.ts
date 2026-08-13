@@ -30,6 +30,7 @@ export function defaultDiagnostics(): StreamDiagnostics {
     decodeTimeMs: 0,
     renderTimeMs: 0,
     jitterBufferDelayMs: 0,
+    jitterBufferTargetMs: 0,
     inputQueueBufferedBytes: 0,
     inputQueuePeakBufferedBytes: 0,
     partiallyReliableInputQueueBufferedBytes: 0,
