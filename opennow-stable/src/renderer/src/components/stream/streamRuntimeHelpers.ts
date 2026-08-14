@@ -54,6 +54,72 @@ export interface RecordingMimeSelection {
   powerEfficient: boolean;
 }
 
+export interface RecordingVideoTrack {
+  track: MediaStreamTrack;
+  cleanup: () => void;
+  source: "video-capture" | "cloned-track";
+}
+
+type CaptureStreamVideoElement = HTMLVideoElement & {
+  captureStream?: (frameRate?: number) => MediaStream;
+};
+
+/**
+ * Build a recorder-only video track without feeding the original WebRTC track
+ * directly into MediaRecorder. The captureStream path lets Chromium cap the
+ * recorder input at 30 FPS while leaving the live video element and its
+ * decoder/compositor untouched. A cloned WebRTC track is retained as a
+ * compatibility fallback for Electron builds without captureStream.
+ */
+export async function createRecordingVideoTrack(
+  video: HTMLVideoElement,
+  sourceStream: MediaStream,
+  maxFrameRate = 30,
+): Promise<RecordingVideoTrack> {
+  const captureVideo = video as CaptureStreamVideoElement;
+  if (typeof captureVideo.captureStream === "function") {
+    try {
+      const capturedStream = captureVideo.captureStream(maxFrameRate);
+      const capturedTrack = capturedStream.getVideoTracks()[0];
+      if (capturedTrack) {
+        capturedTrack.contentHint = "detail";
+        return {
+          track: capturedTrack,
+          source: "video-capture",
+          cleanup: () => {
+            capturedStream.getTracks().forEach((track) => track.stop());
+          },
+        };
+      }
+      capturedStream.getTracks().forEach((track) => track.stop());
+    } catch {
+      // Continue with the cloned-track fallback below.
+    }
+  }
+
+  const sourceTrack = sourceStream.getVideoTracks()[0];
+  if (!sourceTrack) {
+    throw new Error("No video track is available for recording.");
+  }
+
+  const clonedTrack = sourceTrack.clone();
+  clonedTrack.contentHint = "detail";
+  try {
+    await clonedTrack.applyConstraints({
+      frameRate: { ideal: maxFrameRate, max: maxFrameRate },
+    });
+  } catch {
+    // Some remote tracks reject frame-rate constraints. The clone is still
+    // isolated from the live track, so keep it as the compatibility fallback.
+  }
+
+  return {
+    track: clonedTrack,
+    source: "cloned-track",
+    cleanup: () => clonedTrack.stop(),
+  };
+}
+
 /**
  * Prefer a codec that Chromium reports as power-efficient (normally a
  * hardware-backed H.264 encoder on Windows). The synchronous selector above
@@ -75,7 +141,7 @@ export async function selectPowerEfficientRecordingMimeType(
 
   const width = Math.max(1, video.videoWidth || 1920);
   const height = Math.max(1, video.videoHeight || 1080);
-  const bitrate = 20_000_000;
+  const bitrate = 16_000_000;
 
   for (const mimeType of supported) {
     try {
@@ -86,7 +152,7 @@ export async function selectPowerEfficientRecordingMimeType(
           width,
           height,
           bitrate,
-          framerate: 60,
+          framerate: 30,
         },
       });
       if (result.supported && result.powerEfficient === true) {

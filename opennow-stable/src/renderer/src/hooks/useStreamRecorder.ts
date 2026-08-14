@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { RecordingEntry } from "@shared/gfn";
 import {
+  createRecordingVideoTrack,
   fitThumbnailSize,
   selectPowerEfficientRecordingMimeType,
 } from "../components/stream/streamRuntimeHelpers";
@@ -34,6 +35,12 @@ export function useStreamRecorder({
   const recCarouselRef = useRef<HTMLDivElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const pendingChunkWritesRef = useRef<Set<Promise<void>>>(new Set());
+  const recordingVideoCleanupRef = useRef<(() => void) | null>(null);
+
+  const releaseRecordingVideoTrack = useCallback(() => {
+    recordingVideoCleanupRef.current?.();
+    recordingVideoCleanupRef.current = null;
+  }, []);
   const recordingApiAvailable =
     typeof window.openNow?.beginRecording === "function" &&
     typeof window.openNow?.sendRecordingChunk === "function" &&
@@ -109,17 +116,27 @@ export function useStreamRecorder({
     const liveMicTrack = micTrack && micTrack.readyState === "live" ? micTrack : null;
     let composed: MediaStream;
 
+    let recordingVideoTrack: MediaStreamTrack;
+    try {
+      // Never give MediaRecorder the live WebRTC track directly. Capture the
+      // already-rendered video element at 30 FPS so local encoding cannot
+      // consume the receive decoder/compositor's full frame rate.
+      const recordingVideo = await createRecordingVideoTrack(video, stream, 30);
+      recordingVideoTrack = recordingVideo.track;
+      recordingVideoCleanupRef.current = recordingVideo.cleanup;
+    } catch (error) {
+      console.error("[StreamView] Failed to prepare recording video track:", error);
+      setRecordingError("Không thể chuẩn bị luồng ghi hình.");
+      return;
+    }
+
     if (!liveMicTrack) {
-      // The WebRTC video stream already carries the game audio in direct mode.
-      // Pass that exact stream to MediaRecorder when possible: creating a
-      // second MediaStream wrapper is unnecessary work on the renderer hot
-      // path and can make weak machines compete with the decoder.
-      composed = gameAudioStream === stream
-        ? stream
-        : new MediaStream([
-          ...stream.getVideoTracks(),
-          ...(gameAudioStream?.getAudioTracks() ?? []),
-        ]);
+      // Keep the existing direct-audio behavior, but pair it with the
+      // recorder-only video track rather than the live WebRTC track.
+      composed = new MediaStream([
+        recordingVideoTrack,
+        ...(gameAudioStream?.getAudioTracks() ?? []),
+      ]);
     } else {
       // Only pay for audio mixing when the user explicitly enabled a live mic.
       const audioCtx = new AudioContext({ latencyHint: "interactive" });
@@ -133,7 +150,7 @@ export function useStreamRecorder({
         await audioCtx.resume().catch(() => undefined);
       }
       composed = new MediaStream([
-        ...stream.getVideoTracks(),
+        recordingVideoTrack,
         ...audioDest.stream.getAudioTracks(),
       ]);
     }
@@ -146,6 +163,7 @@ export function useStreamRecorder({
       console.error("[StreamView] Failed to begin recording:", error);
       audioCtxRef.current?.close().catch(() => undefined);
       audioCtxRef.current = null;
+      releaseRecordingVideoTrack();
       setRecordingError("Could not start recording.");
       return;
     }
@@ -170,7 +188,7 @@ export function useStreamRecorder({
     // lighter fallback to protect WebRTC decode on weak machines. This is
     // recorder-only; the upstream WebRTC receive/decode bitrate is untouched.
     const effectiveRecordingBitrateMbps =
-      recordingBitrateMbps ?? (mimeSelection.powerEfficient ? 25 : 8);
+      recordingBitrateMbps ?? (mimeSelection.powerEfficient ? 16 : 4);
     recorderOptions.videoBitsPerSecond =
       Math.max(1, Math.min(200, Math.round(effectiveRecordingBitrateMbps))) * 1_000_000;
     const recorder = new MediaRecorder(composed, recorderOptions);
@@ -222,6 +240,7 @@ export function useStreamRecorder({
         recordingTimerRef.current = undefined;
         audioCtxRef.current?.close().catch(() => undefined);
         audioCtxRef.current = null;
+        releaseRecordingVideoTrack();
         const id = recordingIdRef.current;
         recordingIdRef.current = null;
         setIsRecording(false);
@@ -256,6 +275,7 @@ export function useStreamRecorder({
       recordingTimerRef.current = undefined;
       audioCtxRef.current?.close().catch(() => undefined);
       audioCtxRef.current = null;
+      releaseRecordingVideoTrack();
       const id = recordingIdRef.current;
       recordingIdRef.current = null;
       setIsRecording(false);
@@ -277,6 +297,7 @@ export function useStreamRecorder({
     micTrack,
     recordingApiAvailable,
     recordingBitrateMbps,
+    releaseRecordingVideoTrack,
     videoRef,
   ]);
 
@@ -294,8 +315,9 @@ export function useStreamRecorder({
       }
       audioCtxRef.current?.close().catch(() => undefined);
       audioCtxRef.current = null;
+      releaseRecordingVideoTrack();
     };
-  }, []);
+  }, [releaseRecordingVideoTrack]);
 
   return {
     isRecording,
