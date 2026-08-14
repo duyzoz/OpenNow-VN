@@ -526,7 +526,6 @@ export function StreamView({
         ref={setVideoRef}
         autoPlay
         playsInline
-        muted
         tabIndex={-1}
         className="sv-video"
         initial={false}

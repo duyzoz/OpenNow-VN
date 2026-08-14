@@ -59,6 +59,13 @@ export class PeerMediaLifecycleController {
     this.audioOutputMode = dependencies.audioOutputMode ?? "direct";
     dependencies.videoElement.srcObject = this.videoStream;
     dependencies.audioElement.srcObject = this.audioStream;
+    // Direct mode must use the video element's shared MediaStream clock. Keeping
+    // audio on a second HTMLMediaElement lets Chromium advance the audio clock
+    // independently, which is exactly the "audio ahead of slow video" symptom.
+    // Start muted while the video-only track is attaching; direct mode unmutes
+    // this same element when the audio track arrives.
+    dependencies.videoElement.muted = true;
+    dependencies.videoElement.volume = this.outputVolume;
     dependencies.audioElement.muted = true;
     dependencies.audioElement.volume = this.outputVolume;
   }
@@ -77,11 +84,15 @@ export class PeerMediaLifecycleController {
   getAudioDiagnostics(): PeerAudioDiagnostics {
     const audioElement = this.dependencies.audioElement;
     const videoElement = this.dependencies.videoElement;
-    const audioCurrentTime = Number.isFinite(audioElement.currentTime) ? audioElement.currentTime : 0;
     const videoCurrentTime = Number.isFinite(videoElement.currentTime) ? videoElement.currentTime : 0;
-    const videoAudioOffsetMs = audioCurrentTime > 0 || videoCurrentTime > 0
-      ? (videoCurrentTime - audioCurrentTime) * 1000
-      : 0;
+    const audioCurrentTime = this.audioOutputMode === "direct"
+      ? videoCurrentTime
+      : (Number.isFinite(audioElement.currentTime) ? audioElement.currentTime : 0);
+    const videoAudioOffsetMs = this.audioOutputMode === "direct"
+      ? 0
+      : (audioCurrentTime > 0 || videoCurrentTime > 0
+        ? (videoCurrentTime - audioCurrentTime) * 1000
+        : 0);
 
     return {
       outputMode: this.audioOutputMode,
@@ -166,6 +177,9 @@ export class PeerMediaLifecycleController {
         .play()
         .then(() => {
           this.dependencies.log("Video element playback started");
+          if (this.audioOutputMode === "direct" && this.audioStream.getAudioTracks().length > 0) {
+            this.startDirectAudioPlayback("Video track attached");
+          }
         })
         .catch((playError) => {
           this.dependencies.log(`Video play() failed: ${String(playError)}`);
@@ -201,6 +215,7 @@ export class PeerMediaLifecycleController {
       Math.min(1, Number.isFinite(volume) ? volume : 1),
     );
     this.dependencies.audioElement.volume = this.outputVolume;
+    this.dependencies.videoElement.volume = this.outputVolume;
     if (this.audioGainNode) {
       this.audioGainNode.gain.value = this.outputVolume;
     }
@@ -344,21 +359,38 @@ export class PeerMediaLifecycleController {
     }
     this.dependencies.audioElement.pause();
     this.dependencies.audioElement.muted = true;
+    this.dependencies.videoElement.muted = true;
   }
 
   private startDirectAudioPlayback(reason: string): void {
+    const videoElement = this.dependencies.videoElement;
     const audioElement = this.dependencies.audioElement;
-    audioElement.muted = false;
-    audioElement.volume = this.outputVolume;
-    audioElement.play()
+    if (this.getVideoTrack() === null) {
+      this.dependencies.log(`${reason}; waiting for the video track before enabling shared audio`);
+      return;
+    }
+    // Keep the auxiliary audio element available for recording, but do not use
+    // it as a second playback clock in direct mode. The video element already
+    // owns the same MediaStream and therefore keeps RTP audio/video aligned.
+    audioElement.pause();
+    audioElement.muted = true;
+    videoElement.muted = false;
+    videoElement.volume = this.outputVolume;
+
+    if (!videoElement.paused) {
+      this.dependencies.log(`${reason}; direct audio uses the shared video media clock`);
+      return;
+    }
+
+    videoElement.play()
       .then(() => {
-        this.dependencies.log(`${reason}; direct audio element playback started`);
+        this.dependencies.log(`${reason}; shared video/audio playback started`);
       })
       .catch((playError) => {
-        this.dependencies.log(`Direct audio autoplay blocked: ${String(playError)}`);
+        this.dependencies.log(`Shared video/audio autoplay blocked: ${String(playError)}`);
         if (this.audioOutputMode === "direct") {
           this.audioOutputMode = "audio_context";
-          this.startAudioContextPlayback("Direct audio playback failed");
+          this.startAudioContextPlayback("Shared media playback failed");
         }
       });
   }
