@@ -44,9 +44,11 @@ export interface RecordingBeginResult {
   recordingId: string;
 }
 
+export type RecordingChunkData = ArrayBuffer | Blob;
+
 export interface RecordingChunkRequest {
   recordingId: string;
-  chunk: ArrayBuffer;
+  chunk: RecordingChunkData;
 }
 
 export interface RecordingFinishRequest {

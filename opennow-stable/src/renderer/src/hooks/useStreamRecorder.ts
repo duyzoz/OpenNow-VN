@@ -199,15 +199,16 @@ export function useStreamRecorder({
 
       const id = recordingIdRef.current;
       if (!id) return;
-      const pendingWrite = (async () => {
-        try {
-          const buffer = await event.data.arrayBuffer();
-          await window.openNow.sendRecordingChunk({ recordingId: id, chunk: buffer });
-        } catch (error: unknown) {
+      // Keep the Blob in the renderer's MediaRecorder pipeline. Converting a
+      // multi-megabyte Blob to ArrayBuffer here creates a periodic allocation
+      // and copy spike that competes with WebRTC compositing on weak machines.
+      // The main process converts the Blob while its FIFO write queue drains.
+      const pendingWrite = window.openNow
+        .sendRecordingChunk({ recordingId: id, chunk: event.data })
+        .catch((error: unknown) => {
           console.error("[StreamView] Failed to send recording chunk:", error);
           setRecordingError("Một phần dữ liệu ghi hình không thể lưu.");
-        }
-      })();
+        });
       pendingChunkWritesRef.current.add(pendingWrite);
       void pendingWrite.then(
         () => pendingChunkWritesRef.current.delete(pendingWrite),
@@ -266,7 +267,9 @@ export function useStreamRecorder({
     };
 
     mediaRecorderRef.current = recorder;
-    recorder.start(4000);
+    // Smaller delivery windows avoid a large periodic Blob/copy burst while
+    // preserving the selected codec and bitrate/quality.
+    recorder.start(1000);
   }, [
     audioRef,
     gameTitle,

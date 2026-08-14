@@ -134,13 +134,21 @@ export async function appendRecordingChunk(
   }
 
   const write = rec.pendingWrite.then(
-    () =>
-      new Promise<void>((resolve, reject) => {
-        rec.writeStream.write(Buffer.from(input.chunk), (err) => {
+    async () => {
+      // Convert Blob in the main process. Doing this in the renderer creates a
+      // large ArrayBuffer allocation/copy on the same thread that composites
+      // the WebRTC video and is the source of periodic recording stutter.
+      const buffer =
+        input.chunk instanceof ArrayBuffer
+          ? Buffer.from(input.chunk)
+          : Buffer.from(await input.chunk.arrayBuffer());
+      await new Promise<void>((resolve, reject) => {
+        rec.writeStream.write(buffer, (err) => {
           if (err) reject(err);
           else resolve();
         });
-      }),
+      });
+    },
   );
   // Keep the queue usable after one failed chunk; the renderer can still stop
   // cleanly and the error is logged by the IPC event handler.
