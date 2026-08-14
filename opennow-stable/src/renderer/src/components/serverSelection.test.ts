@@ -5,6 +5,10 @@ import {
   getServerSelectionHint,
   getServerRouteAdvice,
   getServerSelectionScore,
+  loadLatestServerSelectionTelemetry,
+  loadRouteABMeasurement,
+  recordServerRouteHealth,
+  recordServerSelection,
   sortServerCandidates,
   type ServerSelectionCandidate,
 } from "./serverSelection";
@@ -122,4 +126,46 @@ test("high route quality can mark a route healthy even after legacy counters are
     poorSamples: 0,
     goodSamples: 0,
   }, nowMs), "healthy");
+});
+
+test("route A/B measurement stores the previous route and computes deltas", () => {
+  const originalWindow = globalThis.window;
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => values.set(key, value),
+      },
+    },
+  });
+
+  try {
+    recordServerSelection(candidate({ zoneId: "ROUTE-A", pingMs: 100 }));
+    recordServerRouteHealth(loadLatestServerSelectionTelemetry(), {
+      rttMs: 100,
+      jitterMs: 2,
+      packetLossPercent: 0,
+    }, 1_000);
+    recordServerSelection(candidate({ zoneId: "ROUTE-B", pingMs: 150 }));
+    recordServerRouteHealth(loadLatestServerSelectionTelemetry(), {
+      rttMs: 150,
+      jitterMs: 3,
+      packetLossPercent: 1,
+    }, 4_000);
+
+    const measurement = loadRouteABMeasurement();
+    assert.equal(measurement?.routeA.zoneId, "ROUTE-B");
+    assert.equal(measurement?.routeB?.zoneId, "ROUTE-A");
+    assert.equal(measurement?.deltaRttMs, 50);
+    assert.equal(measurement?.deltaJitterMs, 1);
+    assert.equal(measurement?.deltaLossPercent, 1);
+    assert.equal(measurement?.confidence, "low");
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow,
+    });
+  }
 });

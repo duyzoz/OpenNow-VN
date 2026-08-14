@@ -49,6 +49,33 @@ export interface ServerSelectionTelemetry {
 
 export type ServerRouteAdvice = "avoid" | "healthy" | "unknown";
 
+export interface RouteABMeasurementSample {
+  zoneId: string;
+  ewmaRttMs: number;
+  ewmaJitterMs: number;
+  ewmaLossPercent: number;
+  samples: number;
+  lastUpdatedMs: number;
+}
+
+export interface RouteABMeasurement {
+  routeA: RouteABMeasurementSample;
+  routeB: RouteABMeasurementSample | null;
+  deltaRttMs: number | null;
+  deltaJitterMs: number | null;
+  deltaLossPercent: number | null;
+  confidence: "low" | "medium" | "high";
+}
+
+export interface RouteABDiagnostics {
+  label: "single" | "A" | "B";
+  samples: number;
+  deltaRttMs: number | null;
+  deltaJitterMs: number | null;
+  deltaLossPercent: number | null;
+  confidence: "low" | "medium" | "high";
+}
+
 const PING_TARGET_MS = 220;
 const QUEUE_COMFORT_LIMIT = 40;
 const ETA_COMFORT_LIMIT_MS = 20 * 60 * 1000;
@@ -63,6 +90,7 @@ const SERVER_SELECTION_HISTORY_KEY = "opennow.server-selection-history.v1";
 const SERVER_SELECTION_FREQUENCY_KEY = "opennow.server-selection-frequency.v1";
 const SERVER_SELECTION_PREFERENCES_KEY = "opennow.server-selection-preferences.v1";
 const SERVER_SELECTION_TELEMETRY_KEY = "opennow.server-selection-telemetry.v1";
+const SERVER_AB_MEASUREMENT_KEY = "opennow.server-ab-measurement.v1";
 const MAX_HISTORY_ENTRIES = 6;
 
 export const DEFAULT_SERVER_SELECTION_PREFERENCES: ServerSelectionPreferences = {
@@ -329,17 +357,142 @@ export function loadLatestServerSelectionTelemetry(): ServerSelectionTelemetry |
   }
 }
 
+function finiteOrZero(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function normalizeRouteABSample(value: unknown): RouteABMeasurementSample | null {
+  if (!value || typeof value !== "object") return null;
+  const parsed = value as Partial<RouteABMeasurementSample>;
+  if (typeof parsed.zoneId !== "string" || parsed.zoneId.length === 0) return null;
+  return {
+    zoneId: parsed.zoneId,
+    ewmaRttMs: finiteOrZero(parsed.ewmaRttMs),
+    ewmaJitterMs: finiteOrZero(parsed.ewmaJitterMs),
+    ewmaLossPercent: clamp(finiteOrZero(parsed.ewmaLossPercent), 0, 100),
+    samples: Math.floor(finiteOrZero(parsed.samples)),
+    lastUpdatedMs: finiteOrZero(parsed.lastUpdatedMs),
+  };
+}
+
+function buildRouteABMeasurement(
+  routeA: RouteABMeasurementSample,
+  routeB: RouteABMeasurementSample | null,
+): RouteABMeasurement {
+  const comparable = routeB !== null && routeA.samples > 0 && routeB.samples > 0;
+  const comparisonSamples = routeB === null ? 0 : Math.min(routeA.samples, routeB.samples);
+  const confidence = routeB === null || comparisonSamples < 5
+    ? "low"
+    : comparisonSamples <= 15
+      ? "medium"
+      : "high";
+  return {
+    routeA,
+    routeB,
+    deltaRttMs: comparable ? routeA.ewmaRttMs - routeB.ewmaRttMs : null,
+    deltaJitterMs: comparable ? routeA.ewmaJitterMs - routeB.ewmaJitterMs : null,
+    deltaLossPercent: comparable ? routeA.ewmaLossPercent - routeB.ewmaLossPercent : null,
+    confidence,
+  };
+}
+
+function sampleFromTelemetry(
+  zoneId: string,
+  telemetry: ServerSelectionTelemetry | null,
+  candidate?: ServerSelectionCandidate,
+  selectedAtMs: number = Date.now(),
+): RouteABMeasurementSample {
+  const telemetryMatches = telemetry?.zoneId === zoneId;
+  return {
+    zoneId,
+    ewmaRttMs: telemetryMatches
+      ? finiteOrZero(telemetry?.observedRttEwmaMs ?? telemetry?.observedRttMs)
+      : finiteOrZero(candidate?.pingMs),
+    ewmaJitterMs: telemetryMatches ? finiteOrZero(telemetry?.observedJitterEwmaMs ?? telemetry?.observedJitterMs) : 0,
+    ewmaLossPercent: telemetryMatches
+      ? clamp(finiteOrZero(telemetry?.observedPacketLossEwmaPercent ?? telemetry?.observedPacketLossPercent), 0, 100)
+      : 0,
+    samples: telemetryMatches ? Math.floor(finiteOrZero((telemetry?.goodSamples ?? 0) + (telemetry?.poorSamples ?? 0))) : 0,
+    lastUpdatedMs: telemetryMatches ? finiteOrZero(telemetry?.observedAtMs ?? telemetry?.selectedAtMs) : selectedAtMs,
+  };
+}
+
+export function loadRouteABMeasurement(): RouteABMeasurement | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SERVER_AB_MEASUREMENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<RouteABMeasurement>;
+    const routeA = normalizeRouteABSample(parsed.routeA);
+    if (!routeA) return null;
+    const routeB = parsed.routeB === null || parsed.routeB === undefined
+      ? null
+      : normalizeRouteABSample(parsed.routeB);
+    return buildRouteABMeasurement(routeA, routeB);
+  } catch {
+    return null;
+  }
+}
+
+function saveRouteABMeasurement(measurement: RouteABMeasurement): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SERVER_AB_MEASUREMENT_KEY, JSON.stringify(measurement));
+  } catch {
+    // A/B telemetry is optional and must never block launch or streaming.
+  }
+}
+
+export function getRouteABDiagnostics(): RouteABDiagnostics {
+  const measurement = loadRouteABMeasurement();
+  if (!measurement) {
+    return {
+      label: "single",
+      samples: 0,
+      deltaRttMs: null,
+      deltaJitterMs: null,
+      deltaLossPercent: null,
+      confidence: "low",
+    };
+  }
+  return {
+    label: measurement.routeB ? "A" : "single",
+    samples: measurement.routeA.samples,
+    deltaRttMs: measurement.deltaRttMs,
+    deltaJitterMs: measurement.deltaJitterMs,
+    deltaLossPercent: measurement.deltaLossPercent,
+    confidence: measurement.confidence,
+  };
+}
+
 export function recordServerSelection(candidate: ServerSelectionCandidate): void {
   if (typeof window === "undefined" || !candidate.zoneId) return;
   try {
     const previous = loadLatestServerSelectionTelemetry();
+    const previousMeasurement = loadRouteABMeasurement();
+    const selectedAtMs = Date.now();
+    let nextMeasurement: RouteABMeasurement;
+    if (!previousMeasurement) {
+      nextMeasurement = buildRouteABMeasurement(
+        sampleFromTelemetry(candidate.zoneId, previous?.zoneId === candidate.zoneId ? previous : null, candidate, selectedAtMs),
+        null,
+      );
+    } else if (previousMeasurement.routeA.zoneId !== candidate.zoneId) {
+      const nextRouteA = previousMeasurement.routeB?.zoneId === candidate.zoneId
+        ? previousMeasurement.routeB
+        : sampleFromTelemetry(candidate.zoneId, previous?.zoneId === candidate.zoneId ? previous : null, candidate, selectedAtMs);
+      nextMeasurement = buildRouteABMeasurement(nextRouteA, previousMeasurement.routeA);
+    } else {
+      nextMeasurement = previousMeasurement;
+    }
+    saveRouteABMeasurement(nextMeasurement);
     const telemetry: ServerSelectionTelemetry = {
       zoneId: candidate.zoneId,
       region: candidate.region,
       preLaunchPingMs: safePingMs(candidate.pingMs),
       queuePosition: Math.max(0, candidate.queuePosition),
       etaMs: candidate.etaMs,
-      selectedAtMs: Date.now(),
+      selectedAtMs,
       observedRttMs: previous?.zoneId === candidate.zoneId ? previous.observedRttMs : undefined,
       observedJitterMs: previous?.zoneId === candidate.zoneId ? previous.observedJitterMs : undefined,
       observedPacketLossPercent: previous?.zoneId === candidate.zoneId ? previous.observedPacketLossPercent : undefined,
@@ -396,6 +549,20 @@ export function recordServerRouteHealth(
       goodSamples: poor ? Math.max(0, current.goodSamples - 1) : current.goodSamples + 1,
     };
     window.localStorage.setItem(SERVER_SELECTION_TELEMETRY_KEY, JSON.stringify(next));
+
+    const measurement = loadRouteABMeasurement();
+    const activeMeasurement = measurement && measurement.routeA.zoneId === current.zoneId
+      ? measurement
+      : buildRouteABMeasurement(sampleFromTelemetry(current.zoneId, current, undefined, nowMs), null);
+    const updatedRouteA: RouteABMeasurementSample = {
+      ...activeMeasurement.routeA,
+      ewmaRttMs: rttEwma,
+      ewmaJitterMs: jitterEwma,
+      ewmaLossPercent: clamp(lossEwma, 0, 100),
+      samples: activeMeasurement.routeA.samples + 1,
+      lastUpdatedMs: nowMs,
+    };
+    saveRouteABMeasurement(buildRouteABMeasurement(updatedRouteA, activeMeasurement.routeB));
   } catch {
     // Route telemetry must never block the stream.
   }

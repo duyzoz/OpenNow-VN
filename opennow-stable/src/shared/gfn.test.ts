@@ -6,24 +6,13 @@ import assert from "node:assert/strict";
 import type { GameInfo, GameVariant } from "./gfn";
 import {
   OWNED_LIBRARY_STATUSES,
-  buildNativeStreamerSessionContext,
-  createUnsupportedNativeStreamerStatus,
   isEpicStore,
   isGameInLibrary,
-  isNativeDirectXBackendSupported,
-  isNativeExternalRendererSupported,
-  isNativeStreamerSupportedPlatform,
-  isNvstTransportSupported,
   isOwnedLibraryStatus,
   isOwnedVariant,
-  NATIVE_STREAMER_UNSUPPORTED_PLATFORM_MESSAGE,
-  NATIVE_STREAMER_WINDOWS_ONLY_MESSAGE,
   getDefaultStreamPreferences,
   normalizeGameStore,
-  normalizeNativeExternalRendererForPlatform,
-  normalizeTransportModeForPlatform,
   normalizeStreamPreferences,
-  normalizeStreamClientModeForPlatform,
 } from "./gfn";
 
 function makeVariant(overrides: Partial<GameVariant> = {}): GameVariant {
@@ -110,91 +99,12 @@ test("normalizes equivalent store spellings to one canonical key", () => {
   assert.equal(normalizeGameStore("Microsoft Store"), "XBOX");
 });
 
-test("buildNativeStreamerSessionContext forwards requested/finalized streaming features", () => {
-  const context = buildNativeStreamerSessionContext(
-    {
-      sessionId: "session-1",
-      status: 2,
-      zone: "NP-AMS-01",
-      serverIp: "1.2.3.4",
-      signalingServer: "1.2.3.4:443",
-      signalingUrl: "wss://1.2.3.4/nvst/",
-      iceServers: [],
-      requestedStreamingFeatures: {
-        reflex: true,
-        bitDepth: 10,
-        cloudGsync: true,
-        chromaFormat: 2,
-        enabledL4S: true,
-      },
-      finalizedStreamingFeatures: {
-        reflex: false,
-        bitDepth: 8,
-        cloudGsync: false,
-        chromaFormat: 0,
-        enabledL4S: false,
-      },
-      negotiatedStreamProfile: {
-        resolution: "2560x1440",
-        fps: 240,
-        enableCloudGsync: false,
-      },
-    },
-    {
-      resolution: "2560x1440",
-      fps: 240,
-      maxBitrateMbps: 75,
-      codec: "H265",
-      colorQuality: "10bit_444",
-      keyboardLayout: "en-US",
-      gameLanguage: "en_US",
-      enableL4S: true,
-      enableCloudGsync: true,
-      clientMode: "native",
-      nativeStreamerBackend: "gstreamer",
-      nativeCloudGsyncMode: "auto",
-      nativeTransitionDiagnostics: {
-        forceQueueMode: "adaptive",
-      },
-    },
-    {
-      toggleStats: "Ctrl+N",
-      togglePointerLock: "F8",
-      toggleFullscreen: "F10",
-      stopStream: "Ctrl+Shift+Q",
-      toggleAntiAfk: "Ctrl+Shift+K",
-      toggleMicrophone: "Ctrl+Shift+M",
-      screenshot: "F11",
-      toggleRecording: "F12",
-    },
-  );
-
-  assert.deepEqual(context.session.requestedStreamingFeatures, {
-    reflex: true,
-    bitDepth: 10,
-    cloudGsync: true,
-    chromaFormat: 2,
-    enabledL4S: true,
+test("stream preferences keep WebRTC-compatible codec and color quality", () => {
+  assert.deepEqual(normalizeStreamPreferences("H265", "10bit_444"), {
+    codec: "H265",
+    colorQuality: "10bit_444",
+    migrated: false,
   });
-  assert.deepEqual(context.session.finalizedStreamingFeatures, {
-    reflex: false,
-    bitDepth: 8,
-    cloudGsync: false,
-    chromaFormat: 0,
-    enabledL4S: false,
-  });
-  assert.equal(context.session.negotiatedStreamProfile?.codec, "H265");
-  assert.equal(context.settings.enableCloudGsync, false);
-  assert.equal(context.settings.nativeTransitionDiagnostics?.forceQueueMode, "adaptive");
-  assert.equal(context.shortcuts.toggleRecording, "F12");
-});
-
-test("keeps native stream client mode on supported desktop platforms", () => {
-  assert.equal(normalizeStreamClientModeForPlatform("native", "linux"), "native");
-  assert.equal(normalizeStreamClientModeForPlatform("native", "darwin"), "native");
-  assert.equal(normalizeStreamClientModeForPlatform("web", "linux"), "web");
-  assert.equal(normalizeStreamClientModeForPlatform("native", "win32"), "native");
-  assert.equal(normalizeStreamClientModeForPlatform("native", "android"), "web");
 });
 
 test("defaults H264 streaming to 8-bit SDR-compatible color quality", () => {
@@ -217,34 +127,10 @@ test("normalizes H264 stream preferences away from high bit-depth modes", () => 
   });
 });
 
-test("reports unsupported native streamer status on unknown platforms only", () => {
-  assert.equal(isNativeStreamerSupportedPlatform("win32"), true);
-  assert.equal(isNativeStreamerSupportedPlatform("linux"), true);
-  assert.equal(isNativeStreamerSupportedPlatform("darwin"), true);
-  assert.equal(isNativeStreamerSupportedPlatform("android"), false);
-});
-
-test("isNativeExternalRendererSupported is Windows-only", () => {
-  assert.equal(isNativeExternalRendererSupported("win32"), true);
-  assert.equal(isNativeExternalRendererSupported("windows"), true);
-  assert.equal(isNativeExternalRendererSupported("linux"), false);
-  assert.equal(isNativeExternalRendererSupported("darwin"), false);
-  assert.equal(isNativeDirectXBackendSupported("win32"), true);
-  assert.equal(isNativeDirectXBackendSupported("linux"), false);
-  assert.equal(normalizeNativeExternalRendererForPlatform(true, "linux"), false);
-  assert.equal(normalizeNativeExternalRendererForPlatform(true, "win32"), true);
-  assert.equal(normalizeNativeExternalRendererForPlatform(false, "win32"), false);
-
-  const status = createUnsupportedNativeStreamerStatus();
-  assert.equal(status.detected, false);
-  assert.equal(status.gstreamerAvailable, false);
-  assert.equal(status.supportsOfferAnswer, false);
-  assert.equal(status.message, NATIVE_STREAMER_UNSUPPORTED_PLATFORM_MESSAGE);
-  assert.equal(status.gstreamerRuntime.message, NATIVE_STREAMER_UNSUPPORTED_PLATFORM_MESSAGE);
-});
-
-test("NVST transport stays disabled and normalizes to WebRTC", () => {
-  assert.equal(isNvstTransportSupported("win32"), false);
-  assert.equal(normalizeTransportModeForPlatform("nvst", "win32", "native"), "webrtc");
-  assert.equal(normalizeTransportModeForPlatform("webrtc", "win32", "native"), "webrtc");
+test("keeps H264 streaming on the safe SDR profile", () => {
+  assert.deepEqual(normalizeStreamPreferences("H264", "10bit_420"), {
+    codec: "H264",
+    colorQuality: "8bit_420",
+    migrated: true,
+  });
 });

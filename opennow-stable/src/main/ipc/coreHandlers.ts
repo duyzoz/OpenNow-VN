@@ -262,40 +262,10 @@ export function registerCoreIpcHandlers(deps: CoreIpcHandlerDeps): void {
       .getAppUpdater()
       ?.setAutomaticChecksEnabled(resetSettings.autoCheckForUpdates);
     deps.getAppUpdater()?.setUpdateChannel(resetSettings.updateChannel);
-    deps.getSignalingCoordinator()?.stopNativeStreamer("settings reset");
-    deps.getSignalingCoordinator()?.resetNativeStreamerContext();
     syncMainTelemetry(settingsManager);
     return resetSettings;
   });
 
-  ipcMain.handle(
-    IPC_CHANNELS.SETTINGS_SELECT_NATIVE_STREAMER_EXECUTABLE,
-    async (): Promise<string | null> => {
-      const filters =
-        process.platform === "win32"
-          ? [
-              { name: "Executable", extensions: ["exe"] },
-              { name: "All Files", extensions: ["*"] },
-            ]
-          : [{ name: "All Files", extensions: ["*"] }];
-
-      const options: Electron.OpenDialogOptions = {
-        title: "Select OpenNOW streamer executable",
-        properties: ["openFile"],
-        filters,
-      };
-      const mainWindow = deps.getMainWindow();
-      const result =
-        mainWindow && !mainWindow.isDestroyed()
-          ? await dialog.showOpenDialog(mainWindow, options)
-          : await dialog.showOpenDialog(options);
-
-      if (result.canceled || result.filePaths.length === 0) {
-        return null;
-      }
-      return result.filePaths[0] ?? null;
-    },
-  );
 
   ipcMain.handle(
     IPC_CHANNELS.MICROPHONE_PERMISSION_GET,

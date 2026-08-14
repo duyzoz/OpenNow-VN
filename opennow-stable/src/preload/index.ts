@@ -27,8 +27,6 @@ import type {
   SignalingConnectRequest,
   SendAnswerRequest,
   IceCandidatePayload,
-  NativeInputPacket,
-  NativeRenderSurfaceUpdate,
   KeyframeRequest,
   Settings,
   SubscriptionFetchRequest,
@@ -150,18 +148,6 @@ const api: OpenNowApi = {
   sendAnswer: (input: SendAnswerRequest) => ipcRenderer.invoke(IPC_CHANNELS.SEND_ANSWER, input),
   sendIceCandidate: (input: IceCandidatePayload) =>
     ipcRenderer.invoke(IPC_CHANNELS.SEND_ICE_CANDIDATE, input),
-  sendNativeInput: (input: NativeInputPacket) => {
-    ipcRenderer.send(IPC_CHANNELS.NATIVE_INPUT, input);
-  },
-  setNativeInputPaused: (paused: boolean) => {
-    ipcRenderer.send(IPC_CHANNELS.NATIVE_INPUT_PAUSED, paused);
-  },
-  updateNativeRenderSurface: (input: NativeRenderSurfaceUpdate) => {
-    ipcRenderer.send(IPC_CHANNELS.NATIVE_RENDER_SURFACE, input);
-  },
-  updateNativeShortcuts: (shortcuts) => {
-    ipcRenderer.send(IPC_CHANNELS.NATIVE_UPDATE_SHORTCUTS, shortcuts);
-  },
   requestKeyframe: (input: KeyframeRequest) =>
     ipcRenderer.invoke(IPC_CHANNELS.REQUEST_KEYFRAME, input),
   onSignalingEvent: (listener: (event: MainToRendererSignalingEvent) => void) => {
@@ -210,14 +196,8 @@ const api: OpenNowApi = {
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) =>
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, key, value),
   resetSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_RESET),
-  selectNativeStreamerExecutable: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SELECT_NATIVE_STREAMER_EXECUTABLE),
-  getNativeStreamerStatus: () => ipcRenderer.invoke(IPC_CHANNELS.NATIVE_STREAMER_STATUS),
-  getNativeCloudGsyncCapabilities: () => ipcRenderer.invoke(IPC_CHANNELS.NATIVE_CLOUD_GSYNC_CAPABILITIES),
   notifyPointerLockChange: (active: boolean, suppressEscapeFullscreenGrace?: boolean) => {
     ipcRenderer.send(IPC_CHANNELS.POINTER_LOCK_CHANGE, active, suppressEscapeFullscreenGrace);
-  },
-  notifyNativeInputModeChange: (active: boolean, rawInputOwnsEscape: boolean) => {
-    ipcRenderer.send(IPC_CHANNELS.NATIVE_INPUT_MODE_CHANGE, active, rawInputOwnsEscape);
   },
   onExternalEscape: (listener: () => void) => {
     const wrapped = () => listener();

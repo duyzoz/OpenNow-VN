@@ -63,11 +63,9 @@ test("decoder recovery waits for three pressure polls and clears after six stabl
   });
 });
 
-test("input policy preserves native, partially-reliable, and fallback routes", () => {
-  const nativePackets: Array<{ payload: Uint8Array; partiallyReliable: boolean }> = [];
+test("input policy preserves partially-reliable and reliable fallback routes", () => {
   const reliablePackets: Uint8Array[] = [];
   const channelPackets: Uint8Array[] = [];
-  let nativeActive = true;
   let channelOpen = true;
   const channel = {
     get readyState() {
@@ -83,20 +81,12 @@ test("input policy preserves native, partially-reliable, and fallback routes", (
       enablePartiallyReliableTransferHid: 0xffff,
     },
     {
-      isNativeInputActive: () => nativeActive,
       getPartiallyReliableChannel: () => channel,
-      sendNativeInput: (payload, partiallyReliable) => {
-        nativePackets.push({ payload, partiallyReliable });
-      },
       sendReliable: (payload) => reliablePackets.push(payload),
     },
   );
   const payload = new Uint8Array([1, 2, 3]);
 
-  controller.sendPartiallyReliable(payload);
-  assert.deepEqual(nativePackets, [{ payload, partiallyReliable: true }]);
-
-  nativeActive = false;
   controller.sendPartiallyReliable(payload);
   assert.equal(channelPackets.length, 1);
 

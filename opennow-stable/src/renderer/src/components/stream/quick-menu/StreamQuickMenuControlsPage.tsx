@@ -24,7 +24,6 @@ interface StreamQuickMenuControlsPageProps {
   onMouseSensitivityChange: (value: number) => void;
   mouseAcceleration: number;
   onMouseAccelerationChange: (value: number) => void;
-  gstreamerEnabled: boolean;
   videoShader: VideoShaderSettings;
   onVideoShaderChange: (value: VideoShaderSettings) => void;
   microphoneMode: MicrophoneMode;
@@ -39,7 +38,6 @@ export function StreamQuickMenuControlsPage({
   onMouseSensitivityChange,
   mouseAcceleration,
   onMouseAccelerationChange,
-  gstreamerEnabled,
   videoShader,
   onVideoShaderChange,
   microphoneMode,
@@ -108,10 +106,7 @@ export function StreamQuickMenuControlsPage({
           <span>Video Filters</span>
           <span className="sidebar-section-sub">GPU shaders applied to the stream.</span>
         </div>
-        {gstreamerEnabled ? (
-          <span className="sidebar-hint">Video filters are unavailable while the native streamer renders the video.</span>
-        ) : (
-          <>
+        <>
             <div className="sidebar-row sidebar-row--aligned">
               <span className="sidebar-label">Enable Filters</span>
               <label className="sidebar-mini-toggle" title="Enable GPU post-processing filters" tabIndex={0}>
@@ -168,8 +163,7 @@ export function StreamQuickMenuControlsPage({
                 </div>
               </>
             )}
-          </>
-        )}
+        </>
       </section>
       <div className="sidebar-separator" aria-hidden="true" />
       <section className="sidebar-section">

@@ -4,6 +4,11 @@ export interface AdaptiveMouseFlushDecisionParams {
   reliableBufferedAmount: number;
   schedulingDelayMs: number;
   canUsePartiallyReliableMouse: boolean;
+  /** Optional PR-channel pressure; absent keeps the pre-Wave-10 behavior. */
+  partiallyReliableBufferedAmount?: number;
+  /** Age of the oldest queued mouse batch, in milliseconds. */
+  batchAgeMs?: number;
+  batchAgeThresholdMs?: number;
   backpressureThresholdBytes: number;
   minIntervalMs: number;
   maxIntervalMs: number;
@@ -12,20 +17,31 @@ export interface AdaptiveMouseFlushDecisionParams {
 export function chooseAdaptiveMouseFlushInterval(params: AdaptiveMouseFlushDecisionParams): number {
   const boundedBase = Math.max(params.minIntervalMs, Math.min(params.maxIntervalMs, params.baseIntervalMs));
   const boundedCurrent = Math.max(params.minIntervalMs, Math.min(params.maxIntervalMs, params.currentIntervalMs));
-  // Official GFN keeps a fixed coalesce interval (4/8/16 ms) for PR mouse and does not
-  // back off because the reliable keyboard channel is busy.
-  if (params.canUsePartiallyReliableMouse) {
-    return boundedBase;
-  }
+  const partiallyReliableBufferedAmount = Math.max(0, params.partiallyReliableBufferedAmount ?? 0);
+  const batchAgeMs = Math.max(0, params.batchAgeMs ?? 0);
+  const batchAgeThresholdMs = Math.max(8, params.batchAgeThresholdMs ?? 20);
 
+  // Wave 10 only coalesces under a real backlog. This keeps the normal PR path at
+  // the official 4/8/16 ms cadence and does not touch packet serialization.
+  const activeChannelBufferedAmount = params.canUsePartiallyReliableMouse
+    ? partiallyReliableBufferedAmount
+    : params.reliableBufferedAmount;
   const highPressure =
-    params.reliableBufferedAmount >= params.backpressureThresholdBytes / 2
-    || params.schedulingDelayMs >= 4;
+    activeChannelBufferedAmount >= params.backpressureThresholdBytes / 2
+    || params.schedulingDelayMs >= 4
+    || batchAgeMs >= batchAgeThresholdMs;
   if (highPressure) {
     return Math.max(boundedBase, Math.min(params.maxIntervalMs, boundedCurrent + 2));
   }
 
-  const lowPressure = params.reliableBufferedAmount <= 4096 && params.schedulingDelayMs <= 1;
+  if (params.canUsePartiallyReliableMouse) {
+    return boundedBase;
+  }
+
+  const lowPressure = params.reliableBufferedAmount <= 4096
+    && partiallyReliableBufferedAmount <= 4096
+    && params.schedulingDelayMs <= 1
+    && batchAgeMs <= 4;
   if (lowPressure) {
     return Math.max(params.minIntervalMs, boundedCurrent - 1);
   }

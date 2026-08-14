@@ -1,8 +1,8 @@
 import { autoAnimate } from "@formkit/auto-animate";
-import { Check, Cpu, Globe, Heart, Info, Keyboard, Mic, Monitor, Search, Wifi, X } from "lucide-react";
+import { Check, Globe, Heart, Info, Keyboard, Mic, Monitor, Search, Wifi, X } from "lucide-react";
 import { useEffect, useRef, type JSX, type ReactNode } from "react";
 
-type SettingsSectionId = "stream" | "native-streamer" | "game" | "audio" | "input" | "interface" | "about" | "thanks";
+type SettingsSectionId = "stream" | "game" | "audio" | "input" | "interface" | "about" | "thanks";
 
 interface SettingsPageLayoutProps {
   savedLabel: string;
@@ -83,7 +83,6 @@ export function SettingsPageLayout({
 
 export const settingsNavIcons = {
   stream: <Wifi size={15} />,
-  nativeStreamer: <Cpu size={15} />,
   game: <Globe size={15} />,
   audio: <Mic size={15} />,
   input: <Keyboard size={15} />,

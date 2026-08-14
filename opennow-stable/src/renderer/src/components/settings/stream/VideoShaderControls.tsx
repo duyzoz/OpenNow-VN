@@ -57,9 +57,7 @@ export function VideoShaderControls({
         </label>
       </div>
       <span className="settings-subtle-hint">
-        {settings.streamClientMode === "native"
-          ? t("settings.videoFilters.nativeUnavailable")
-          : t("settings.videoFilters.hint")}
+        {t("settings.videoFilters.hint")}
       </span>
       {settings.videoShader.enabled && (
         <>

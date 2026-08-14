@@ -24,8 +24,6 @@ interface DomInputCaptureDependencies {
   inputEncoder: InputEncoder;
   isInputReady: () => boolean;
   isInputBlocked: () => boolean;
-  isNativeInputActive: () => boolean;
-  isNativeElectronInputBridge: () => boolean;
   shouldAutoFullscreen: () => boolean;
   getCurrentResolution: () => string;
   getKeyboardLayout: () => KeyboardLayout | undefined;
@@ -51,6 +49,12 @@ export interface MouseInputDiagnostics {
   batchAgeMs: number;
   /** Number of DOM pointer samples coalesced into the last sent batch. */
   batchEntries: number;
+  pressureGuardActive: boolean;
+  pressureGuardReason: "buffered_amount" | "batch_age" | "scheduling_delay" | "none";
+  pressureGuardSamples: number;
+  calibrationScaleX: number;
+  calibrationScaleY: number;
+  calibrationRoundingPx: number;
 }
 
 const MOUSE_FLUSH_FAST_MS = 4;
@@ -110,6 +114,12 @@ export class DomInputCaptureController {
   private mouseCoalescedBatchEntries = 0;
   private mouseBatchAgeMs = 0;
   private mouseBatchEntries = 0;
+  private mousePressureGuardActive = false;
+  private mousePressureGuardReason: "buffered_amount" | "batch_age" | "scheduling_delay" | "none" = "none";
+  private mousePressureGuardSamples = 0;
+  private cursorCalibrationScaleX = 1;
+  private cursorCalibrationScaleY = 1;
+  private cursorCalibrationRoundingPx = 0;
   private nativeCursorOverlayEnabled: boolean;
 
   constructor(
@@ -202,8 +212,14 @@ export class DomInputCaptureController {
     this.mousePacketsPerSecond = 0;
     this.mousePacketRateWindowStartedAtMs = 0;
           this.mouseBatchAgeMs = 0;
-      this.mouseBatchEntries = 0;
-      this.lastLockKeysState = -1;
+    this.mouseBatchEntries = 0;
+    this.mousePressureGuardActive = false;
+    this.mousePressureGuardReason = "none";
+    this.mousePressureGuardSamples = 0;
+    this.cursorCalibrationScaleX = 1;
+    this.cursorCalibrationScaleY = 1;
+    this.cursorCalibrationRoundingPx = 0;
+    this.lastLockKeysState = -1;
 
   }
 
@@ -216,7 +232,24 @@ export class DomInputCaptureController {
       adaptiveFlushActive: this.mouseAdaptiveFlushActive,
       batchAgeMs: this.mouseBatchAgeMs,
       batchEntries: this.mouseBatchEntries,
+      pressureGuardActive: this.mousePressureGuardActive,
+      pressureGuardReason: this.mousePressureGuardReason,
+      pressureGuardSamples: this.mousePressureGuardSamples,
+      calibrationScaleX: this.cursorCalibrationScaleX,
+      calibrationScaleY: this.cursorCalibrationScaleY,
+      calibrationRoundingPx: this.cursorCalibrationRoundingPx,
     };
+  }
+
+  setMousePressureGuardState(
+    active: boolean,
+    reason: "buffered_amount" | "batch_age" | "scheduling_delay" | "none",
+  ): void {
+    this.mousePressureGuardActive = active;
+    this.mousePressureGuardReason = active ? reason : "none";
+    if (active) {
+      this.mousePressureGuardSamples += 1;
+    }
   }
 
   setAdaptiveFlushInterval(intervalMs: number, active: boolean): void {
@@ -569,6 +602,12 @@ export class DomInputCaptureController {
       pointerScaleCache.serverHeight = serverHeight;
       pointerScaleCache.scaleX = rect.width > 0 ? serverWidth / rect.width : 1;
       pointerScaleCache.scaleY = rect.height > 0 ? serverHeight / rect.height : 1;
+      this.cursorCalibrationScaleX = pointerScaleCache.scaleX;
+      this.cursorCalibrationScaleY = pointerScaleCache.scaleY;
+      this.cursorCalibrationRoundingPx = Math.max(
+        pointerScaleCache.scaleX > 0 ? 0.5 / pointerScaleCache.scaleX : 0,
+        pointerScaleCache.scaleY > 0 ? 0.5 / pointerScaleCache.scaleY : 0,
+      );
       pointerScaleCache.resolution = resolution;
       return pointerScaleCache;
     };
@@ -1318,12 +1357,8 @@ export class DomInputCaptureController {
         this.suppressNextSyntheticEscapeOnPointerLockLoss(500);
         document.exitPointerLock();
       }
-      // Pause forwarding while window is not focused (host overlay pause is separate).
-      // In native mode the renderer sink can be a separate no-activate window,
-      // so a focus transition is not enough reason to stop controller polling.
-      if (!this.dependencies.isNativeInputActive()) {
-        this.dependencies.setWindowInputPaused(true);
-      }
+      // Pause forwarding while the WebRTC window is not focused.
+      this.dependencies.setWindowInputPaused(true);
     };
 
     const onVisibilityChange = () => {
@@ -1375,12 +1410,8 @@ export class DomInputCaptureController {
     } else {
       window.addEventListener("mousemove", onMouseMove);
     }
-    // Use document capture for buttons/wheel in native internal mode so clicks
-    // still reach us even if the native child HWND is topmost for a frame.
-    const buttonTarget: HTMLElement | Document = this.dependencies.isNativeElectronInputBridge()
-      ? document
-      : pointerLockTarget;
-    const buttonCapture = this.dependencies.isNativeElectronInputBridge();
+    const buttonTarget: HTMLElement | Document = pointerLockTarget;
+    const buttonCapture = false;
     buttonTarget.addEventListener("mousedown", onMouseDown as EventListener, buttonCapture);
     buttonTarget.addEventListener("mouseup", onMouseUp as EventListener, buttonCapture);
     buttonTarget.addEventListener("wheel", onWheel as EventListener, {

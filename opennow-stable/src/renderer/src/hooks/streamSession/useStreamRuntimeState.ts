@@ -3,7 +3,6 @@ import type {
   ActiveSessionInfo,
   DirectLaunchRequest,
   GameInfo,
-  NativeStreamerShortcutAction,
   PrintedWasteQueueData,
   SessionInfo,
 } from "@shared/gfn";
@@ -24,8 +23,6 @@ export function useStreamRuntimeState() {
   const [showStatsOverlay, setShowStatsOverlay] = useState(false);
   const [antiAfkEnabled, setAntiAfkEnabled] = useState(true);
   const [antiAfkAckNonce, setAntiAfkAckNonce] = useState(0);
-  const [nativeInputCaptureActive, setNativeInputCaptureActive] = useState(false);
-  const [nativeInputBridgeReady, setNativeInputBridgeReady] = useState(false);
   const [streamingGame, setStreamingGame] = useState<GameInfo | null>(null);
   const [streamingStore, setStreamingStore] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | undefined>();
@@ -51,8 +48,6 @@ export function useStreamRuntimeState() {
   const clientRef = useRef<GfnWebRtcClient | null>(null);
   const previousFreeTierRemainingSecondsRef = useRef<number | null>(null);
   const navbarSessionActionInFlightRef = useRef<"resume" | "terminate" | null>(null);
-  const nativeStreamingRef = useRef(false);
-  const handleStreamShortcutActionRef = useRef<((action: NativeStreamerShortcutAction) => void) | null>(null);
   const streamingGameRef = useRef<GameInfo | null>(null);
   const isStreamingRef = useRef(false);
   const sessionRef = useRef<SessionInfo | null>(null);
@@ -65,7 +60,6 @@ export function useStreamRuntimeState() {
   const launchAbortRef = useRef(false);
   const discordStreamingActivitySessionRef = useRef<string | null>(null);
   const streamStatusRef = useRef<StreamStatus>("idle");
-  const nativeInputProtocolVersionRef = useRef<number | null>(null);
   const stableRecoveryResetTimerRef = useRef<number | null>(null);
   const remoteIceGraceTimerRef = useRef<number | null>(null);
   const remoteIceSeenForSessionRef = useRef<string | null>(null);
@@ -91,8 +85,6 @@ export function useStreamRuntimeState() {
     showStatsOverlay, setShowStatsOverlay,
     antiAfkEnabled, setAntiAfkEnabled,
     antiAfkAckNonce, setAntiAfkAckNonce,
-    nativeInputCaptureActive, setNativeInputCaptureActive,
-    nativeInputBridgeReady, setNativeInputBridgeReady,
     streamingGame, setStreamingGame,
     streamingStore, setStreamingStore,
     queuePosition, setQueuePosition,
@@ -117,8 +109,6 @@ export function useStreamRuntimeState() {
     clientRef,
     previousFreeTierRemainingSecondsRef,
     navbarSessionActionInFlightRef,
-    nativeStreamingRef,
-    handleStreamShortcutActionRef,
     streamingGameRef,
     isStreamingRef,
     sessionRef,
@@ -131,7 +121,6 @@ export function useStreamRuntimeState() {
     launchAbortRef,
     discordStreamingActivitySessionRef,
     streamStatusRef,
-    nativeInputProtocolVersionRef,
     stableRecoveryResetTimerRef,
     remoteIceGraceTimerRef,
     remoteIceSeenForSessionRef,

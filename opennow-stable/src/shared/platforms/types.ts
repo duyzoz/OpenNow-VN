@@ -39,7 +39,6 @@ export interface CloudPlatformCapabilities {
   supportsAccountLinking: boolean;
   supportsPersistentStorage: boolean;
   supportsQueueAds: boolean;
-  supportsNativeStreamer: boolean;
 }
 
 export const GFN_PLATFORM_CAPABILITIES: CloudPlatformCapabilities = {
@@ -47,7 +46,6 @@ export const GFN_PLATFORM_CAPABILITIES: CloudPlatformCapabilities = {
   supportsAccountLinking: true,
   supportsPersistentStorage: true,
   supportsQueueAds: true,
-  supportsNativeStreamer: true,
 };
 
 export function getCloudPlatformDescriptor(

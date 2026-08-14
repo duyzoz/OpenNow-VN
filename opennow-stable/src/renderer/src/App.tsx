@@ -8,7 +8,6 @@ import type {
   DirectLaunchRequest,
   GameInfo,
   LoginProvider,
-  NativeStreamerShortcutAction,
   ReleaseHighlightsPayload,
   SessionInfo,
   SessionStopRequest,
@@ -21,7 +20,6 @@ import type {
 } from "@shared/gfn";
 import { discordGameImageUrl } from "@shared/discord";
 import {
-  buildNativeStreamerSessionContext,
   createDefaultSettings,
   createPlatformShortcutDefaults,
   resolveEntitledStreamProfile,
@@ -29,7 +27,7 @@ import {
   SAFE_FALLBACK_STREAM_PROFILE,
 } from "@shared/gfn";
 import { formatShortcutForDisplay, isShortcutMatch, normalizeShortcut } from "./shortcuts";
-import { dispatchStreamShortcutAction } from "./streamShortcutActions";
+import { dispatchStreamShortcutAction, type StreamShortcutAction } from "./streamShortcutActions";
 import { useElapsedSeconds } from "./utils/useElapsedSeconds";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { useCatalogData } from "./hooks/useCatalogData";
@@ -253,7 +251,7 @@ export function App(): JSX.Element {
     diagnosticsStoreRef.current ?? (diagnosticsStoreRef.current = createStreamDiagnosticsStore(defaultDiagnostics()));
   const diagnosticsVideoReady = useStreamDiagnosticsSelector(
     diagnosticsStore,
-    (stats) => stats.nativeRendererActive || stats.framesDecoded > 0,
+    (stats) => stats.framesDecoded > 0,
   );
 
   const { runtime: streamRuntime, recovery, snapshot } = useStreamSession();
@@ -263,8 +261,6 @@ export function App(): JSX.Element {
     showStatsOverlay, setShowStatsOverlay,
     antiAfkEnabled, setAntiAfkEnabled,
     antiAfkAckNonce, setAntiAfkAckNonce,
-    nativeInputCaptureActive, setNativeInputCaptureActive,
-    nativeInputBridgeReady, setNativeInputBridgeReady,
     streamingGame, setStreamingGame,
     streamingStore, setStreamingStore,
     queuePosition, setQueuePosition,
@@ -286,8 +282,6 @@ export function App(): JSX.Element {
     videoRef, audioRef, clientRef,
     previousFreeTierRemainingSecondsRef,
     navbarSessionActionInFlightRef,
-    nativeStreamingRef,
-    handleStreamShortcutActionRef,
     streamingGameRef,
     isStreamingRef,
     sessionRef,
@@ -299,7 +293,6 @@ export function App(): JSX.Element {
     launchAbortRef,
     discordStreamingActivitySessionRef,
     streamStatusRef,
-    nativeInputProtocolVersionRef,
     awaitingRecoveryRemoteIceRef,
     appUnloadingRef,
     signalingRecoveryRef,
@@ -679,8 +672,6 @@ export function App(): JSX.Element {
     setRemoteStreamWarning(null);
     setLocalSessionTimerWarning(null);
     resetStatsOverlayToPreference();
-    nativeStreamingRef.current = false;
-    window.openNow.notifyNativeInputModeChange(false, false);
     diagnosticsStore.set(defaultDiagnostics());
 
     if (!options?.keepStreamingContext) {
@@ -748,11 +739,7 @@ export function App(): JSX.Element {
       gameLanguage: settings.gameLanguage,
       enableL4S: settings.enableL4S,
       enableCloudGsync: settings.enableCloudGsync,
-      clientMode: settings.streamClientMode,
-      nativeStreamerBackend: "gstreamer",
-      transportMode: "webrtc",
-      nativeCloudGsyncMode: settings.nativeCloudGsyncMode,
-      nativeTransitionDiagnostics: settings.nativeTransitionDiagnostics,
+      clientMode: "web",
       appLaunchMode:
         settings.controllerMode || settings.launchInConsoleMode || directLaunchConsoleMode
           ? "gamepadFriendly"
@@ -770,30 +757,9 @@ export function App(): JSX.Element {
     settings.keyboardLayout,
     settings.launchInConsoleMode,
     settings.maxBitrateMbps,
-    settings.nativeCloudGsyncMode,
-    settings.nativeTransitionDiagnostics,
     settings.resolution,
-    settings.streamClientMode,
     subscriptionInfo?.entitledResolutions,
   ]);
-
-  const warmNativeStreamerForLaunch = useCallback((): void => {
-    if (settings.streamClientMode !== "native") {
-      return;
-    }
-
-    void window.openNow.getNativeStreamerStatus()
-      .then((status) => {
-        if (status.detected) {
-          console.log("[NativeStreamer] Launch warm-up ready:", status.message);
-        } else {
-          console.warn("[NativeStreamer] Launch warm-up did not detect native streamer:", status.message);
-        }
-      })
-      .catch((error) => {
-        console.warn("[NativeStreamer] Launch warm-up failed:", error);
-      });
-  }, [settings.streamClientMode]);
 
   // Derived state
 
@@ -1018,34 +984,13 @@ export function App(): JSX.Element {
     settings.shortcutToggleRecording,
   ]);
 
-  const nativeStreamerShortcuts = useMemo(() => ({
-    toggleStats: shortcuts.toggleStats.canonical,
-    togglePointerLock: shortcuts.togglePointerLock.canonical,
-    toggleFullscreen: shortcuts.toggleFullscreen.canonical,
-    stopStream: shortcuts.stopStream.canonical,
-    toggleAntiAfk: shortcuts.toggleAntiAfk.canonical,
-    toggleMicrophone: shortcuts.toggleMicrophone.canonical,
-    screenshot: "",
-    toggleRecording: "",
-  }), [shortcuts]);
-
   const buildSignalingConnectRequest = useCallback((activeSession: SessionInfo): SignalingConnectRequest => {
-    const streamSettings = buildCurrentStreamSettings();
     return {
       sessionId: activeSession.sessionId,
       signalingServer: activeSession.signalingServer,
       signalingUrl: activeSession.signalingUrl,
-      nativeStreamer: buildNativeStreamerSessionContext(activeSession, streamSettings, nativeStreamerShortcuts),
     };
-  }, [buildCurrentStreamSettings, nativeStreamerShortcuts]);
-
-  // Propagate shortcut binding changes to native process during active session
-  useEffect(() => {
-    if (streamStatus !== "streaming" || !session || !nativeStreamingRef.current) {
-      return;
-    }
-    window.openNow.updateNativeShortcuts(nativeStreamerShortcuts);
-  }, [nativeStreamerShortcuts, session, streamStatus]);
+  }, [buildCurrentStreamSettings]);
 
   const setSessionFullscreen = useCallback(async (nextFullscreen: boolean) => {
     const canUseNativeFullscreen = typeof window.openNow?.setFullscreen === "function";
@@ -1124,13 +1069,6 @@ export function App(): JSX.Element {
       void requestPointerLockCapture(videoRef.current);
     }
   }, [requestPointerLockCapture]);
-
-  const setNativeInputPaused = useCallback((paused: boolean): void => {
-    if (!nativeStreamingRef.current && settings.streamClientMode !== "native") {
-      return;
-    }
-    window.openNow.setNativeInputPaused(paused);
-  }, [settings.streamClientMode]);
 
   const resolveExitPrompt = useCallback((confirmed: boolean) => {
     const resolver = exitPromptResolverRef.current;
@@ -1212,8 +1150,6 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     if (!antiAfkEnabled || streamStatus !== "streaming") return;
-    if (nativeStreamingRef.current && !nativeInputBridgeReady) return;
-
     // Send first pulse immediately on stream start, then every 60s.
     // 60s is well within GFN's ~5min idle timeout, ensuring the session
     // never auto-disconnects while the app is running.
@@ -1224,7 +1160,7 @@ export function App(): JSX.Element {
     }, 60000); // 60 seconds — aggressive keep-alive
 
     return () => clearInterval(interval);
-  }, [antiAfkEnabled, nativeInputBridgeReady, streamStatus]);
+  }, [antiAfkEnabled, streamStatus]);
 
   // Periodically re-sync subscription playtime from backend while streaming.
   useEffect(() => {
@@ -1578,9 +1514,6 @@ export function App(): JSX.Element {
 
     setSession(claimed);
     sessionRef.current = claimed;
-    nativeInputProtocolVersionRef.current = null;
-    setNativeInputBridgeReady(false);
-    setNativeInputCaptureActive(false);
     try {
       window.openNow.notifyPointerLockChange(false, true);
     } catch {
@@ -1611,8 +1544,6 @@ export function App(): JSX.Element {
         if (!existingSession.serverIp) {
           throw new Error("Active session is missing server address. Start the game again to create a new session.");
         }
-        warmNativeStreamerForLaunch();
-
         console.log("[Resume] claimAndConnectSession: invoking claimSession", {
           sessionId: existingSession.sessionId,
           serverIp: existingSession.serverIp,
@@ -1654,7 +1585,7 @@ export function App(): JSX.Element {
 
     claimResumePromisesRef.current.set(sid, resumePromiseHolder.promise);
     await resumePromiseHolder.promise;
-  }, [applyClaimedSessionAndConnect, authSession, buildCurrentStreamSettings, effectiveStreamingBaseUrl, findGameContextForSession, resolveResumeIdentity, resolveSessionClaimAppId, resolveSubscriptionInfoForLaunch, warmNativeStreamerForLaunch]);
+  }, [applyClaimedSessionAndConnect, authSession, buildCurrentStreamSettings, effectiveStreamingBaseUrl, findGameContextForSession, resolveResumeIdentity, resolveSessionClaimAppId, resolveSubscriptionInfoForLaunch]);
 
   const attemptSessionRecovery = useCallback(async (reason: string): Promise<boolean> => {
     const recoveryState = signalingRecoveryRef.current;
@@ -1815,7 +1746,7 @@ export function App(): JSX.Element {
     resolveSubscriptionInfoForLaunch,
   ]);
 
-  const handleExpectedNativeSessionClose = useCallback((reason: string): void => {
+  const handleExpectedSessionClose = useCallback((reason: string): void => {
     console.log("[Recovery] Treating signaling close as ended session:", reason);
     const activeGameId = streamingGameRef.current?.id;
     if (activeGameId) {
@@ -1833,7 +1764,7 @@ export function App(): JSX.Element {
     runtime: streamRuntime,
     attemptSessionRecovery,
     diagnosticsStore,
-    handleExpectedNativeSessionClose,
+    handleExpectedSessionClose,
     markDiscordStreamStarted,
     refreshNavbarActiveSession,
     resetLaunchRuntime,
@@ -1865,7 +1796,6 @@ export function App(): JSX.Element {
     subscriptionInfo,
     t,
     variantByGameId,
-    warmNativeStreamerForLaunch,
   });
 
   useEffect(() => {
@@ -2293,16 +2223,12 @@ export function App(): JSX.Element {
     await handleStopStream();
   }, [handleStopStream, releasePointerLockIfNeeded, requestExitPrompt, streamStatus, streamingGame?.title, t]);
 
-  const handleStreamShortcutAction = useCallback((action: NativeStreamerShortcutAction): void => {
+  const handleStreamShortcutAction = useCallback((action: StreamShortcutAction): void => {
     switch (action) {
       case "toggleStats":
         setShowStatsOverlay((prev) => !prev);
         return;
       case "togglePointerLock":
-        if (nativeStreamingRef.current) {
-          // Native streamer toggles OS input capture locally in the renderer window.
-          return;
-        }
         {
           const targetVideo = videoRef.current;
           if (streamStatus === "streaming" && targetVideo) {
@@ -2336,16 +2262,12 @@ export function App(): JSX.Element {
         return;
       case "screenshot":
       case "toggleRecording":
-        if (streamStatus === "streaming" && !nativeStreamingRef.current) {
+        if (streamStatus === "streaming") {
           dispatchStreamShortcutAction(action);
         }
         return;
     }
   }, [handlePromptedStopStream, requestPointerLockCapture, streamStatus, toggleSessionFullscreen]);
-
-  useEffect(() => {
-    handleStreamShortcutActionRef.current = handleStreamShortcutAction;
-  }, [handleStreamShortcutAction]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2815,10 +2737,6 @@ export function App(): JSX.Element {
               audioRef={audioRef}
               diagnosticsStore={diagnosticsStore}
               showStats={showStatsOverlay}
-              showNativeStats={settings.showNativeStreamerStats}
-              nativeInputCaptureActive={nativeInputCaptureActive}
-              gstreamerEnabled={settings.streamClientMode === "native"}
-              nativeExternalRenderer={settings.nativeExternalRenderer}
               shortcuts={{
                 toggleStats: formatShortcutForDisplay(settings.shortcutToggleStats, isMac),
                 togglePointerLock: formatShortcutForDisplay(settings.shortcutTogglePointerLock, isMac),
@@ -2881,7 +2799,6 @@ export function App(): JSX.Element {
               onReleasePointerLock={() => {
                 void releasePointerLockIfNeeded();
               }}
-              onNativeInputPaused={setNativeInputPaused}
               allowEscapeToExitFullscreen={settings.allowEscapeToExitFullscreen}
               videoShader={settings.videoShader}
               onVideoShaderChange={handleVideoShaderChange}

@@ -30,7 +30,7 @@ function makeSettings(overrides: Partial<StreamSettings> = {}): StreamSettings {
     gameLanguage: "en_US",
     enableL4S: false,
     enableCloudGsync: false,
-    clientMode: "native",
+    clientMode: "web",
     ...overrides,
   };
 }

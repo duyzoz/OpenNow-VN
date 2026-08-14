@@ -55,7 +55,6 @@ function getLagReasonColor(reason: StreamLagReason): string {
 
 export interface StreamStatsHudProps {
   diagnosticsStore: StreamDiagnosticsStore;
-  gstreamerEnabled: boolean;
   serverRegion?: string;
   sessionTimeRemainingText: string | null;
   hintsVisible?: boolean;
@@ -63,7 +62,6 @@ export interface StreamStatsHudProps {
 
 export function StreamStatsHud({
   diagnosticsStore,
-  gstreamerEnabled,
   serverRegion,
   sessionTimeRemainingText,
   hintsVisible = false,
@@ -91,10 +89,10 @@ export function StreamStatsHud({
   const bitratePerformanceText =
     bitratePerformancePercent > 0 ? `${bitratePerformancePercent.toFixed(0)}%` : "--";
   const bitratePerformanceColor = getBitratePerformanceColor(bitratePerformancePercent);
-  const hasResolution = stats.nativeRendererActive || stats.resolution !== "";
+  const hasResolution = stats.resolution !== "";
   const displayFps = Math.max(stats.decodeFps, stats.renderFps);
   const primaryText = hasResolution
-    ? `${stats.resolution || "Native renderer"}${displayFps > 0 ? ` · ${displayFps}fps` : ""}`
+    ? `${stats.resolution}${displayFps > 0 ? ` · ${displayFps}fps` : ""}`
     : t("stream.stats.connecting");
   const hasCodec = Boolean(stats.codec && stats.codec !== "");
   const regionLabel = stats.serverRegion || serverRegion || "";
@@ -102,10 +100,8 @@ export function StreamStatsHud({
   const renderColor = getTimingColor(stats.renderTimeMs, 12, 22);
   const jitterBufferColor = getTimingColor(stats.jitterBufferDelayMs, 10, 24);
   const lossColor = getPacketLossColor(stats.packetLossPercent);
-  const lossLabel = stats.nativeRendererActive ? "Drop" : "Loss";
-  const lossTitle = stats.nativeRendererActive
-    ? "Native renderer dropped frame percentage"
-    : t("stream.stats.packetLoss");
+  const lossLabel = "Loss";
+  const lossTitle = t("stream.stats.packetLoss");
   const dText = stats.decodeTimeMs > 0 ? `${stats.decodeTimeMs.toFixed(1)}ms` : "--";
   const rText = stats.renderTimeMs > 0 ? `${stats.renderTimeMs.toFixed(1)}ms` : "--";
   const jbText = stats.jitterBufferDelayMs > 0 ? `${stats.jitterBufferDelayMs.toFixed(1)}ms` : "--";
@@ -149,11 +145,6 @@ export function StreamStatsHud({
     lines.push(
       `A/V ${stats.audioOutputMode ?? "direct"} · offset ${avOffset} · audio ${stats.audioContextState ?? "none"}${audioBase}`,
     );
-    lines.push(
-      gstreamerEnabled
-        ? `GStreamer enabled · ${stats.nativeRendererActive ? "in use" : "not active"}`
-        : "GStreamer disabled · Chromium WebRTC",
-    );
     const hwLine = [stats.hardwareAcceleration, stats.colorCodec].filter(Boolean).join(" · ");
     if (hwLine) lines.push(hwLine);
     if (stats.decoderPressureActive || stats.decoderRecoveryAttempts > 0 || stats.decoderPressureReason) {
@@ -166,14 +157,26 @@ export function StreamStatsHud({
         `Bitrate adaptation ${stats.bitrateAdaptationState} · ceiling ${stats.bitrateCeilingKbps ?? 0}kbps`,
       );
     }
-    if (stats.nativeTransitionSummary || stats.nativeQueueMode || stats.nativeCapsFramerate) {
+    if (typeof stats.bitrateEwmaKbps === "number" && stats.bitrateEwmaKbps > 0) {
       lines.push(
-        `Native transition ${stats.nativeTransitionSummary ?? "none"} · queue ${stats.nativeQueueMode ?? "unknown"} · caps ${stats.nativeCapsFramerate ?? "unknown"}${typeof stats.nativeRequestedFps === "number" ? ` · requested ${stats.nativeRequestedFps}fps` : ""}${typeof stats.nativeFramesPendingToPresent === "number" ? ` · pending ${stats.nativeFramesPendingToPresent}` : ""}${typeof stats.nativePartialFlushCount === "number" || typeof stats.nativeCompleteFlushCount === "number" ? ` · flush ${stats.nativePartialFlushCount ?? 0}/${stats.nativeCompleteFlushCount ?? 0}` : ""}`,
+        `Bitrate EWMA ${(stats.bitrateEwmaKbps / 1000).toFixed(1)}Mbps · headroom ${stats.bitrateCeilingHeadroomPercent ?? 0}%`,
       );
     }
-    if (stats.nativeRequestedStreamingFeaturesSummary || stats.nativeFinalizedStreamingFeaturesSummary) {
+    if (stats.frameDropClass && stats.frameDropClass !== "unknown") {
+      lines.push(`Frame drop ${stats.frameDropClass} · ${stats.frameDropClassDetail ?? ""}`);
+    }
+    if (stats.mousePressureGuardActive) {
       lines.push(
-        `Stream features requested ${stats.nativeRequestedStreamingFeaturesSummary ?? "none"} · finalized ${stats.nativeFinalizedStreamingFeaturesSummary ?? "none"}`,
+        `Mouse guard ${stats.mousePressureGuardReason ?? "none"} · samples ${stats.mousePressureGuardSamples ?? 0} · cal ${stats.cursorCalibrationScaleX?.toFixed(3) ?? "--"}x${stats.cursorCalibrationScaleY?.toFixed(3) ?? "--"}`,
+      );
+    }
+    if (
+      stats.routeMeasurementLabel &&
+      stats.routeMeasurementLabel !== "single" &&
+      typeof stats.routeMeasurementDeltaRttMs === "number"
+    ) {
+      lines.push(
+        `Route A/B Δ RTT ${stats.routeMeasurementDeltaRttMs.toFixed(0)}ms · Δ jitter ${stats.routeMeasurementDeltaJitterMs?.toFixed(1) ?? "--"}ms · conf ${stats.routeMeasurementConfidence ?? "low"}`,
       );
     }
     const gpuRegion = [stats.gpuType, regionLabel].filter(Boolean).join(" · ");
@@ -190,8 +193,7 @@ export function StreamStatsHud({
     }
     return lines.length > 0 ? [lines.join("  ·  ")] : lines;
   }, [
-    gstreamerEnabled,
-    hasLagIssue,
+      hasLagIssue,
     mouseResidualText,
     lastRouteTelemetry,
     regionLabel,

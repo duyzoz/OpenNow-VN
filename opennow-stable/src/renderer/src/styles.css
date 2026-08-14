@@ -5626,7 +5626,7 @@ button.game-card-store-chip.owned.active:hover {
   }
 }
 
-.native-streamer-warning {
+.community-proxy-warning {
   position: fixed;
   inset: 0;
   z-index: 3300;
@@ -5637,7 +5637,7 @@ button.game-card-store-chip.owned.active:hover {
   isolation: isolate;
 }
 
-.native-streamer-warning-backdrop {
+.community-proxy-warning-backdrop {
   position: absolute;
   inset: 0;
   border: none;
@@ -5645,7 +5645,7 @@ button.game-card-store-chip.owned.active:hover {
   cursor: pointer;
 }
 
-.native-streamer-warning-card {
+.community-proxy-warning-card {
   position: relative;
   z-index: 1;
   width: min(480px, calc(100vw - 32px));
@@ -5657,7 +5657,7 @@ button.game-card-store-chip.owned.active:hover {
   overflow: hidden;
 }
 
-.native-streamer-warning-kicker {
+.community-proxy-warning-kicker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -5672,7 +5672,7 @@ button.game-card-store-chip.owned.active:hover {
   text-transform: uppercase;
 }
 
-.native-streamer-warning-title {
+.community-proxy-warning-title {
   margin: 12px 0 0;
   color: var(--ink);
   font-size: 1.18rem;
@@ -5681,20 +5681,20 @@ button.game-card-store-chip.owned.active:hover {
   letter-spacing: 0.01em;
 }
 
-.native-streamer-warning-text {
+.community-proxy-warning-text {
   margin: 8px 0 0;
   color: var(--ink-soft);
   font-size: 0.88rem;
   line-height: 1.5;
 }
 
-.native-streamer-warning-list {
+.community-proxy-warning-list {
   display: grid;
   gap: 6px;
   margin-top: 14px;
 }
 
-.native-streamer-warning-list-item {
+.community-proxy-warning-list-item {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -5708,19 +5708,19 @@ button.game-card-store-chip.owned.active:hover {
   opacity: 1;
 }
 
-.native-streamer-warning-list-item svg {
+.community-proxy-warning-list-item svg {
   flex: 0 0 auto;
   margin-top: 2px;
   color: var(--ink-muted);
 }
 
-.native-streamer-warning-actions {
+.community-proxy-warning-actions {
   display: flex;
   gap: 8px;
   margin-top: 18px;
 }
 
-.native-streamer-warning-btn {
+.community-proxy-warning-btn {
   flex: 1;
   min-height: 38px;
   border-radius: var(--r-sm);
@@ -5736,50 +5736,50 @@ button.game-card-store-chip.owned.active:hover {
     color var(--t-fast);
 }
 
-.native-streamer-warning-btn--with-icon {
+.community-proxy-warning-btn--with-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
 }
 
-.native-streamer-warning-btn:focus-visible {
+.community-proxy-warning-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--accent-surface);
 }
 
-.native-streamer-warning-btn--secondary {
+.community-proxy-warning-btn--secondary {
   background: var(--bg-a);
   color: var(--ink);
 }
 
-.native-streamer-warning-btn--secondary:hover {
+.community-proxy-warning-btn--secondary:hover {
   border-color: var(--panel-border-solid);
   background: var(--chip);
 }
 
-.native-streamer-warning-btn--primary {
+.community-proxy-warning-btn--primary {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-on);
 }
 
-.native-streamer-warning-btn--primary:hover {
+.community-proxy-warning-btn--primary:hover {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
 }
 
-.native-streamer-warning-btn--primary:focus-visible {
+.community-proxy-warning-btn--primary:focus-visible {
   box-shadow: 0 0 0 2px var(--accent-surface-strong);
 }
 
-.native-streamer-warning-hint {
+.community-proxy-warning-hint {
   margin-top: 12px;
   color: var(--ink-muted);
   font-size: 0.72rem;
 }
 
-.native-streamer-warning-hint kbd {
+.community-proxy-warning-hint kbd {
   display: inline-block;
   margin: 0 2px;
   padding: 2px 6px;
@@ -5812,7 +5812,7 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 @media (max-width: 560px) {
-  .native-streamer-warning-actions {
+  .community-proxy-warning-actions {
     flex-direction: column-reverse;
   }
 }
@@ -5858,13 +5858,6 @@ button.game-card-store-chip.owned.active:hover {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.settings-native-streamer-options {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
 }
 
 .settings-path-setting {

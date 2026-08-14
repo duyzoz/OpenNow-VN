@@ -1,11 +1,9 @@
-import type { NativeQueueMode } from "@shared/gfn";
 import type { MicState } from "../microphoneManager";
 
 export interface StreamDiagnostics {
   // Connection state
   connectionState: RTCPeerConnectionState | "closed";
   inputReady: boolean;
-  nativeRendererActive: boolean;
   connectedGamepads: number;
 
   // Video stats
@@ -74,16 +72,23 @@ export interface StreamDiagnostics {
   decoderBacklogFrames?: number;
   decoderDropRatePercent?: number;
   bitrateCeilingKbps?: number;
+  bitrateEwmaKbps?: number;
+  bitrateCeilingHeadroomPercent?: number;
   bitrateAdaptationState?: "unknown" | "unsupported" | "ready" | "active";
-  nativeRequestedFps?: number;
-  nativeCapsFramerate?: string;
-  nativeQueueMode?: NativeQueueMode;
-  nativeFramesPendingToPresent?: number;
-  nativePartialFlushCount?: number;
-  nativeCompleteFlushCount?: number;
-  nativeTransitionSummary?: string;
-  nativeRequestedStreamingFeaturesSummary?: string;
-  nativeFinalizedStreamingFeaturesSummary?: string;
+  frameDropClass?: "network" | "decoder" | "render" | "unknown";
+  frameDropClassDetail?: string;
+  mousePressureGuardActive?: boolean;
+  mousePressureGuardReason?: "buffered_amount" | "batch_age" | "scheduling_delay" | "none";
+  mousePressureGuardSamples?: number;
+  cursorCalibrationScaleX?: number;
+  cursorCalibrationScaleY?: number;
+  cursorCalibrationRoundingPx?: number;
+  routeMeasurementLabel?: "single" | "A" | "B";
+  routeMeasurementSamples?: number;
+  routeMeasurementDeltaRttMs?: number;
+  routeMeasurementDeltaJitterMs?: number;
+  routeMeasurementDeltaLossPercent?: number;
+  routeMeasurementConfidence?: "low" | "medium" | "high";
 
   // Audio/video timing telemetry (optional for backwards-compatible native fixtures)
   audioOutputMode?: "direct" | "audio_context";

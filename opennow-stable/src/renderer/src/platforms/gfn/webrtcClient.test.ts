@@ -179,7 +179,7 @@ test("adaptive flush on reliable mouse tightens toward min under low pressure", 
   assert.equal(interval, 3);
 });
 
-test("adaptive flush keeps base interval when partially-reliable mouse is active", () => {
+test("adaptive flush coalesces partially-reliable mouse under pressure", () => {
   const underPressure = chooseAdaptiveMouseFlushInterval({
     baseIntervalMs: 8,
     currentIntervalMs: 20,
@@ -190,7 +190,7 @@ test("adaptive flush keeps base interval when partially-reliable mouse is active
     minIntervalMs: 2,
     maxIntervalMs: 20,
   });
-  assert.equal(underPressure, 8);
+  assert.equal(underPressure, 20);
 });
 
 test("adaptive flush tightens under low pressure and relaxes under pressure on reliable mouse", () => {
@@ -238,8 +238,6 @@ test("subsampleCoalescedPointerEvents limits large coalesced bursts without drop
 });
 
 const stableLagParams = {
-  nativeInputActive: false,
-  nativeRendererActive: false,
   framesReceived: 5000,
   framesDecoded: 4980,
   decodeTimeMs: 9.2,

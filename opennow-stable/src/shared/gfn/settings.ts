@@ -1,16 +1,10 @@
 import type {
   ColorQuality,
-  NativeTransitionDiagnostics,
+  StreamTransitionDiagnostics,
   StreamClientMode,
   VideoAccelerationPreference,
   VideoCodec,
 } from "./stream";
-import type {
-  NativeStreamerBackendPreference,
-  NativeStreamerFeatureMode,
-  NativeVideoBackendPreference,
-  StreamTransportMode,
-} from "./nativeStreamer";
 import { DEFAULT_KEYBOARD_LAYOUT, type GameLanguage, type KeyboardLayout } from "./keyboard";
 import { DEFAULT_VIDEO_SHADER_SETTINGS, type VideoShaderSettings } from "./videoShader";
 import type { UpdateChannel } from "./updater";
@@ -55,14 +49,6 @@ export interface Settings {
   /** Recording video bitrate in Mbps; null means let MediaRecorder choose automatically */
   recordingBitrateMbps: number | null;
   streamClientMode: StreamClientMode;
-  nativeStreamerBackend: NativeStreamerBackendPreference;
-  nativeVideoBackend: NativeVideoBackendPreference;
-  nativeStreamerExecutablePath: string;
-  nativeCloudGsyncMode: NativeStreamerFeatureMode;
-  nativeD3dFullscreenMode: NativeStreamerFeatureMode;
-  nativeExternalRenderer: boolean;
-  transportMode: StreamTransportMode;
-  showNativeStreamerStats: boolean;
   codec: VideoCodec;
   decoderPreference: VideoAccelerationPreference;
   encoderPreference: VideoAccelerationPreference;
@@ -128,8 +114,8 @@ export interface Settings {
   identifyAsSteamDeck: boolean;
   /** Request Cloud G-Sync / Variable Refresh Rate on new sessions */
   enableCloudGsync: boolean;
-  /** Hidden diagnostics for native transition recovery and 240 FPS server-side stream changes */
-  nativeTransitionDiagnostics?: NativeTransitionDiagnostics;
+  /** Hidden diagnostics for stream transition recovery and server-side stream changes */
+  streamTransitionDiagnostics?: StreamTransitionDiagnostics;
   /** Show the currently streaming game as Discord Rich Presence activity */
   discordRichPresence: boolean;
   /** Automatically check GitHub Releases for app updates in the background */
@@ -226,14 +212,6 @@ export function createDefaultSettings(platform: string): Settings {
     maxBitrateMbps: 75,
     recordingBitrateMbps: null,
     streamClientMode: "web",
-    nativeStreamerBackend: "gstreamer",
-    nativeVideoBackend: "auto",
-    nativeStreamerExecutablePath: "",
-    nativeCloudGsyncMode: "auto",
-    nativeD3dFullscreenMode: "auto",
-    nativeExternalRenderer: false,
-    transportMode: "webrtc",
-    showNativeStreamerStats: false,
     codec: DEFAULT_STREAM_PREFERENCES.codec,
     decoderPreference: "auto",
     encoderPreference: "auto",
@@ -273,7 +251,7 @@ export function createDefaultSettings(platform: string): Settings {
     enableL4S: false,
     identifyAsSteamDeck: false,
     enableCloudGsync: false,
-    nativeTransitionDiagnostics: undefined,
+    streamTransitionDiagnostics: undefined,
     discordRichPresence: false,
     autoCheckForUpdates: true,
     updateChannel: "stable",

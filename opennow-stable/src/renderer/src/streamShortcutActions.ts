@@ -1,8 +1,15 @@
-import type { NativeStreamerShortcutAction } from "@shared/gfn";
-
 const STREAM_SHORTCUT_ACTION_EVENT = "opennow:stream-shortcut-action";
 
-export type StreamShortcutAction = NativeStreamerShortcutAction | "toggleSidebar";
+export type StreamShortcutAction =
+  | "toggleStats"
+  | "togglePointerLock"
+  | "toggleFullscreen"
+  | "stopStream"
+  | "toggleAntiAfk"
+  | "toggleMicrophone"
+  | "screenshot"
+  | "toggleRecording"
+  | "toggleSidebar";
 
 export function dispatchStreamShortcutAction(action: StreamShortcutAction): void {
   window.dispatchEvent(new CustomEvent<StreamShortcutAction>(STREAM_SHORTCUT_ACTION_EVENT, {

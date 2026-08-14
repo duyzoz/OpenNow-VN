@@ -22,7 +22,6 @@ import { SettingsAudioSection } from "./settings/sections/SettingsAudioSection";
 import { SettingsGameSection } from "./settings/sections/SettingsGameSection";
 import { SettingsInputSection } from "./settings/sections/SettingsInputSection";
 import { SettingsInterfaceSection } from "./settings/sections/SettingsInterfaceSection";
-import { SettingsNativeStreamerSection } from "./settings/sections/SettingsNativeStreamerSection";
 import { SettingsStreamSection } from "./settings/sections/SettingsStreamSection";
 import { SettingsThanksSection } from "./settings/sections/SettingsThanksSection";
 
@@ -63,7 +62,6 @@ export function SettingsPage({
   const [settingsSearch, setSettingsSearch] = useState("");
   const settingsSearchShowsAll = settingsSearch.trim().length > 0;
   const settingsContentRef = useRef<HTMLDivElement | null>(null);
-  const [nativeOverlayBlocking, setNativeOverlayBlocking] = useState(false);
   const [streamOverlayBlocking, setStreamOverlayBlocking] = useState(false);
   const saveRequestRef = useRef(0);
   const savedIndicatorTimerRef = useRef<number | null>(null);
@@ -243,14 +241,13 @@ export function SettingsPage({
   const showStreamVideo = showAll ? scopeMatchesSearch("stream-video") : activeSection === "stream";
   const showStreamCodecDiagnostics = showAll ? scopeMatchesSearch("stream-codec-diagnostics") : activeSection === "stream";
   const showStream = showStreamRegion || showStreamVideo || showStreamCodecDiagnostics;
-  const showNativeStreamer = showAll ? scopeMatchesSearch("native-streamer") : activeSection === "native-streamer";
   const showGame = showAll ? scopeMatchesSearch("game") : activeSection === "game";
   const showAudio = showAll ? scopeMatchesSearch("audio") : activeSection === "audio";
   const showInput = showAll ? scopeMatchesSearch("input") : activeSection === "input";
   const showInterface = showAll ? scopeMatchesSearch("interface") : activeSection === "interface";
   const showAbout = showAll ? scopeMatchesSearch("about") : activeSection === "about";
   const showThanks = showAll ? scopeMatchesSearch("thanks") : activeSection === "thanks";
-  const hasAnySearchMatches = showAccount || showStream || showNativeStreamer || showGame || showAudio || showInput || showInterface || showAbout || showThanks;
+  const hasAnySearchMatches = showAccount || showStream || showGame || showAudio || showInput || showInterface || showAbout || showThanks;
   const shouldRenderSettingsSections = showAll || activeSection !== "thanks";
 
   return (
@@ -320,15 +317,6 @@ export function SettingsPage({
                       subscriptionInfoLoaded={subscriptionInfo !== null}
                       subscriptionLoading={subscriptionLoading}
                       onBlockingOverlayChange={setStreamOverlayBlocking}
-                    />
-                  )}
-                  {(showNativeStreamer || nativeOverlayBlocking) && (
-                    <SettingsNativeStreamerSection
-                      settings={settings}
-                      showAll={showAll}
-                      showSection={showNativeStreamer}
-                      handleChange={handleChange}
-                      onBlockingOverlayChange={setNativeOverlayBlocking}
                     />
                   )}
                   {showGame && (

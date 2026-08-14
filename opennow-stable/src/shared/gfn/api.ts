@@ -54,13 +54,9 @@ import type {
   IceCandidatePayload,
   KeyframeRequest,
   MainToRendererSignalingEvent,
-  NativeInputPacket,
-  NativeRenderSurfaceUpdate,
-  NativeStreamerShortcutBindings,
   SendAnswerRequest,
   SignalingConnectRequest,
 } from "./signaling";
-import type { NativeStreamerStatus } from "./nativeStreamer";
 import type { SubscriptionInfo } from "./subscription";
 import type { ThankYouDataResult } from "./thankYou";
 import type { AppUpdaterState, ReleaseHighlightsPayload } from "./updater";
@@ -121,18 +117,12 @@ export interface OpenNowApi {
   getActiveSessions(token?: string, streamingBaseUrl?: string): Promise<ActiveSessionInfo[]>;
   /** Claim/resume an existing session */
   claimSession(input: SessionClaimRequest): Promise<SessionInfo>;
-  getNativeStreamerStatus(): Promise<NativeStreamerStatus>;
-  getNativeCloudGsyncCapabilities(): Promise<NativeCloudGsyncCapabilities>;
   /** Show dialog asking user how to handle session conflict */
   showSessionConflictDialog(): Promise<SessionConflictChoice>;
   connectSignaling(input: SignalingConnectRequest): Promise<void>;
   disconnectSignaling(): Promise<void>;
   sendAnswer(input: SendAnswerRequest): Promise<void>;
   sendIceCandidate(input: IceCandidatePayload): Promise<void>;
-  sendNativeInput(input: NativeInputPacket): void;
-  setNativeInputPaused(paused: boolean): void;
-  updateNativeRenderSurface(input: NativeRenderSurfaceUpdate): void;
-  updateNativeShortcuts(shortcuts: NativeStreamerShortcutBindings): void;
   requestKeyframe(input: KeyframeRequest): Promise<void>;
   onSignalingEvent(listener: (event: MainToRendererSignalingEvent) => void): () => void;
   /** Listen for F11 fullscreen toggle from main process */
@@ -149,14 +139,11 @@ export interface OpenNowApi {
   togglePointerLock(): Promise<void>;
   /** Notify main process that pointer lock state changed (active = true/false). */
   notifyPointerLockChange(active: boolean, suppressEscapeFullscreenGrace?: boolean): void;
-  /** Tell main whether an active native session owns keyboard input through RawInput. */
-  notifyNativeInputModeChange(active: boolean, rawInputOwnsEscape: boolean): void;
   /** Read plain text from the OS clipboard through Electron main process */
   readClipboardText(): Promise<string>;
   getSettings(): Promise<Settings>;
   setSetting<K extends keyof Settings>(key: K, value: Settings[K]): Promise<void>;
   resetSettings(): Promise<Settings>;
-  selectNativeStreamerExecutable(): Promise<string | null>;
   getMicrophonePermission(): Promise<MicrophonePermissionResult>;
   /** Export logs in redacted format */
   exportLogs(format?: "text" | "json"): Promise<string>;

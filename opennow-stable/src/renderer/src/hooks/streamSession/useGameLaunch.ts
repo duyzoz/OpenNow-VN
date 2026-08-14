@@ -66,7 +66,6 @@ export interface GameLaunchOptions {
   subscriptionInfo: SubscriptionInfo | null;
   t: TranslateFunction;
   variantByGameId: Record<string, string>;
-  warmNativeStreamerForLaunch: () => void;
 }
 
 export function useGameLaunch({
@@ -92,7 +91,6 @@ export function useGameLaunch({
   subscriptionInfo,
   t,
   variantByGameId,
-  warmNativeStreamerForLaunch,
 }: GameLaunchOptions) {
   const {
     clientRef,
@@ -167,7 +165,6 @@ export function useGameLaunch({
     startPlaytimeSession(game.id);
     updateLoadingStep("queue");
     setQueuePosition(undefined);
-    warmNativeStreamerForLaunch();
     let launchGameContext: GameInfo = game;
 
     try {
@@ -443,7 +440,6 @@ export function useGameLaunch({
     streamStatus,
     t,
     variantByGameId,
-    warmNativeStreamerForLaunch,
   ]);
 
   return { handlePlayGame };

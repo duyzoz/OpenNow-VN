@@ -3,7 +3,6 @@ import {
   normalizeCloudGsyncOverride,
   resolveCloudGsync,
 } from "@shared/cloudGsync";
-import { getNativeCloudGsyncCapabilities } from "../nativeCloudGsync";
 
 export function shouldForceNewSession(
   strategy: ExistingSessionStrategy | undefined,
@@ -15,19 +14,15 @@ export async function resolveSessionCloudGsyncSettings(
   settings: StreamSettings,
 ): Promise<StreamSettings> {
   const userRequested = settings.enableCloudGsync;
-  const clientMode = settings.clientMode ?? "web";
-  const cloudGsyncMode = settings.nativeCloudGsyncMode ?? "auto";
-  const capabilities =
-    clientMode === "native"
-      ? await getNativeCloudGsyncCapabilities(cloudGsyncMode)
-      : undefined;
+  const clientMode = "web" as const;
+  const capabilities = undefined;
   const resolution = resolveCloudGsync({
     userRequested,
     fps: settings.fps,
     clientMode,
-    nativeBackendAvailable: clientMode === "native",
+    nativeBackendAvailable: false,
     capabilities,
-    override: normalizeCloudGsyncOverride(cloudGsyncMode),
+    override: normalizeCloudGsyncOverride("auto"),
   });
 
   console.log(
@@ -36,7 +31,7 @@ export async function resolveSessionCloudGsyncSettings(
 
   if (resolution.enabled) {
     console.log(
-      "[CloudGsync] Native Cloud G-Sync/VRR mode is resolved on; keeping low-latency unthrottled presentation.",
+      "[CloudGsync] Cloud G-Sync/VRR mode is resolved on; keeping low-latency unthrottled presentation.",
     );
   }
 

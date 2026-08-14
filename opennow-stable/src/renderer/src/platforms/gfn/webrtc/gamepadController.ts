@@ -49,8 +49,6 @@ interface GamepadControllerDependencies {
   inputEncoder: InputEncoder;
   isInputReady: () => boolean;
   isInputPaused: () => boolean;
-  isNativeInputActive: () => boolean;
-  isNativeElectronInputBridge: () => boolean;
   isReliableChannelOpen: () => boolean;
   canSendPartiallyReliableGamepad: (controllerId: number) => boolean;
   sendPartiallyReliable: (payload: Uint8Array) => void;
@@ -279,13 +277,8 @@ export class GamepadController {
         }
 
         // Read and encode gamepad state.
-        // Skip when blocked, overlay chord preempts, or external native window owns pads.
-        // Internal native mode still forwards gamepads through the Electron bridge.
-        if (
-          streamInputBlocked
-          || (this.dependencies.isNativeInputActive() && !this.dependencies.isNativeElectronInputBridge())
-          || overlayShortcutGate.preemptInput
-        ) {
+        // Skip when the stream is blocked or an overlay chord preempts input.
+        if (streamInputBlocked || overlayShortcutGate.preemptInput) {
           continue;
         }
         const gamepadInput = this.readGamepadState(gamepad, i);

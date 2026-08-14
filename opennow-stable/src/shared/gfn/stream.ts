@@ -1,13 +1,13 @@
 export type VideoCodec = "H264" | "H265" | "AV1";
 export type VideoAccelerationPreference = "auto" | "hardware" | "software";
-export type StreamClientMode = "web" | "native";
+export type StreamClientMode = "web";
 /**
  * How the server-side session should present launched games.
  * Mirrors the official client's AppLaunchMode: TV/console clients request
  * "gamepadFriendly" so launchers (e.g. Steam) start in big picture mode.
  */
 export type AppLaunchMode = "default" | "gamepadFriendly" | "touchFriendly";
-export type NativeQueueMode = "auto" | "fixed" | "adaptive" | "vrr";
+export type StreamQueueMode = "auto" | "fixed" | "adaptive" | "vrr";
 
 /** Color quality (bit depth + chroma subsampling), matching Rust ColorQuality enum */
 export type ColorQuality = "8bit_420" | "8bit_444" | "10bit_420" | "10bit_444";
@@ -68,8 +68,8 @@ export interface StreamingFeatures {
   trueHdr?: boolean;
 }
 
-export interface NativeTransitionDiagnostics {
+export interface StreamTransitionDiagnostics {
   disableDynamicSplitEncodeUpdates?: boolean;
-  forceQueueMode?: NativeQueueMode;
+  forceQueueMode?: StreamQueueMode;
   disableTransitionFlushEscalation?: boolean;
 }

@@ -2,7 +2,6 @@ import { app } from "electron";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import type {
-  NativeVideoBackendPreference,
   AppAccentColor,
   AppTheme,
   ErrorReportingConsent,
@@ -12,10 +11,7 @@ import {
   createDefaultSettings,
   createPlatformShortcutDefaults,
   SHORTCUT_SETTING_KEYS,
-  normalizeNativeExternalRendererForPlatform,
-  normalizeStreamClientModeForPlatform,
   normalizeStreamPreferences,
-  normalizeTransportModeForPlatform,
   normalizeVideoShaderSettings,
   normalizeUpdateChannel,
 } from "@shared/gfn";
@@ -29,24 +25,8 @@ const defaultMicShortcut = DEFAULT_SHORTCUTS.shortcutToggleMicrophone;
 const LEGACY_STOP_SHORTCUTS = new Set(["META+SHIFT+Q", "CMD+SHIFT+Q"]);
 const LEGACY_ANTI_AFK_SHORTCUTS = new Set(["META+SHIFT+F10", "CMD+SHIFT+F10", "CTRL+SHIFT+F10"]);
 
-const NATIVE_VIDEO_BACKEND_PREFERENCES = new Set<NativeVideoBackendPreference>([
-  "auto",
-  "d3d11",
-  "d3d12",
-  "nvdec",
-  "vaapi",
-  "v4l2",
-  "vulkan",
-  "software",
-]);
 const APP_ACCENT_COLORS = new Set<AppAccentColor>(["green", "blue", "violet", "amber", "rose"]);
 const APP_THEMES = new Set<AppTheme>(["light", "dark", "auto"]);
-
-function normalizeNativeVideoBackendPreference(raw: unknown): NativeVideoBackendPreference {
-  return NATIVE_VIDEO_BACKEND_PREFERENCES.has(raw as NativeVideoBackendPreference)
-    ? (raw as NativeVideoBackendPreference)
-    : "auto";
-}
 
 function normalizeAppAccentColor(raw: unknown): AppAccentColor {
   return APP_ACCENT_COLORS.has(raw as AppAccentColor) ? (raw as AppAccentColor) : "green";
@@ -144,12 +124,21 @@ export class SettingsManager {
       }
 
       const content = readFileSync(this.settingsPath, "utf-8");
-      type PersistedSettings = Partial<Settings> & {
+      type PersistedSettings = Partial<Settings> & Record<string, unknown> & {
         sessionTimeRemainingDisplay?: unknown;
       };
       const parsed = JSON.parse(content) as PersistedSettings;
       const {
         sessionTimeRemainingDisplay: legacySessionTimeDisplay,
+        nativeStreamerBackend: _legacyNativeStreamerBackend,
+        nativeVideoBackend: _legacyNativeVideoBackend,
+        nativeStreamerExecutablePath: _legacyNativeStreamerExecutablePath,
+        nativeCloudGsyncMode: _legacyNativeCloudGsyncMode,
+        nativeD3dFullscreenMode: _legacyNativeD3dFullscreenMode,
+        nativeExternalRenderer: _legacyNativeExternalRenderer,
+        transportMode: _legacyTransportMode,
+        showNativeStreamerStats: _legacyShowNativeStreamerStats,
+        nativeTransitionDiagnostics: legacyNativeTransitionDiagnostics,
         ...parsedSettings
       } = parsed;
 
@@ -157,9 +146,16 @@ export class SettingsManager {
       const merged: Settings = {
         ...createDefaultSettings(process.platform),
         ...parsedSettings,
+        ...(parsedSettings.streamTransitionDiagnostics === undefined
+          && legacyNativeTransitionDiagnostics !== undefined
+          ? { streamTransitionDiagnostics: legacyNativeTransitionDiagnostics as Settings["streamTransitionDiagnostics"] }
+          : {}),
       };
 
       let migrated = this.migrateLegacyShortcutDefaults(merged);
+      if (legacyNativeTransitionDiagnostics !== undefined && parsedSettings.streamTransitionDiagnostics === undefined) {
+        migrated = true;
+      }
       migrated = this.enforceCompatibility(merged) || migrated;
 
       const accentColorBefore = merged.appAccentColor;
@@ -217,16 +213,12 @@ export class SettingsManager {
       migrated = true;
     }
 
-    const streamClientMode = normalizeStreamClientModeForPlatform(settings.streamClientMode, process.platform);
-    if (settings.streamClientMode !== streamClientMode) {
-      settings.streamClientMode = streamClientMode;
+    // Older builds persisted "native" here. WebRTC is now the only stream path.
+    if ((settings as Settings & { streamClientMode?: unknown }).streamClientMode !== "web") {
+      settings.streamClientMode = "web";
       migrated = true;
     }
 
-    if (settings.nativeStreamerBackend !== "gstreamer") {
-      settings.nativeStreamerBackend = "gstreamer";
-      migrated = true;
-    }
     const appAccentColor = normalizeAppAccentColor(settings.appAccentColor);
     if (settings.appAccentColor !== appAccentColor) {
       settings.appAccentColor = appAccentColor;
@@ -246,33 +238,6 @@ export class SettingsManager {
       settings.translucentUI = false;
       migrated = true;
     }
-    if (typeof settings.nativeExternalRenderer !== "boolean") {
-      settings.nativeExternalRenderer = false;
-      migrated = true;
-    }
-    const nativeExternalRenderer = normalizeNativeExternalRendererForPlatform(
-      settings.nativeExternalRenderer,
-      process.platform,
-    );
-    if (settings.nativeExternalRenderer !== nativeExternalRenderer) {
-      settings.nativeExternalRenderer = nativeExternalRenderer;
-      migrated = true;
-    }
-    const transportMode = normalizeTransportModeForPlatform(
-      settings.transportMode === "nvst" ? "nvst" : "webrtc",
-      process.platform,
-      settings.streamClientMode,
-    );
-    if (settings.transportMode !== transportMode) {
-      settings.transportMode = transportMode;
-      migrated = true;
-    }
-    const nativeVideoBackend = normalizeNativeVideoBackendPreference(settings.nativeVideoBackend);
-    if (settings.nativeVideoBackend !== nativeVideoBackend) {
-      settings.nativeVideoBackend = nativeVideoBackend;
-      migrated = true;
-    }
-
     const recordingBitrate = normalizeRecordingBitrateMbps(settings.recordingBitrateMbps);
     if (settings.recordingBitrateMbps !== recordingBitrate) {
       settings.recordingBitrateMbps = recordingBitrate;
