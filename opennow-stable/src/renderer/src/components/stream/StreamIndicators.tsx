@@ -79,10 +79,12 @@ export function AntiAfkIndicator({
   }
 
   return (
-    <div className="sv-afk" role="status" aria-label="Anti-AFK đang bật">
-      <span className="sv-afk-dot" aria-hidden="true" />
-      <span className="sv-afk-label">ANTI-AFK BẬT</span>
-    </div>
+    <span
+      className="sv-afk-dot"
+      role="status"
+      aria-label="Anti-AFK đang bật"
+      title="Anti-AFK đang bật"
+    />
   );
 }
 

@@ -8013,39 +8013,20 @@ button.game-card-store-chip.owned.active:hover {
   color: var(--ink-soft);
 }
 
-.sv-afk {
-  position: fixed;
-  top: 14px;
-  left: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 11px;
-  background: rgba(10, 10, 12, 0.92);
-  border: 1px solid var(--panel-border);
-  border-radius: var(--r-md);
-  z-index: 1001;
-  color: var(--success);
-}
-
-.sv-afk--stacked {
-  top: 56px;
-}
-
 .sv-afk-dot {
+  position: fixed;
+  top: 18px;
+  left: 18px;
   width: 8px;
   height: 8px;
+  display: block;
+  z-index: 1001;
+  pointer-events: none;
   border-radius: 999px;
   background: var(--success);
   box-shadow: 0 0 8px rgba(88, 217, 138, 0.8);
 }
 
-.sv-afk-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--ink);
-  letter-spacing: 0.03em;
-}
 
 .sv-rec {
   position: fixed;
@@ -8122,8 +8103,8 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 /* Position below anti-AFK when both are present */
-.sv-afk+.sv-mic:not(.sv-mic--stacked) {
-  top: 98px;
+.sv-afk-dot+.sv-mic:not(.sv-mic--stacked) {
+  top: 56px;
 }
 
 .sv-exit {

@@ -126,6 +126,26 @@ export function registerMediaIpcHandlers(deps: MediaIpcHandlerDeps): void {
     },
   );
 
+  // High-throughput path: streamed chunks do not wait for a filesystem
+  // callback before the renderer can continue decoding the game stream.
+  // The legacy invoke channel above remains available for compatibility.
+  deps.ipcMain.on(
+    IPC_CHANNELS.RECORDING_CHUNK_STREAM,
+    (event): void => {
+      // ipcRenderer.postMessage delivers the transferable payload via data.
+      const input = (event as Electron.IpcMainEvent & { data?: unknown }).data as
+        | RecordingChunkRequest
+        | undefined;
+      if (!input || typeof input.recordingId !== "string" || !input.chunk) {
+        console.error("[recordings] Ignoring malformed streamed chunk");
+        return;
+      }
+      void appendRecordingChunk(input).catch((error) => {
+        console.error("[recordings] Failed to append streamed chunk:", error);
+      });
+    },
+  );
+
   deps.ipcMain.handle(
     IPC_CHANNELS.RECORDING_FINISH,
     async (_event, input: RecordingFinishRequest): Promise<RecordingEntry> => {

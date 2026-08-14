@@ -222,8 +222,15 @@ const api: OpenNowApi = {
   },
   beginRecording: (input: RecordingBeginRequest): Promise<RecordingBeginResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.RECORDING_BEGIN, input),
-  sendRecordingChunk: (input: RecordingChunkRequest): Promise<void> =>
-    ipcRenderer.invoke(IPC_CHANNELS.RECORDING_CHUNK, input),
+  sendRecordingChunk: (input: RecordingChunkRequest): Promise<void> => {
+    // Do not await a filesystem write for every MediaRecorder timeslice.
+    // The main process receives the chunk through an event and appends it in
+    // order, while the renderer remains free for WebRTC decode/compositing.
+    // This Electron version types the transfer list for MessagePort only;
+    // the ArrayBuffer is still sent through postMessage without an IPC reply.
+    ipcRenderer.postMessage(IPC_CHANNELS.RECORDING_CHUNK_STREAM, input);
+    return Promise.resolve();
+  },
   finishRecording: (input: RecordingFinishRequest): Promise<RecordingEntry> =>
     ipcRenderer.invoke(IPC_CHANNELS.RECORDING_FINISH, input),
   abortRecording: (input: RecordingAbortRequest): Promise<void> =>

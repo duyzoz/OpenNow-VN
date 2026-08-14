@@ -25,6 +25,7 @@ interface ActiveRecording {
   writeStream: ReturnType<typeof createWriteStream>;
   tempPath: string;
   mimeType: string;
+  pendingWrite: Promise<void>;
 }
 
 const activeRecordings = new Map<string, ActiveRecording>();
@@ -119,6 +120,7 @@ export async function beginRecording(
     writeStream,
     tempPath,
     mimeType: input.mimeType,
+    pendingWrite: Promise.resolve(),
   });
   return { recordingId };
 }
@@ -130,12 +132,20 @@ export async function appendRecordingChunk(
   if (!rec) {
     throw new Error("Unknown recording id");
   }
-  await new Promise<void>((resolve, reject) => {
-    rec.writeStream.write(Buffer.from(input.chunk), (err) => {
-      if (err) reject(err);
-      else resolve();
-    });
-  });
+
+  const write = rec.pendingWrite.then(
+    () =>
+      new Promise<void>((resolve, reject) => {
+        rec.writeStream.write(Buffer.from(input.chunk), (err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      }),
+  );
+  // Keep the queue usable after one failed chunk; the renderer can still stop
+  // cleanly and the error is logged by the IPC event handler.
+  rec.pendingWrite = write.catch(() => undefined);
+  await write;
 }
 
 export async function finishRecording(
@@ -145,6 +155,9 @@ export async function finishRecording(
   if (!rec) {
     throw new Error("Unknown recording id");
   }
+  // The high-throughput IPC path is fire-and-forget. Wait for every chunk
+  // already received before closing the file so the tail is never truncated.
+  await rec.pendingWrite;
   activeRecordings.delete(input.recordingId);
 
   await new Promise<void>((resolve, reject) => {

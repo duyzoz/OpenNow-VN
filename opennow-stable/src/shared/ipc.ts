@@ -70,6 +70,7 @@ export const IPC_CHANNELS = {
   SCREENSHOT_SAVE_AS: "screenshot:save-as",
   RECORDING_BEGIN: "recording:begin",
   RECORDING_CHUNK: "recording:chunk",
+  RECORDING_CHUNK_STREAM: "recording:chunk-stream",
   RECORDING_FINISH: "recording:finish",
   RECORDING_ABORT: "recording:abort",
   RECORDING_LIST: "recording:list",

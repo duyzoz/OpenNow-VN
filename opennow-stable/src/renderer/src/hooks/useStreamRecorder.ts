@@ -30,6 +30,7 @@ export function useStreamRecorder({
   const thumbnailDataUrlRef = useRef<string | null>(null);
   const recCarouselRef = useRef<HTMLDivElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const pendingChunkWritesRef = useRef<Set<Promise<void>>>(new Set());
   const recordingApiAvailable =
     typeof window.openNow?.beginRecording === "function" &&
     typeof window.openNow?.sendRecordingChunk === "function" &&
@@ -153,15 +154,15 @@ export function useStreamRecorder({
     }, 500);
 
     let isFirstChunk = true;
-    // Serialize recording IPC writes. Concurrent chunk writes can queue up in
-    // Electron's main process and cause visible frame pacing spikes, especially
-    // when the user selected a high recording bitrate.
-    let chunkWriteChain: Promise<void> = Promise.resolve();
+    // Chunks are sent as non-blocking IPC events. The main process owns a FIFO
+    // write queue and waits for it before finalizing, so the renderer never
+    // stalls WebRTC decode/compositing on a filesystem callback.
     const recorderOptions: MediaRecorderOptions = { mimeType };
-    if (recordingBitrateMbps !== null) {
-      recorderOptions.videoBitsPerSecond =
-        Math.max(1, Math.min(200, Math.round(recordingBitrateMbps))) * 1_000_000;
-    }
+    // Auto must be bounded for weak machines. This is the recording encoder
+    // bitrate only; the upstream WebRTC receive/decode bitrate is untouched.
+    const effectiveRecordingBitrateMbps = recordingBitrateMbps ?? 8;
+    recorderOptions.videoBitsPerSecond =
+      Math.max(1, Math.min(200, Math.round(effectiveRecordingBitrateMbps))) * 1_000_000;
     const recorder = new MediaRecorder(composed, recorderOptions);
 
     recorder.ondataavailable = (event: BlobEvent) => {
@@ -186,17 +187,22 @@ export function useStreamRecorder({
         }
       }
 
-      chunkWriteChain = chunkWriteChain
-        .then(async () => {
-          const id = recordingIdRef.current;
-          if (!id) return;
+      const id = recordingIdRef.current;
+      if (!id) return;
+      const pendingWrite = (async () => {
+        try {
           const buffer = await event.data.arrayBuffer();
           await window.openNow.sendRecordingChunk({ recordingId: id, chunk: buffer });
-        })
-        .catch((error: unknown) => {
+        } catch (error: unknown) {
           console.error("[StreamView] Failed to send recording chunk:", error);
           setRecordingError("Một phần dữ liệu ghi hình không thể lưu.");
-        });
+        }
+      })();
+      pendingChunkWritesRef.current.add(pendingWrite);
+      void pendingWrite.then(
+        () => pendingChunkWritesRef.current.delete(pendingWrite),
+        () => pendingChunkWritesRef.current.delete(pendingWrite),
+      );
     };
 
     recorder.onstop = () => {
@@ -211,11 +217,10 @@ export function useStreamRecorder({
 
         if (!id) return;
 
-        // Wait for the final serialized chunk before closing the recording;
-        // otherwise a slow IPC write can arrive after finishRecording and be
-        // lost or force the main process to keep an oversized queue.
-        await chunkWriteChain;
-
+        // finishRecording waits for the main-process FIFO queue, including
+        // the final fire-and-forget chunk, before closing the file.
+        const pendingWrites = [...pendingChunkWritesRef.current];
+        await Promise.allSettled(pendingWrites);
         const durationMs = Date.now() - recordingStartTimeRef.current;
         void window.openNow
           .finishRecording({
@@ -251,7 +256,7 @@ export function useStreamRecorder({
     };
 
     mediaRecorderRef.current = recorder;
-    recorder.start(2000);
+    recorder.start(4000);
   }, [
     audioRef,
     gameTitle,
