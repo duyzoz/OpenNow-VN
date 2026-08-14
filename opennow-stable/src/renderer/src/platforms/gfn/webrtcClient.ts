@@ -6,7 +6,6 @@ import type {
   SessionInfo,
   VideoCodec,
   MicrophoneMode,
-  StreamTransitionDiagnostics,
   KeyboardLayout,
 } from "@shared/gfn";
 
@@ -37,12 +36,13 @@ import {
   fixServerIp,
   mungeAnswerSdp,
   preferCodec,
+  resolveNegotiationCandidates,
+  extractNegotiatedVideoCodec,
   rewriteIceCandidateEndpoint,
   rewriteH265LevelIdByProfile,
   rewriteH265TierFlag,
   rewriteSdpIceCandidateEndpoints,
 } from "./sdp";
-import { extractNegotiatedVideoCodec, resolveNegotiationCandidates } from "./sdp/codec";
 import { MicrophoneManager, type MicState, type MicStateChange } from "./microphoneManager";
 import type {
   StreamDiagnostics,
@@ -73,7 +73,7 @@ import { PeerMediaLifecycleController } from "./webrtc/peerMediaLifecycleControl
 import { updateVideoSenderBitrate } from "./webrtc/senderBitrate";
 import { CODEC_MIME_BY_NAME, buildCodecPreferenceList } from "./webrtc/codecPreferences";
 import { negotiatePeerConnectionCodecAnswer } from "./webrtc/codecNegotiation";
-const OFFICIAL_MIN_BITRATE_KBPS = 4000;
+import { OFFICIAL_MIN_BITRATE_KBPS } from "./sdp/nvstOffer";
 
 export type {
   StreamDiagnostics,
@@ -119,7 +119,6 @@ interface OfferSettings {
   fps: number;
   maxBitrateKbps: number;
   fallbackCodec?: FallbackCodecPreference;
-  streamTransitionDiagnostics?: StreamTransitionDiagnostics;
 }
 
 const DEFAULT_CLIPBOARD_MAX_BYTES = 1024 * 1024;
@@ -142,6 +141,17 @@ function describeColorQuality(colorQuality: ColorQuality): string {
     default:
       return colorQuality;
   }
+}
+
+function describeNativeHardwareAcceleration(): string {
+  const platform = navigator.platform.toLowerCase();
+  if (platform.includes("win")) {
+    return "GStreamer D3D11/DXVA";
+  }
+  if (platform.includes("mac")) {
+    return "GStreamer VideoToolbox";
+  }
+  return "GStreamer NVDEC/VAAPI/V4L2/Vulkan";
 }
 
 interface ClientOptions {
@@ -179,14 +189,6 @@ interface ClientOptions {
 
 function timestampUs(sourceTimestampMs?: number): bigint {
   return captureTimestampUs(sourceTimestampMs);
-}
-
-/** Diagnostic-only queue age helper retained for the existing F3/test contract. */
-export function calculateMouseBatchAgeMs(nowMs: number, batchStartedAtMs: number): number {
-  if (!Number.isFinite(nowMs) || !Number.isFinite(batchStartedAtMs)) {
-    return 0;
-  }
-  return Math.max(0, Math.min(1000, nowMs - batchStartedAtMs));
 }
 
 function parsePartialReliableThresholdMs(sdp: string): number | null {
@@ -431,15 +433,6 @@ export class GfnWebRtcClient {
     decoderPressureActive: false,
     decoderRecoveryAttempts: 0,
     decoderRecoveryAction: "none",
-    nativeRequestedFps: undefined,
-    nativeCapsFramerate: undefined,
-    nativeQueueMode: undefined,
-    nativeFramesPendingToPresent: undefined,
-    nativePartialFlushCount: undefined,
-    nativeCompleteFlushCount: undefined,
-    nativeTransitionSummary: undefined,
-    nativeRequestedStreamingFeaturesSummary: undefined,
-    nativeFinalizedStreamingFeaturesSummary: undefined,
     micState: "uninitialized",
     micEnabled: false,
   };
@@ -460,7 +453,6 @@ export class GfnWebRtcClient {
     this.inputChannelPolicyController = new InputChannelPolicyController(
       this.riInputCapabilities,
       {
-        isNativeInputActive: () => this.nativeInputActive,
         getPartiallyReliableChannel: () => this.partiallyReliableInputChannel,
         sendReliable: (payload) => this.sendReliable(payload),
       },
@@ -469,8 +461,6 @@ export class GfnWebRtcClient {
       inputEncoder: this.inputEncoder,
       isInputReady: () => this.inputReady,
       isInputPaused: () => this.inputPaused || this.windowStateInputPaused,
-      isNativeInputActive: () => this.nativeInputActive,
-      isNativeElectronInputBridge: () => this.nativeElectronInputBridge,
       isReliableChannelOpen: () => this.reliableInputChannel?.readyState === "open",
       canSendPartiallyReliableGamepad: (controllerId) => (
         this.inputChannelPolicyController.canSendGamepad(controllerId)
@@ -494,8 +484,6 @@ export class GfnWebRtcClient {
         inputEncoder: this.inputEncoder,
         isInputReady: () => this.inputReady,
         isInputBlocked: () => this.isStreamInputBlocked(),
-        isNativeInputActive: () => this.nativeInputActive,
-        isNativeElectronInputBridge: () => this.nativeElectronInputBridge,
         shouldAutoFullscreen: () => this.shouldAutoFullscreen(),
         getCurrentResolution: () => this.currentResolution,
         getKeyboardLayout: () => this.keyboardLayout,
@@ -563,17 +551,6 @@ export class GfnWebRtcClient {
           timestampUs: timestampUs(),
         });
         this.sendReliableSingleInput(escUp);
-
-        // The native guard normally prevents Chromium from dropping the lock.
-        // If Chromium has already processed Escape before the IPC arrives,
-        // give the existing controller one best-effort reacquire opportunity;
-        // its pointerlockchange handler owns the bounded retry fallback.
-        window.setTimeout(() => {
-          if (!this.inputReady) return;
-          void this.domInputController.attemptAutoPointerLock(false).catch((error: unknown) => {
-            this.log(`Pointer lock reacquire after Escape deferred: ${String(error)}`);
-          });
-        }, 0);
       });
     } catch {
       this.externalEscapeCleanup = null;
@@ -878,15 +855,6 @@ export class GfnWebRtcClient {
       decoderPressureActive: false,
       decoderRecoveryAttempts: 0,
       decoderRecoveryAction: "none",
-      nativeRequestedFps: undefined,
-      nativeCapsFramerate: undefined,
-      nativeQueueMode: undefined,
-      nativeFramesPendingToPresent: undefined,
-      nativePartialFlushCount: undefined,
-      nativeCompleteFlushCount: undefined,
-      nativeTransitionSummary: undefined,
-      nativeRequestedStreamingFeaturesSummary: undefined,
-      nativeFinalizedStreamingFeaturesSummary: undefined,
       micState: this.micState,
       micEnabled: this.micManager?.isEnabled() ?? false,
     };
@@ -919,7 +887,9 @@ export class GfnWebRtcClient {
     this.diagnostics.resolution = settings.resolution;
     this.diagnostics.codec = codec;
     this.diagnostics.requestedCodec = codec;
-    this.diagnostics.hardwareAcceleration = "Chromium GPU decode";
+    this.diagnostics.hardwareAcceleration = nativeRendererActive
+      ? describeNativeHardwareAcceleration()
+      : "Chromium GPU decode";
     this.diagnostics.colorCodec = describeColorQuality(settings.colorQuality);
     this.diagnostics.isHdr = this.isHdr;
     this.diagnostics.targetBitrateKbps = this.decoderPressureController.targetBitrateKbps;
@@ -2192,8 +2162,7 @@ export class GfnWebRtcClient {
       codec: effectiveCodec,
       colorQuality: settings.colorQuality,
       credentials,
-      dynamicSplitEncodeUpdatesEnabled:
-        settings.streamTransitionDiagnostics?.disableDynamicSplitEncodeUpdates !== true,
+      dynamicSplitEncodeUpdatesEnabled: true,
     });
 
     await window.openNow.sendAnswer({

@@ -6,7 +6,6 @@ import assert from "node:assert/strict";
 import {
   canUsePartiallyReliableGamepad,
   canUsePartiallyReliableInput,
-  calculateMouseBatchAgeMs,
   chooseAdaptiveMouseFlushInterval,
   classifyDecoderPressureSample,
   classifyStreamLagReason,
@@ -158,13 +157,6 @@ test("quantizeMouseDeltaWithResidual preserves precision across sends", () => {
   assert.ok(Math.abs(c.residual) < 1e-9);
 });
 
-test("mouse batch age reports queue wait without affecting packet scheduling", () => {
-  assert.equal(calculateMouseBatchAgeMs(108, 100), 8);
-  assert.equal(calculateMouseBatchAgeMs(100, 108), 0);
-  assert.equal(calculateMouseBatchAgeMs(2_000, 0), 1_000);
-  assert.equal(calculateMouseBatchAgeMs(Number.NaN, 100), 0);
-});
-
 test("adaptive flush on reliable mouse tightens toward min under low pressure", () => {
   const interval = chooseAdaptiveMouseFlushInterval({
     baseIntervalMs: 8,
@@ -179,7 +171,7 @@ test("adaptive flush on reliable mouse tightens toward min under low pressure", 
   assert.equal(interval, 3);
 });
 
-test("adaptive flush coalesces partially-reliable mouse under pressure", () => {
+test("adaptive flush keeps base interval when partially-reliable mouse is active", () => {
   const underPressure = chooseAdaptiveMouseFlushInterval({
     baseIntervalMs: 8,
     currentIntervalMs: 20,
@@ -190,7 +182,7 @@ test("adaptive flush coalesces partially-reliable mouse under pressure", () => {
     minIntervalMs: 2,
     maxIntervalMs: 20,
   });
-  assert.equal(underPressure, 20);
+  assert.equal(underPressure, 8);
 });
 
 test("adaptive flush tightens under low pressure and relaxes under pressure on reliable mouse", () => {
@@ -238,6 +230,8 @@ test("subsampleCoalescedPointerEvents limits large coalesced bursts without drop
 });
 
 const stableLagParams = {
+  nativeInputActive: false,
+  nativeRendererActive: false,
   framesReceived: 5000,
   framesDecoded: 4980,
   decodeTimeMs: 9.2,

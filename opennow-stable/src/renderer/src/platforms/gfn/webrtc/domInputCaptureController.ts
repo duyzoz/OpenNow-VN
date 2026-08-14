@@ -30,9 +30,6 @@ interface DomInputCaptureDependencies {
   inputEncoder: InputEncoder;
   isInputReady: () => boolean;
   isInputBlocked: () => boolean;
-  /** Deprecated compatibility callbacks; DOM capture is WebRTC-only. */
-  isNativeInputActive?: () => boolean;
-  isNativeElectronInputBridge?: () => boolean;
   shouldAutoFullscreen: () => boolean;
   getCurrentResolution: () => string;
   getKeyboardLayout: () => KeyboardLayout | undefined;
@@ -1192,67 +1189,26 @@ export class DomInputCaptureController {
         return;
       }
 
-      let attempt = 0;
-      const retry = (): void => {
-        if (this.pointerLockRelockTimer !== null) {
+      this.pointerLockRelockTimer = window.setTimeout(() => {
+        this.pointerLockRelockTimer = null;
+
+        if (!this.dependencies.isInputReady() || !this.shouldSendSyntheticEscapeOnPointerLockLoss() || isPointerLockActive()) {
           return;
         }
 
-        const delayMs = attempt === 0 ? 75 : Math.min(450, 75 + attempt * 100);
-        this.pointerLockRelockTimer = window.setTimeout(() => {
-          this.pointerLockRelockTimer = null;
+        const target = this.pointerLockTarget;
+        if (!target) {
+          return;
+        }
 
-          if (
-            !this.dependencies.isInputReady() ||
-            !this.shouldSendSyntheticEscapeOnPointerLockLoss() ||
-            isPointerLockActive()
-          ) {
-            return;
-          }
-
-          const target = this.pointerLockTarget;
-          if (!target) {
-            return;
-          }
-
-          void (async () => {
-            try {
-              await this.requestPointerLockWithOptionalFullscreen(target, false);
-              if (isPointerLockActive()) {
-                this.dependencies.log(`Pointer lock restored after ${reason}`);
-                return;
-              }
-            } catch (error: unknown) {
-              this.dependencies.log(
-                `Pointer lock restore attempt ${attempt + 1} failed after ${reason}: ${String(error)}`,
-              );
-            }
-
-            // Chromium may reject the first post-Escape request because the
-            // browser has not completed its unlock transition yet. Try the
-            // low-level compatible request in the same task, then retry only a
-            // few times so this never becomes a hot loop on weak machines.
-            try {
-              await this.requestPointerLockCompat(target, { unadjustedMovement: true });
-              if (isPointerLockActive()) {
-                this.dependencies.log(`Pointer lock restored after ${reason} (compat)`);
-                return;
-              }
-            } catch (error: unknown) {
-              this.dependencies.log(
-                `Pointer lock compat restore attempt ${attempt + 1} failed after ${reason}: ${String(error)}`,
-              );
-            }
-
-            attempt += 1;
-            if (attempt < 4) {
-              retry();
-            }
-          })();
-        }, delayMs);
-      };
-
-      retry();
+        void this.requestPointerLockWithOptionalFullscreen(target, false)
+          .then(() => {
+            this.dependencies.log(`Pointer lock restored after ${reason}`);
+          })
+          .catch((error: unknown) => {
+            this.dependencies.log(`Pointer lock restore failed after ${reason}: ${String(error)}`);
+          });
+      }, 75);
     };
 
     // Store lock target for pointer lock re-acquisition
@@ -1387,7 +1343,7 @@ export class DomInputCaptureController {
       lastAbsX = null;
       lastAbsY = null;
       this.releasePressedKeys("window blur");
-      // Pause forwarding while window is not focused (host overlay pause is separate).
+      // Pause forwarding while the WebRTC stream window is not focused.
       this.dependencies.setWindowInputPaused(true);
     };
 

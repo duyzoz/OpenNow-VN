@@ -1,9 +1,8 @@
 import type { StreamLagReason } from "./streamDiagnosticsTypes";
 
 export interface ClassifyStreamLagReasonParams {
-  /** Deprecated compatibility fields; WebRTC-only runtime leaves both false. */
-  nativeInputActive?: boolean;
-  nativeRendererActive?: boolean;
+  nativeInputActive: boolean;
+  nativeRendererActive: boolean;
   framesReceived: number;
   framesDecoded: number;
   decodeTimeMs: number;
@@ -26,10 +25,10 @@ export interface ClassifyStreamLagReasonParams {
 export function classifyStreamLagReason(
   params: ClassifyStreamLagReasonParams,
 ): { reason: StreamLagReason; detail: string } {
-  if (params.nativeInputActive === true || params.nativeRendererActive === true) {
+  if (params.nativeInputActive || params.nativeRendererActive) {
     return {
       reason: "stable",
-      detail: "Compatibility native flags active",
+      detail: "Native streamer input bridge active",
     };
   }
 

@@ -128,55 +128,16 @@ export function StreamStatsHud({
   const advancedLines = useMemo(() => {
     const lines: string[] = [];
     lines.push(
-      `Input queue peak ${(stats.inputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · PR peak ${(stats.partiallyReliableInputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · drops ${stats.inputQueueDropCount} · sched ${stats.inputQueueMaxSchedulingDelayMs.toFixed(1)}ms · residual ${mouseResidualText}`,
+      `Input queue ${(stats.inputQueueBufferedBytes / 1024).toFixed(1)}KB · PR ${(stats.partiallyReliableInputQueueBufferedBytes / 1024).toFixed(1)}KB · drops ${stats.inputQueueDropCount} · sched ${stats.inputQueueMaxSchedulingDelayMs.toFixed(1)}ms · residual ${mouseResidualText}`,
     );
     lines.push(
-      `Mouse batch ${typeof stats.mouseBatchAgeMs === "number" ? stats.mouseBatchAgeMs.toFixed(1) : "0.0"}ms · entries ${stats.mouseBatchEntries ?? 0} · frame age ${typeof stats.frameAgeMs === "number" ? stats.frameAgeMs.toFixed(1) : "0.0"}ms · pacing σ ${typeof stats.framePacingVarianceMs === "number" ? stats.framePacingVarianceMs.toFixed(1) : "0.0"}ms`,
-    );
-    lines.push(
-      `Presentation ${stats.presentationMode ?? "adaptive"} · stable ${stats.presentationStableSamples ?? 0} · rollback ${stats.presentationRollbackCount ?? 0}`,
-    );
-    const avOffset = typeof stats.videoAudioOffsetMs === "number" && Math.abs(stats.videoAudioOffsetMs) > 0.1
-      ? `${stats.videoAudioOffsetMs.toFixed(1)}ms`
-      : "--";
-    const audioBase = typeof stats.audioContextBaseLatencyMs === "number" && stats.audioContextBaseLatencyMs > 0
-      ? ` · base ${stats.audioContextBaseLatencyMs.toFixed(1)}ms`
-      : "";
-    lines.push(
-      `A/V ${stats.audioOutputMode ?? "direct"} · offset ${avOffset} · audio ${stats.audioContextState ?? "none"}${audioBase}`,
+      `Mouse ${stats.mouseMoveTransport} · flush ${stats.mouseFlushIntervalMs.toFixed(1)}ms · ${stats.mousePacketsPerSecond.toFixed(0)} pkt/s`,
     );
     const hwLine = [stats.hardwareAcceleration, stats.colorCodec].filter(Boolean).join(" · ");
     if (hwLine) lines.push(hwLine);
-    if (stats.decoderPressureActive || stats.decoderRecoveryAttempts > 0 || stats.decoderPressureReason) {
+    if (stats.decoderPressureActive || stats.decoderRecoveryAttempts > 0) {
       lines.push(
-        `Decoder ${stats.decoderPressureActive ? "pressure" : "stable"} · reason ${stats.decoderPressureReason ?? "unknown"} · backlog ${stats.decoderBacklogFrames ?? 0} · drop ${stats.decoderDropRatePercent?.toFixed(1) ?? "0.0"}% · attempts ${stats.decoderRecoveryAttempts} · action ${stats.decoderRecoveryAction}`,
-      );
-    }
-    if (stats.bitrateAdaptationState && stats.bitrateAdaptationState !== "unknown") {
-      lines.push(
-        `Bitrate adaptation ${stats.bitrateAdaptationState} · ceiling ${stats.bitrateCeilingKbps ?? 0}kbps`,
-      );
-    }
-    if (typeof stats.bitrateEwmaKbps === "number" && stats.bitrateEwmaKbps > 0) {
-      lines.push(
-        `Bitrate EWMA ${(stats.bitrateEwmaKbps / 1000).toFixed(1)}Mbps · headroom ${stats.bitrateCeilingHeadroomPercent ?? 0}%`,
-      );
-    }
-    if (stats.frameDropClass && stats.frameDropClass !== "unknown") {
-      lines.push(`Frame drop ${stats.frameDropClass} · ${stats.frameDropClassDetail ?? ""}`);
-    }
-    if (stats.mousePressureGuardActive) {
-      lines.push(
-        `Mouse guard ${stats.mousePressureGuardReason ?? "none"} · samples ${stats.mousePressureGuardSamples ?? 0} · cal ${stats.cursorCalibrationScaleX?.toFixed(3) ?? "--"}x${stats.cursorCalibrationScaleY?.toFixed(3) ?? "--"}`,
-      );
-    }
-    if (
-      stats.routeMeasurementLabel &&
-      stats.routeMeasurementLabel !== "single" &&
-      typeof stats.routeMeasurementDeltaRttMs === "number"
-    ) {
-      lines.push(
-        `Route A/B Δ RTT ${stats.routeMeasurementDeltaRttMs.toFixed(0)}ms · Δ jitter ${stats.routeMeasurementDeltaJitterMs?.toFixed(1) ?? "--"}ms · conf ${stats.routeMeasurementConfidence ?? "low"}`,
+        `Decoder ${stats.decoderPressureActive ? "pressure" : "stable"} · attempts ${stats.decoderRecoveryAttempts} · action ${stats.decoderRecoveryAction}`,
       );
     }
     const gpuRegion = [stats.gpuType, regionLabel].filter(Boolean).join(" · ");
@@ -192,13 +153,7 @@ export function StreamStatsHud({
       lines.push(`Lag source ${getLagReasonLabel(stats.lagReason).toLowerCase()} · ${stats.lagReasonDetail}`);
     }
     return lines.length > 0 ? [lines.join("  ·  ")] : lines;
-  }, [
-      hasLagIssue,
-    mouseResidualText,
-    lastRouteTelemetry,
-    regionLabel,
-    stats,
-  ]);
+  }, [hasLagIssue, mouseResidualText, lastRouteTelemetry, regionLabel, stats]);
 
   return (
     <m.aside

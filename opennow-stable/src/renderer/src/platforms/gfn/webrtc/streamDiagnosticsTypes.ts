@@ -1,7 +1,5 @@
 import type { MicState } from "../microphoneManager";
 
-type CompatibilityQueueMode = "auto" | "fixed" | "adaptive" | "vrr";
-
 export interface StreamDiagnostics {
   // Connection state
   connectionState: RTCPeerConnectionState | "closed";
@@ -72,52 +70,6 @@ export interface StreamDiagnostics {
   decoderPressureActive: boolean;
   decoderRecoveryAttempts: number;
   decoderRecoveryAction: string;
-  nativeRequestedFps?: number;
-  nativeCapsFramerate?: string;
-  nativeQueueMode?: CompatibilityQueueMode;
-  nativeFramesPendingToPresent?: number;
-  nativePartialFlushCount?: number;
-  nativeCompleteFlushCount?: number;
-  nativeTransitionSummary?: string;
-  nativeRequestedStreamingFeaturesSummary?: string;
-  nativeFinalizedStreamingFeaturesSummary?: string;
-
-  // Optional diagnostics retained for HUD compatibility; upstream WebRTC does not mutate them.
-  mouseBatchAgeMs?: number;
-  mouseBatchEntries?: number;
-  frameAgeMs?: number;
-  framePacingVarianceMs?: number;
-  presentationMode?: string;
-  presentationStableSamples?: number;
-  presentationRollbackCount?: number;
-  videoAudioOffsetMs?: number;
-  audioContextBaseLatencyMs?: number;
-  audioContextOutputLatencyMs?: number;
-  audioOutputMode?: "direct" | "audio_context" | "none";
-  audioContextState?: string;
-  audioSampleRate?: number;
-  audioCurrentTime?: number;
-  videoCurrentTime?: number;
-  decoderPressureReason?: string;
-  decoderBacklogFrames?: number;
-  decoderDropRatePercent?: number;
-  bitrateAdaptationState?: string;
-  bitrateCeilingKbps?: number;
-  bitrateEwmaKbps?: number;
-  bitrateCeilingHeadroomPercent?: number;
-  frameDropClass?: string;
-  frameDropClassDetail?: string;
-  mousePressureGuardActive?: boolean;
-  mousePressureGuardReason?: string;
-  mousePressureGuardSamples?: number;
-  cursorCalibrationScaleX?: number;
-  cursorCalibrationScaleY?: number;
-  cursorCalibrationRoundingPx?: number;
-  routeMeasurementLabel?: string;
-  routeMeasurementSamples?: number;
-  routeMeasurementConfidence?: string;
-  routeMeasurementDeltaRttMs?: number;
-  routeMeasurementDeltaJitterMs?: number;
 
   // Microphone state
   micState: MicState;

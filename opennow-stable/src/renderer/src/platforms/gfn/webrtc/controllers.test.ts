@@ -13,7 +13,6 @@ import {
   shouldSendGamepadPacket,
 } from "./gamepadController";
 import { InputChannelPolicyController } from "./inputChannelPolicy";
-import { PresentationLatencyController } from "./presentationLatencyController";
 
 const pressureSignal: DecoderPressureSignal = {
   active: true,
@@ -32,7 +31,7 @@ test("decoder recovery waits for three pressure polls and clears after six stabl
     requestSignalingKeyframe: async () => {
       keyframeRequests++;
     },
-    setMaxBitrateKbps: async () => {},
+    setMaxBitrateKbps: async () => true,
     onStateChange: (state) => states.push(state),
     now: () => 2_000,
   });
@@ -61,6 +60,60 @@ test("decoder recovery waits for three pressure polls and clears after six stabl
     recoveryAttempts: 0,
     recoveryAction: "none",
   });
+});
+
+test("decoder recovery preserves bitrate state when no wire update is applied", async () => {
+  const states: DecoderPressureState[] = [];
+  const logs: string[] = [];
+  const requestedBitrates: number[] = [];
+  let updateApplied = false;
+  let now = 2_000;
+  const peerConnection = {
+    localDescription: { type: "answer", sdp: "v=0\r\n" },
+    getSenders: () => [],
+  } as unknown as RTCPeerConnection;
+  const controller = new DecoderPressureController({
+    log: (message) => logs.push(message),
+    getPeerConnection: () => peerConnection,
+    getControlChannel: () => null,
+    requestSignalingKeyframe: async () => {
+      throw new Error("unavailable");
+    },
+    setMaxBitrateKbps: async (kbps) => {
+      requestedBitrates.push(kbps);
+      return updateApplied;
+    },
+    onStateChange: (state) => states.push(state),
+    now: () => now,
+  });
+  controller.initializeBitrate(10_000);
+
+  await controller.recover(pressureSignal);
+  await controller.recover(pressureSignal);
+  await controller.recover(pressureSignal);
+
+  assert.deepEqual(requestedBitrates, [8_500]);
+  assert.deepEqual(states.at(-1), {
+    active: true,
+    recoveryAttempts: 0,
+    recoveryAction: "none",
+  });
+  assert.equal(logs.some((message) => message.includes("bitrate ceiling stepped down")), false);
+
+  updateApplied = true;
+  now = 4_000;
+  await controller.recover(pressureSignal);
+
+  assert.deepEqual(requestedBitrates, [8_500, 8_500]);
+  assert.deepEqual(states.at(-1), {
+    active: true,
+    recoveryAttempts: 1,
+    recoveryAction: "bitrate_step_down",
+  });
+  assert.equal(
+    logs.some((message) => message.includes("bitrate ceiling stepped down 10000 -> 8500 kbps")),
+    true,
+  );
 });
 
 test("input policy preserves partially-reliable and reliable fallback routes", () => {
@@ -117,50 +170,4 @@ test("gamepad polling and keepalive decisions preserve adaptive timing", () => {
   assert.equal(shouldSendGamepadPacket(false, 99), false);
   assert.equal(shouldSendGamepadPacket(false, 100), true);
   assert.equal(shouldSendGamepadPacket(true, 0), true);
-});
-
-test("presentation gate enables live-edge only after clean samples and rolls back on instability", () => {
-  const modes: string[] = [];
-  const controller = new PresentationLatencyController({
-    onModeChange: (mode) => modes.push(mode),
-  });
-  const clean = {
-    jitterMs: 1.5,
-    packetLossPercent: 0,
-    frameAgeMs: 8,
-    framePacingVarianceMs: 2,
-    decoderPressureActive: false,
-  };
-  for (let index = 0; index < 5; index++) {
-    assert.equal(controller.observe(clean).mode, "adaptive");
-  }
-  assert.equal(controller.observe(clean).mode, "live_edge");
-  assert.equal(modes.at(-1), "live_edge");
-
-  const unstable = { ...clean, jitterMs: 12 };
-  controller.observe(unstable);
-  const rolledBack = controller.observe(unstable);
-  assert.equal(rolledBack.mode, "adaptive");
-  assert.equal(rolledBack.rollbackCount, 1);
-  assert.equal(modes.at(-1), "adaptive");
-});
-
-test("presentation gate enters pressure recovery immediately and returns to adaptive", () => {
-  const controller = new PresentationLatencyController({ onModeChange: () => {} });
-  const pressure = controller.observe({
-    jitterMs: 2,
-    packetLossPercent: 0,
-    frameAgeMs: 8,
-    framePacingVarianceMs: 2,
-    decoderPressureActive: true,
-  });
-  assert.equal(pressure.mode, "pressure_recovery");
-  const stable = controller.observe({
-    jitterMs: 9,
-    packetLossPercent: 0,
-    frameAgeMs: 8,
-    framePacingVarianceMs: 2,
-    decoderPressureActive: false,
-  });
-  assert.equal(stable.mode, "adaptive");
 });

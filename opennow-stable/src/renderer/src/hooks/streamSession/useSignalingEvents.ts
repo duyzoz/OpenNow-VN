@@ -217,7 +217,6 @@ export function useSignalingEvents({
               resolution: settings.resolution,
               fps: settings.fps,
               maxBitrateKbps: settings.maxBitrateMbps * 1000,
-              streamTransitionDiagnostics: settings.streamTransitionDiagnostics,
             });
             setLaunchError(null);
             setStreamStatus("streaming");
