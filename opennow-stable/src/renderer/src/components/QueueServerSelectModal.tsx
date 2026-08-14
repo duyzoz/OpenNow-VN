@@ -107,6 +107,7 @@ interface ZoneInfo {
   pingMs: number | null;
   lastSelectedAtMs?: number;
   selectionCount?: number;
+  routeQualityScore?: number;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -323,6 +324,9 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
           lastSelectedAtMs: serverSelectionHistory[zoneId],
           selectionCount: serverSelectionFrequency[zoneId] ?? 0,
           routeAdvice: lastRouteTelemetry?.zoneId === zoneId ? lastRouteAdvice : undefined,
+          routeQualityScore: lastRouteTelemetry?.zoneId === zoneId
+            ? lastRouteTelemetry.routeQualityScore
+            : undefined,
         };
       });
   }, [lastRouteAdvice, lastRouteTelemetry, queueData, serverSelectionFrequency, zonePings, nukedZoneIds]);

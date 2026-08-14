@@ -13,6 +13,7 @@ import {
   shouldSendGamepadPacket,
 } from "./gamepadController";
 import { InputChannelPolicyController } from "./inputChannelPolicy";
+import { PresentationLatencyController } from "./presentationLatencyController";
 
 const pressureSignal: DecoderPressureSignal = {
   active: true,
@@ -126,4 +127,50 @@ test("gamepad polling and keepalive decisions preserve adaptive timing", () => {
   assert.equal(shouldSendGamepadPacket(false, 99), false);
   assert.equal(shouldSendGamepadPacket(false, 100), true);
   assert.equal(shouldSendGamepadPacket(true, 0), true);
+});
+
+test("presentation gate enables live-edge only after clean samples and rolls back on instability", () => {
+  const modes: string[] = [];
+  const controller = new PresentationLatencyController({
+    onModeChange: (mode) => modes.push(mode),
+  });
+  const clean = {
+    jitterMs: 1.5,
+    packetLossPercent: 0,
+    frameAgeMs: 8,
+    framePacingVarianceMs: 2,
+    decoderPressureActive: false,
+  };
+  for (let index = 0; index < 5; index++) {
+    assert.equal(controller.observe(clean).mode, "adaptive");
+  }
+  assert.equal(controller.observe(clean).mode, "live_edge");
+  assert.equal(modes.at(-1), "live_edge");
+
+  const unstable = { ...clean, jitterMs: 12 };
+  controller.observe(unstable);
+  const rolledBack = controller.observe(unstable);
+  assert.equal(rolledBack.mode, "adaptive");
+  assert.equal(rolledBack.rollbackCount, 1);
+  assert.equal(modes.at(-1), "adaptive");
+});
+
+test("presentation gate enters pressure recovery immediately and returns to adaptive", () => {
+  const controller = new PresentationLatencyController({ onModeChange: () => {} });
+  const pressure = controller.observe({
+    jitterMs: 2,
+    packetLossPercent: 0,
+    frameAgeMs: 8,
+    framePacingVarianceMs: 2,
+    decoderPressureActive: true,
+  });
+  assert.equal(pressure.mode, "pressure_recovery");
+  const stable = controller.observe({
+    jitterMs: 9,
+    packetLossPercent: 0,
+    frameAgeMs: 8,
+    framePacingVarianceMs: 2,
+    decoderPressureActive: false,
+  });
+  assert.equal(stable.mode, "adaptive");
 });

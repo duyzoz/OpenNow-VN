@@ -57,6 +57,9 @@ import {
   DecoderPressureController,
 } from "./webrtc/decoderPressureController";
 import {
+  PresentationLatencyController,
+} from "./webrtc/presentationLatencyController";
+import {
   InputChannelPolicyController,
   type RiInputCapabilities,
 } from "./webrtc/inputChannelPolicy";
@@ -332,6 +335,7 @@ export class GfnWebRtcClient {
   private inputQueueDropCount = 0;
 
   private readonly decoderPressureController: DecoderPressureController;
+  private readonly presentationLatencyController: PresentationLatencyController;
   private readonly inputChannelPolicyController: InputChannelPolicyController;
   private readonly gamepadController: GamepadController;
   private readonly domInputController: DomInputCaptureController;
@@ -386,6 +390,10 @@ export class GfnWebRtcClient {
     mousePacketsPerSecond: 0,
     mouseResidualMagnitude: 0,
     mouseAdaptiveFlushActive: false,
+    mouseBatchEntries: 0,
+    presentationMode: "adaptive",
+    presentationStableSamples: 0,
+    presentationRollbackCount: 0,
     lagReason: "unknown",
     lagReasonDetail: "Waiting for stream stats",
     gpuType: "",
@@ -393,6 +401,11 @@ export class GfnWebRtcClient {
     decoderPressureActive: false,
     decoderRecoveryAttempts: 0,
     decoderRecoveryAction: "none",
+    decoderPressureReason: "stable",
+    decoderBacklogFrames: 0,
+    decoderDropRatePercent: 0,
+    bitrateCeilingKbps: 0,
+    bitrateAdaptationState: "unknown",
     nativeRequestedFps: undefined,
     nativeCapsFramerate: undefined,
     nativeQueueMode: undefined,
@@ -425,6 +438,12 @@ export class GfnWebRtcClient {
         this.diagnostics.decoderPressureActive = state.active;
         this.diagnostics.decoderRecoveryAttempts = state.recoveryAttempts;
         this.diagnostics.decoderRecoveryAction = state.recoveryAction;
+      },
+    });
+    this.presentationLatencyController = new PresentationLatencyController({
+      onModeChange: (mode) => {
+        this.decoderPressureController.setPresentationMode(mode);
+        this.diagnostics.presentationMode = mode;
       },
     });
     this.inputChannelPolicyController = new InputChannelPolicyController(
@@ -756,19 +775,28 @@ export class GfnWebRtcClient {
    * without requiring a full ICE renegotiation.
    */
   public async setMaxBitrateKbps(kbps: number): Promise<void> {
-    if (!this.pc || !this.pc.localDescription) {
+    const localDescription = this.pc?.localDescription;
+    if (!localDescription || !Number.isFinite(kbps) || kbps <= 0) {
       return;
     }
-    const updatedSdp = this.replaceVideoBitrateInSdp(
-      this.pc.localDescription.sdp,
-      kbps,
-    );
+    const updatedSdp = this.replaceVideoBitrateInSdp(localDescription.sdp, Math.floor(kbps));
+    if (!/\bm=video[\s\S]*?\rb=AS:/i.test(updatedSdp)) {
+      this.diagnostics.bitrateAdaptationState = "unsupported";
+      this.log("Bitrate adaptation skipped: local SDP has no video b=AS capability");
+      return;
+    }
+    if (updatedSdp === localDescription.sdp) {
+      this.diagnostics.bitrateAdaptationState = "ready";
+      return;
+    }
     try {
-      await this.pc.setLocalDescription(
-        new RTCSessionDescription({ type: this.pc.localDescription.type, sdp: updatedSdp }),
+      await this.pc!.setLocalDescription(
+        new RTCSessionDescription({ type: localDescription.type, sdp: updatedSdp }),
       );
-      this.log(`Bitrate ceiling updated to ${kbps} kbps via local SDP`);
+      this.diagnostics.bitrateAdaptationState = "active";
+      this.log(`Bitrate ceiling updated to ${Math.floor(kbps)} kbps via local SDP`);
     } catch (err) {
+      this.diagnostics.bitrateAdaptationState = "ready";
       this.log(`setMaxBitrateKbps failed (non-fatal): ${String(err)}`);
     }
   }
@@ -815,6 +843,7 @@ export class GfnWebRtcClient {
     this.isHdr = false;
     this.videoDecodeStallWarningSent = false;
     this.decoderPressureController.reset();
+    this.presentationLatencyController.reset();
     const mouseDiagnostics = this.domInputController.getMouseDiagnostics();
     const framePacingDiagnostics = this.peerMediaController.getFramePacingDiagnostics();
     const audioDiagnostics = this.peerMediaController.getAudioDiagnostics();
@@ -856,7 +885,11 @@ export class GfnWebRtcClient {
       mouseResidualMagnitude: 0,
       mouseAdaptiveFlushActive: mouseDiagnostics.adaptiveFlushActive,
       mouseBatchAgeMs: mouseDiagnostics.batchAgeMs,
+      mouseBatchEntries: mouseDiagnostics.batchEntries,
       frameAgeMs: framePacingDiagnostics.frameAgeMs,
+      presentationMode: "adaptive",
+      presentationStableSamples: 0,
+      presentationRollbackCount: 0,
       framePacingVarianceMs: framePacingDiagnostics.framePacingVarianceMs,
       lagReason: "unknown",
       lagReasonDetail: "Waiting for stream stats",
@@ -865,6 +898,11 @@ export class GfnWebRtcClient {
       decoderPressureActive: false,
       decoderRecoveryAttempts: 0,
       decoderRecoveryAction: "none",
+      decoderPressureReason: "stable",
+      decoderBacklogFrames: 0,
+      decoderDropRatePercent: 0,
+      bitrateCeilingKbps: 0,
+      bitrateAdaptationState: "unknown",
       nativeRequestedFps: undefined,
       nativeCapsFramerate: undefined,
       nativeQueueMode: undefined,
@@ -1175,6 +1213,21 @@ export class GfnWebRtcClient {
       await this.decoderPressureController.recover(pressureSignal);
     }
 
+    const presentationState = this.presentationLatencyController.observe({
+      jitterMs: this.diagnostics.jitterMs,
+      packetLossPercent: this.diagnostics.packetLossPercent,
+      frameAgeMs: this.diagnostics.frameAgeMs ?? Number.POSITIVE_INFINITY,
+      framePacingVarianceMs: this.diagnostics.framePacingVarianceMs ?? Number.POSITIVE_INFINITY,
+      decoderPressureActive: pressureSignal.active,
+    });
+    this.diagnostics.presentationMode = presentationState.mode;
+    this.diagnostics.presentationStableSamples = presentationState.stableSamples;
+    this.diagnostics.presentationRollbackCount = presentationState.rollbackCount;
+    this.diagnostics.decoderPressureReason = pressureSignal.reason;
+    this.diagnostics.decoderBacklogFrames = pressureSignal.backlogFrames;
+    this.diagnostics.decoderDropRatePercent = Math.round(pressureSignal.dropRatePercent * 10) / 10;
+    this.diagnostics.bitrateCeilingKbps = this.decoderPressureController.currentBitrateCeilingKbps;
+
     // RTT from active candidate pair
     if (activePair?.currentRoundTripTime !== undefined) {
       const rtt = Number(activePair.currentRoundTripTime);
@@ -1207,6 +1260,7 @@ export class GfnWebRtcClient {
     this.diagnostics.mousePacketsPerSecond = mouseDiagnostics.packetsPerSecond;
     this.diagnostics.mouseResidualMagnitude = mouseDiagnostics.residualMagnitude;
     this.diagnostics.mouseBatchAgeMs = Math.round(mouseDiagnostics.batchAgeMs * 10) / 10;
+    this.diagnostics.mouseBatchEntries = mouseDiagnostics.batchEntries;
 
     // Intentional adaptive coalesce: only when mouse moves ride the reliable
     // channel (PR mouse keeps the fixed 4/8/16 ms official interval). Skip while

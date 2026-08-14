@@ -135,7 +135,10 @@ export function StreamStatsHud({
       `Input queue peak ${(stats.inputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · PR peak ${(stats.partiallyReliableInputQueuePeakBufferedBytes / 1024).toFixed(1)}KB · drops ${stats.inputQueueDropCount} · sched ${stats.inputQueueMaxSchedulingDelayMs.toFixed(1)}ms · residual ${mouseResidualText}`,
     );
     lines.push(
-      `Mouse batch ${typeof stats.mouseBatchAgeMs === "number" ? stats.mouseBatchAgeMs.toFixed(1) : "0.0"}ms · frame age ${typeof stats.frameAgeMs === "number" ? stats.frameAgeMs.toFixed(1) : "0.0"}ms · pacing σ ${typeof stats.framePacingVarianceMs === "number" ? stats.framePacingVarianceMs.toFixed(1) : "0.0"}ms`,
+      `Mouse batch ${typeof stats.mouseBatchAgeMs === "number" ? stats.mouseBatchAgeMs.toFixed(1) : "0.0"}ms · entries ${stats.mouseBatchEntries ?? 0} · frame age ${typeof stats.frameAgeMs === "number" ? stats.frameAgeMs.toFixed(1) : "0.0"}ms · pacing σ ${typeof stats.framePacingVarianceMs === "number" ? stats.framePacingVarianceMs.toFixed(1) : "0.0"}ms`,
+    );
+    lines.push(
+      `Presentation ${stats.presentationMode ?? "adaptive"} · stable ${stats.presentationStableSamples ?? 0} · rollback ${stats.presentationRollbackCount ?? 0}`,
     );
     const avOffset = typeof stats.videoAudioOffsetMs === "number" && Math.abs(stats.videoAudioOffsetMs) > 0.1
       ? `${stats.videoAudioOffsetMs.toFixed(1)}ms`
@@ -153,9 +156,14 @@ export function StreamStatsHud({
     );
     const hwLine = [stats.hardwareAcceleration, stats.colorCodec].filter(Boolean).join(" · ");
     if (hwLine) lines.push(hwLine);
-    if (stats.decoderPressureActive || stats.decoderRecoveryAttempts > 0) {
+    if (stats.decoderPressureActive || stats.decoderRecoveryAttempts > 0 || stats.decoderPressureReason) {
       lines.push(
-        `Decoder recovery ${stats.decoderPressureActive ? "active" : "idle"} · attempts ${stats.decoderRecoveryAttempts} · action ${stats.decoderRecoveryAction}`,
+        `Decoder ${stats.decoderPressureActive ? "pressure" : "stable"} · reason ${stats.decoderPressureReason ?? "unknown"} · backlog ${stats.decoderBacklogFrames ?? 0} · drop ${stats.decoderDropRatePercent?.toFixed(1) ?? "0.0"}% · attempts ${stats.decoderRecoveryAttempts} · action ${stats.decoderRecoveryAction}`,
+      );
+    }
+    if (stats.bitrateAdaptationState && stats.bitrateAdaptationState !== "unknown") {
+      lines.push(
+        `Bitrate adaptation ${stats.bitrateAdaptationState} · ceiling ${stats.bitrateCeilingKbps ?? 0}kbps`,
       );
     }
     if (stats.nativeTransitionSummary || stats.nativeQueueMode || stats.nativeCapsFramerate) {
@@ -173,7 +181,9 @@ export function StreamStatsHud({
     if (lastRouteTelemetry) {
       const pre = lastRouteTelemetry.preLaunchPingMs === null ? "--" : `${lastRouteTelemetry.preLaunchPingMs.toFixed(0)}ms`;
       const observed = lastRouteTelemetry.observedRttMs === undefined ? "--" : `${lastRouteTelemetry.observedRttMs.toFixed(0)}ms`;
-      lines.push(`Route ${lastRouteTelemetry.zoneId} · pre ${pre} · observed ${observed} · samples ${lastRouteTelemetry.goodSamples}/${lastRouteTelemetry.poorSamples}`);
+      const quality = lastRouteTelemetry.routeQualityScore === undefined ? "--" : lastRouteTelemetry.routeQualityScore.toFixed(0);
+      const ewma = lastRouteTelemetry.observedRttEwmaMs === undefined ? "--" : `${lastRouteTelemetry.observedRttEwmaMs.toFixed(0)}ms`;
+      lines.push(`Route ${lastRouteTelemetry.zoneId} · pre ${pre} · observed ${observed} · EWMA ${ewma} · quality ${quality} · samples ${lastRouteTelemetry.goodSamples}/${lastRouteTelemetry.poorSamples}`);
     }
     if (hasLagIssue) {
       lines.push(`Lag source ${getLagReasonLabel(stats.lagReason).toLowerCase()} · ${stats.lagReasonDetail}`);

@@ -25,6 +25,8 @@ export type DecoderRecoveryAction =
   | "signaling_keyframe"
   | "bitrate_step_down";
 
+export type ReceiverLatencyMode = "adaptive" | "live_edge" | "pressure_recovery";
+
 export interface DecoderPressureState {
   active: boolean;
   recoveryAttempts: number;
@@ -107,7 +109,7 @@ export class DecoderPressureController {
   private lastRecoveryAtMs = 0;
   private lastKeyframeRequestAtMs = 0;
   private negotiatedMaxBitrateKbps = 0;
-  private currentBitrateCeilingKbps = 0;
+  private currentBitrateCeilingKbpsValue = 0;
   private recoveryAction: DecoderRecoveryAction = "none";
   private readonly receiverLatencyTargets: Record<"video" | "audio", number | null> = {
     video: null,
@@ -129,11 +131,30 @@ export class DecoderPressureController {
       DECODER_MIN_RECOVERY_BITRATE_KBPS,
       Math.floor(maxBitrateKbps),
     );
-    this.currentBitrateCeilingKbps = this.negotiatedMaxBitrateKbps;
+    this.currentBitrateCeilingKbpsValue = this.negotiatedMaxBitrateKbps;
   }
 
   classifySample(sample: DecoderPressureSample): DecoderPressureSignal {
     return classifyDecoderPressureSample(sample);
+  }
+
+  get currentBitrateCeilingKbps(): number {
+    return this.currentBitrateCeilingKbpsValue;
+  }
+
+  setPresentationMode(mode: ReceiverLatencyMode): void {
+    const targetMs = mode === "live_edge"
+      ? 0
+      : mode === "pressure_recovery"
+      ? VIDEO_PRESSURE_JITTER_TARGET_MS
+      : null;
+    this.receiverLatencyTargets.video = targetMs;
+    this.receiverLatencyTargets.audio = mode === "pressure_recovery"
+      ? AUDIO_PRESSURE_JITTER_TARGET_MS
+      : targetMs;
+    for (const { receiver, kind } of this.activeReceivers) {
+      this.configureReceiver(receiver, kind);
+    }
   }
 
   configureReceiver(receiver: RTCRtpReceiver, kind: string): void {
@@ -178,7 +199,7 @@ export class DecoderPressureController {
     this.lastRecoveryAtMs = 0;
     this.lastKeyframeRequestAtMs = 0;
     this.negotiatedMaxBitrateKbps = 0;
-    this.currentBitrateCeilingKbps = 0;
+    this.currentBitrateCeilingKbpsValue = 0;
     this.recoveryAction = "none";
     this.receiverLatencyTargets.video = null;
     this.receiverLatencyTargets.audio = null;
@@ -240,12 +261,7 @@ export class DecoderPressureController {
       return;
     }
     this.pressureActive = active;
-    this.receiverLatencyTargets.video = active
-      ? VIDEO_PRESSURE_JITTER_TARGET_MS
-      : null;
-    this.receiverLatencyTargets.audio = active
-      ? AUDIO_PRESSURE_JITTER_TARGET_MS
-      : null;
+    this.setPresentationMode(active ? "pressure_recovery" : "adaptive");
     this.dependencies.log(
       `Decoder pressure mode ${active ? "enabled" : "cleared"}; receiver targets video=${this.receiverLatencyTargets.video ?? "adaptive"} audio=${this.receiverLatencyTargets.audio ?? "adaptive"}`,
     );
@@ -341,8 +357,8 @@ export class DecoderPressureController {
     if (!pc?.localDescription) {
       return false;
     }
-    const current = this.currentBitrateCeilingKbps > 0
-      ? this.currentBitrateCeilingKbps
+    const current = this.currentBitrateCeilingKbpsValue > 0
+      ? this.currentBitrateCeilingKbpsValue
       : this.negotiatedMaxBitrateKbps;
     if (current <= DECODER_MIN_RECOVERY_BITRATE_KBPS) {
       return false;
@@ -355,7 +371,7 @@ export class DecoderPressureController {
       return false;
     }
     await this.dependencies.setMaxBitrateKbps(next);
-    this.currentBitrateCeilingKbps = next;
+    this.currentBitrateCeilingKbpsValue = next;
     this.recoveryAction = "bitrate_step_down";
     this.dependencies.log(
       `Decoder recovery: bitrate ceiling stepped down ${current} -> ${next} kbps`,

@@ -50,10 +50,14 @@ export interface StreamDiagnostics {
   mouseResidualMagnitude: number;
   mouseAdaptiveFlushActive: boolean;
   mouseBatchAgeMs?: number;
+  mouseBatchEntries?: number;
 
   // Presentation telemetry (optional for backwards-compatible fixtures)
   frameAgeMs?: number;
   framePacingVarianceMs?: number;
+  presentationMode?: "adaptive" | "live_edge" | "pressure_recovery";
+  presentationStableSamples?: number;
+  presentationRollbackCount?: number;
 
   lagReason: StreamLagReason;
   lagReasonDetail: string;
@@ -66,6 +70,11 @@ export interface StreamDiagnostics {
   decoderPressureActive: boolean;
   decoderRecoveryAttempts: number;
   decoderRecoveryAction: string;
+  decoderPressureReason?: string;
+  decoderBacklogFrames?: number;
+  decoderDropRatePercent?: number;
+  bitrateCeilingKbps?: number;
+  bitrateAdaptationState?: "unknown" | "unsupported" | "ready" | "active";
   nativeRequestedFps?: number;
   nativeCapsFramerate?: string;
   nativeQueueMode?: NativeQueueMode;

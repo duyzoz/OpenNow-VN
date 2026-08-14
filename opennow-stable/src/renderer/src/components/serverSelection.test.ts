@@ -91,3 +91,35 @@ test("a route marked avoid is pushed below a healthy alternative", () => {
     goodSamples: 0,
   }, nowMs), "avoid");
 });
+
+test("route quality score penalizes degraded EWMA without requiring a single spike", () => {
+  const degraded = candidate({
+    zoneId: "DEGRADED-EWMA",
+    pingMs: 95,
+    routeQualityScore: 35,
+    routeAdvice: "unknown",
+  });
+  const healthy = candidate({
+    zoneId: "HEALTHY-EWMA",
+    pingMs: 110,
+    routeQualityScore: 88,
+    routeAdvice: "unknown",
+  });
+  const ranked = sortServerCandidates([degraded, healthy], nowMs);
+  assert.equal(ranked[0]?.zoneId, "HEALTHY-EWMA");
+  assert.ok(getServerSelectionScore(degraded, nowMs).routePenalty > 0);
+  assert.ok(getServerSelectionScore(healthy, nowMs).routePenalty < 0);
+});
+
+test("high route quality can mark a route healthy even after legacy counters are absent", () => {
+  assert.equal(getServerRouteAdvice({
+    zoneId: "QUALITY-GOOD",
+    preLaunchPingMs: 100,
+    queuePosition: 4,
+    selectedAtMs: nowMs - 60_000,
+    observedAtMs: nowMs - 1_000,
+    routeQualityScore: 92,
+    poorSamples: 0,
+    goodSamples: 0,
+  }, nowMs), "healthy");
+});
