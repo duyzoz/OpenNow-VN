@@ -38,6 +38,9 @@ export function canUsePartiallyReliableInput(
 interface InputChannelPolicyControllerDependencies {
   getPartiallyReliableChannel: () => RTCDataChannel | null;
   sendReliable: (payload: Uint8Array) => void;
+  /** Deprecated compatibility fields; WebRTC-only policy never invokes them. */
+  isNativeInputActive?: () => boolean;
+  sendNativeInput?: (payload: Uint8Array, partiallyReliable: boolean) => void;
 }
 
 export class InputChannelPolicyController {

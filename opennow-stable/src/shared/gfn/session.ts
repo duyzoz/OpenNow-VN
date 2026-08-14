@@ -215,6 +215,8 @@ export interface SessionInfo {
   zone: string;
   streamingBaseUrl?: string;
   serverIp: string;
+  /** Optional server hostname/location exposed by some session responses. */
+  serverLocation?: string;
   signalingServer: string;
   signalingUrl: string;
   gpuType?: string;

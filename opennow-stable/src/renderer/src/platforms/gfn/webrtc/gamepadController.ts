@@ -49,6 +49,9 @@ interface GamepadControllerDependencies {
   inputEncoder: InputEncoder;
   isInputReady: () => boolean;
   isInputPaused: () => boolean;
+  /** Deprecated compatibility callbacks; WebRTC-only controller does not use them. */
+  isNativeInputActive?: () => boolean;
+  isNativeElectronInputBridge?: () => boolean;
   isReliableChannelOpen: () => boolean;
   canSendPartiallyReliableGamepad: (controllerId: number) => boolean;
   sendPartiallyReliable: (payload: Uint8Array) => void;
@@ -276,9 +279,11 @@ export class GamepadController {
           this.dependencies.onConnectedGamepadsChanged(this.connectedGamepads.size, true);
         }
 
-        // Read and encode gamepad state.
-        // Skip when the stream is blocked or an overlay chord preempts input.
-        if (streamInputBlocked || overlayShortcutGate.preemptInput) {
+        // Read and encode gamepad state. WebRTC is the sole stream/input transport.
+        if (
+          streamInputBlocked
+          || overlayShortcutGate.preemptInput
+        ) {
           continue;
         }
         const gamepadInput = this.readGamepadState(gamepad, i);

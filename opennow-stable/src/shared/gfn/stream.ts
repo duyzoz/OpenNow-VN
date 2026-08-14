@@ -1,4 +1,6 @@
 export type VideoCodec = "H264" | "H265" | "AV1";
+/** Codec fallback preference used by the upstream WebRTC negotiation layer. */
+export type FallbackCodecPreference = "auto" | VideoCodec;
 export type VideoAccelerationPreference = "auto" | "hardware" | "software";
 export type StreamClientMode = "web";
 /**

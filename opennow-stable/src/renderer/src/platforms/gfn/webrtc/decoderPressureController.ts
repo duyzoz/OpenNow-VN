@@ -25,8 +25,6 @@ export type DecoderRecoveryAction =
   | "signaling_keyframe"
   | "bitrate_step_down";
 
-export type ReceiverLatencyMode = "adaptive" | "live_edge" | "pressure_recovery";
-
 export interface DecoderPressureState {
   active: boolean;
   recoveryAttempts: number;
@@ -42,7 +40,7 @@ interface DecoderPressureControllerDependencies {
     backlogFrames: number;
     attempt: number;
   }) => Promise<unknown>;
-  setMaxBitrateKbps: (kbps: number) => Promise<void>;
+  setMaxBitrateKbps: (kbps: number) => Promise<boolean | void>;
   onStateChange: (state: DecoderPressureState) => void;
   now?: () => number;
 }
@@ -109,7 +107,7 @@ export class DecoderPressureController {
   private lastRecoveryAtMs = 0;
   private lastKeyframeRequestAtMs = 0;
   private negotiatedMaxBitrateKbps = 0;
-  private currentBitrateCeilingKbpsValue = 0;
+  private currentBitrateCeilingKbps = 0;
   private recoveryAction: DecoderRecoveryAction = "none";
   private readonly receiverLatencyTargets: Record<"video" | "audio", number | null> = {
     video: null,
@@ -131,30 +129,11 @@ export class DecoderPressureController {
       DECODER_MIN_RECOVERY_BITRATE_KBPS,
       Math.floor(maxBitrateKbps),
     );
-    this.currentBitrateCeilingKbpsValue = this.negotiatedMaxBitrateKbps;
+    this.currentBitrateCeilingKbps = this.negotiatedMaxBitrateKbps;
   }
 
   classifySample(sample: DecoderPressureSample): DecoderPressureSignal {
     return classifyDecoderPressureSample(sample);
-  }
-
-  get currentBitrateCeilingKbps(): number {
-    return this.currentBitrateCeilingKbpsValue;
-  }
-
-  setPresentationMode(mode: ReceiverLatencyMode): void {
-    const targetMs = mode === "live_edge"
-      ? 0
-      : mode === "pressure_recovery"
-      ? VIDEO_PRESSURE_JITTER_TARGET_MS
-      : null;
-    this.receiverLatencyTargets.video = targetMs;
-    this.receiverLatencyTargets.audio = mode === "pressure_recovery"
-      ? AUDIO_PRESSURE_JITTER_TARGET_MS
-      : targetMs;
-    for (const { receiver, kind } of this.activeReceivers) {
-      this.configureReceiver(receiver, kind);
-    }
   }
 
   configureReceiver(receiver: RTCRtpReceiver, kind: string): void {
@@ -199,7 +178,7 @@ export class DecoderPressureController {
     this.lastRecoveryAtMs = 0;
     this.lastKeyframeRequestAtMs = 0;
     this.negotiatedMaxBitrateKbps = 0;
-    this.currentBitrateCeilingKbpsValue = 0;
+    this.currentBitrateCeilingKbps = 0;
     this.recoveryAction = "none";
     this.receiverLatencyTargets.video = null;
     this.receiverLatencyTargets.audio = null;
@@ -261,7 +240,12 @@ export class DecoderPressureController {
       return;
     }
     this.pressureActive = active;
-    this.setPresentationMode(active ? "pressure_recovery" : "adaptive");
+    this.receiverLatencyTargets.video = active
+      ? VIDEO_PRESSURE_JITTER_TARGET_MS
+      : null;
+    this.receiverLatencyTargets.audio = active
+      ? AUDIO_PRESSURE_JITTER_TARGET_MS
+      : null;
     this.dependencies.log(
       `Decoder pressure mode ${active ? "enabled" : "cleared"}; receiver targets video=${this.receiverLatencyTargets.video ?? "adaptive"} audio=${this.receiverLatencyTargets.audio ?? "adaptive"}`,
     );
@@ -357,8 +341,8 @@ export class DecoderPressureController {
     if (!pc?.localDescription) {
       return false;
     }
-    const current = this.currentBitrateCeilingKbpsValue > 0
-      ? this.currentBitrateCeilingKbpsValue
+    const current = this.currentBitrateCeilingKbps > 0
+      ? this.currentBitrateCeilingKbps
       : this.negotiatedMaxBitrateKbps;
     if (current <= DECODER_MIN_RECOVERY_BITRATE_KBPS) {
       return false;
@@ -370,8 +354,11 @@ export class DecoderPressureController {
     if (next >= current) {
       return false;
     }
-    await this.dependencies.setMaxBitrateKbps(next);
-    this.currentBitrateCeilingKbpsValue = next;
+    const updated = await this.dependencies.setMaxBitrateKbps(next);
+    if (updated === false) {
+      return false;
+    }
+    this.currentBitrateCeilingKbps = next;
     this.recoveryAction = "bitrate_step_down";
     this.dependencies.log(
       `Decoder recovery: bitrate ceiling stepped down ${current} -> ${next} kbps`,

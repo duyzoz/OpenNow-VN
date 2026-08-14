@@ -1,21 +1,28 @@
 import type { MicState } from "../microphoneManager";
 
+type CompatibilityQueueMode = "auto" | "fixed" | "adaptive" | "vrr";
+
 export interface StreamDiagnostics {
   // Connection state
   connectionState: RTCPeerConnectionState | "closed";
   inputReady: boolean;
+  nativeRendererActive: boolean;
   connectedGamepads: number;
 
   // Video stats
   resolution: string;
   codec: string;
+  requestedCodec: string;
   hardwareAcceleration: string;
   colorCodec: string;
   isHdr: boolean;
   bitrateKbps: number;
   targetBitrateKbps: number;
+  availableBitrateKbps: number;
   decodeFps: number;
+  receiveFps: number;
   renderFps: number;
+  gameFps?: number;
 
   // Network stats
   packetsLost: number;
@@ -23,6 +30,8 @@ export interface StreamDiagnostics {
   packetLossPercent: number;
   jitterMs: number;
   rttMs: number;
+  transportType: "udp" | "tcp" | "unknown";
+  localCandidateType: string;
 
   // Frame counters
   framesReceived: number;
@@ -47,58 +56,68 @@ export interface StreamDiagnostics {
   mousePacketsPerSecond: number;
   mouseResidualMagnitude: number;
   mouseAdaptiveFlushActive: boolean;
-  mouseBatchAgeMs?: number;
-  mouseBatchEntries?: number;
-
-  // Presentation telemetry (optional for backwards-compatible fixtures)
-  frameAgeMs?: number;
-  framePacingVarianceMs?: number;
-  presentationMode?: "adaptive" | "live_edge" | "pressure_recovery";
-  presentationStableSamples?: number;
-  presentationRollbackCount?: number;
 
   lagReason: StreamLagReason;
   lagReasonDetail: string;
 
   // System info
   gpuType: string;
+  serverGpuType: string;
+  sessionId: string;
   serverRegion: string;
+  serverZone: string;
+  serverLocation: string;
 
   // Decoder recovery status
   decoderPressureActive: boolean;
   decoderRecoveryAttempts: number;
   decoderRecoveryAction: string;
+  nativeRequestedFps?: number;
+  nativeCapsFramerate?: string;
+  nativeQueueMode?: CompatibilityQueueMode;
+  nativeFramesPendingToPresent?: number;
+  nativePartialFlushCount?: number;
+  nativeCompleteFlushCount?: number;
+  nativeTransitionSummary?: string;
+  nativeRequestedStreamingFeaturesSummary?: string;
+  nativeFinalizedStreamingFeaturesSummary?: string;
+
+  // Optional diagnostics retained for HUD compatibility; upstream WebRTC does not mutate them.
+  mouseBatchAgeMs?: number;
+  mouseBatchEntries?: number;
+  frameAgeMs?: number;
+  framePacingVarianceMs?: number;
+  presentationMode?: string;
+  presentationStableSamples?: number;
+  presentationRollbackCount?: number;
+  videoAudioOffsetMs?: number;
+  audioContextBaseLatencyMs?: number;
+  audioContextOutputLatencyMs?: number;
+  audioOutputMode?: "direct" | "audio_context" | "none";
+  audioContextState?: string;
+  audioSampleRate?: number;
+  audioCurrentTime?: number;
+  videoCurrentTime?: number;
   decoderPressureReason?: string;
   decoderBacklogFrames?: number;
   decoderDropRatePercent?: number;
+  bitrateAdaptationState?: string;
   bitrateCeilingKbps?: number;
   bitrateEwmaKbps?: number;
   bitrateCeilingHeadroomPercent?: number;
-  bitrateAdaptationState?: "unknown" | "unsupported" | "ready" | "active";
-  frameDropClass?: "network" | "decoder" | "render" | "unknown";
+  frameDropClass?: string;
   frameDropClassDetail?: string;
   mousePressureGuardActive?: boolean;
-  mousePressureGuardReason?: "buffered_amount" | "batch_age" | "scheduling_delay" | "none";
+  mousePressureGuardReason?: string;
   mousePressureGuardSamples?: number;
   cursorCalibrationScaleX?: number;
   cursorCalibrationScaleY?: number;
   cursorCalibrationRoundingPx?: number;
-  routeMeasurementLabel?: "single" | "A" | "B";
+  routeMeasurementLabel?: string;
   routeMeasurementSamples?: number;
+  routeMeasurementConfidence?: string;
   routeMeasurementDeltaRttMs?: number;
   routeMeasurementDeltaJitterMs?: number;
-  routeMeasurementDeltaLossPercent?: number;
-  routeMeasurementConfidence?: "low" | "medium" | "high";
-
-  // Audio/video timing telemetry (optional for backwards-compatible native fixtures)
-  audioOutputMode?: "direct" | "audio_context";
-  audioContextState?: AudioContextState | "none";
-  audioContextBaseLatencyMs?: number;
-  audioContextOutputLatencyMs?: number;
-  audioSampleRate?: number;
-  audioCurrentTime?: number;
-  videoCurrentTime?: number;
-  videoAudioOffsetMs?: number;
 
   // Microphone state
   micState: MicState;

@@ -1,66 +1,9 @@
 import type { StreamLagReason } from "./streamDiagnosticsTypes";
 
-export type FrameDropClass = "network" | "decoder" | "render" | "unknown";
-
-export interface FrameDropClassification {
-  className: FrameDropClass;
-  detail: string;
-}
-
-export interface ClassifyFrameDropParams {
-  framesReceived: number;
-  framesDecoded: number;
-  framesDropped: number;
-  packetLossPercent: number;
-  jitterMs: number;
-  jitterBufferDelayMs: number;
-  decoderPressureActive: boolean;
-  decoderBacklogFrames: number;
-  decodeFps: number;
-  renderFps: number;
-}
-
-/**
- * Attribute cumulative frame drops to the most likely local/transport cause.
- * This is diagnostic-only: it never changes bitrate, buffering, or packet flow.
- */
-export function classifyFrameDropCause(params: ClassifyFrameDropParams): FrameDropClassification {
-  const hasDropSample = params.framesReceived > 0 && params.framesDropped > 0;
-  if (!hasDropSample) {
-    return { className: "unknown", detail: "No dropped-frame sample" };
-  }
-
-  if (params.packetLossPercent >= 1 || params.jitterMs >= 12 || params.jitterBufferDelayMs >= 20) {
-    return {
-      className: "network",
-      detail: `loss ${params.packetLossPercent.toFixed(1)}% · jitter ${params.jitterMs.toFixed(1)}ms`,
-    };
-  }
-
-  if (params.decoderPressureActive || params.decoderBacklogFrames >= 45) {
-    return {
-      className: "decoder",
-      detail: params.decoderBacklogFrames >= 45
-        ? `decoder backlog ${params.decoderBacklogFrames}`
-        : "decoder pressure",
-    };
-  }
-
-  if (
-    params.renderFps > 0
-    && params.decodeFps > 0
-    && params.renderFps < params.decodeFps * 0.8
-  ) {
-    return {
-      className: "render",
-      detail: `render ${params.renderFps}fps vs decode ${params.decodeFps}fps`,
-    };
-  }
-
-  return { className: "unknown", detail: "Dropped frames without a dominant signal" };
-}
-
 export interface ClassifyStreamLagReasonParams {
+  /** Deprecated compatibility fields; WebRTC-only runtime leaves both false. */
+  nativeInputActive?: boolean;
+  nativeRendererActive?: boolean;
   framesReceived: number;
   framesDecoded: number;
   decodeTimeMs: number;
@@ -83,6 +26,13 @@ export interface ClassifyStreamLagReasonParams {
 export function classifyStreamLagReason(
   params: ClassifyStreamLagReasonParams,
 ): { reason: StreamLagReason; detail: string } {
+  if (params.nativeInputActive === true || params.nativeRendererActive === true) {
+    return {
+      reason: "stable",
+      detail: "Compatibility native flags active",
+    };
+  }
+
   const networkSignals: string[] = [];
   if (params.packetLossPercent >= 1) networkSignals.push(`${params.packetLossPercent.toFixed(1)}% loss`);
   if (params.rttMs >= 75) networkSignals.push(`RTT ${params.rttMs.toFixed(0)}ms`);
