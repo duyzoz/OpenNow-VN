@@ -672,9 +672,11 @@ export function StreamView({
         <div className="sv-pointerlock-hint" role="status" aria-live="polite">
           <div>Press {shortcuts.toggleFullscreen} to exit fullscreen & release mouse</div>
           <div className="sv-pointerlock-hint-sub">
-            {allowEscapeToExitFullscreen
-              ? "Press Escape will also exit fullscreen per your settings."
-              : "Escape goes to the game while pointer-locked; hold Escape ~1.5s to exit fullscreen."}
+            {isPointerLocked
+              ? "Escape goes to the game and keeps the mouse locked; use F8 or the fullscreen shortcut to release it."
+              : allowEscapeToExitFullscreen
+                ? "Press Escape will also exit fullscreen per your settings."
+                : "Escape goes to the game while pointer-locked; hold Escape ~1.5s to exit fullscreen."}
           </div>
         </div>
       )}

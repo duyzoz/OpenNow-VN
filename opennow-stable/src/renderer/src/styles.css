@@ -7890,16 +7890,34 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 .sv-stats-advanced-body {
+  min-width: 0;
   overflow: hidden;
 }
 
 .sv-stats-foot {
   margin: 0;
+  min-width: 0;
   font-size: 0.64rem;
   color: var(--ink-muted);
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.sv-stats-foot--singleline {
+  max-width: 100%;
+  min-height: 1.35em;
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-overflow: clip;
+  scrollbar-width: none;
+  font-variant-numeric: tabular-nums;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sv-stats-foot--singleline::-webkit-scrollbar {
+  display: none;
 }
 
 /* Session ready badge */

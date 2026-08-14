@@ -188,7 +188,7 @@ export function StreamStatsHud({
     if (hasLagIssue) {
       lines.push(`Lag source ${getLagReasonLabel(stats.lagReason).toLowerCase()} · ${stats.lagReasonDetail}`);
     }
-    return lines;
+    return lines.length > 0 ? [lines.join("  ·  ")] : lines;
   }, [
     gstreamerEnabled,
     hasLagIssue,
@@ -396,7 +396,7 @@ export function StreamStatsHud({
                         transition={disclosureTransition}
                       >
                         {advancedLines.map((line) => (
-                          <p key={line} className="sv-stats-foot">
+                          <p key="advanced-telemetry" className="sv-stats-foot sv-stats-foot--singleline">
                             {line}
                           </p>
                         ))}

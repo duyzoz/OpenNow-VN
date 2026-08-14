@@ -1188,7 +1188,7 @@ export class DomInputCaptureController {
           .catch((error: unknown) => {
             this.dependencies.log(`Pointer lock restore failed after ${reason}: ${String(error)}`);
           });
-      }, 75);
+      }, 16);
     };
 
     // Store lock target for pointer lock re-acquisition

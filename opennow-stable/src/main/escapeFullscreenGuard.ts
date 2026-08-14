@@ -53,11 +53,12 @@ export function shouldCaptureEscapeFullscreenInput(
   input: EscapeKeyInput,
   state: EscapeFullscreenGuardState,
 ): boolean {
-  if (!isEscapeKeyDownInput(input) || state.allowEscapeToExitFullscreen) {
+  const protectedStreamPointerLock = state.streamInputActive && state.pointerLockActive;
+  if (!isEscapeKeyDownInput(input) || (state.allowEscapeToExitFullscreen && !protectedStreamPointerLock)) {
     return false;
   }
 
-  if (state.pointerLockActive) {
+  if (protectedStreamPointerLock) {
     return true;
   }
 
@@ -82,7 +83,8 @@ export function resolveEscapeHoldCaptureAction(
   guardState: EscapeFullscreenGuardState,
   holdState: EscapeHoldCaptureState,
 ): { action: EscapeHoldCaptureAction; nextHoldState: EscapeHoldCaptureState } {
-  if (guardState.allowEscapeToExitFullscreen || !isEscapeKeyInput(input)) {
+  const protectedStreamPointerLock = guardState.streamInputActive && guardState.pointerLockActive;
+  if ((guardState.allowEscapeToExitFullscreen && !protectedStreamPointerLock) || !isEscapeKeyInput(input)) {
     return {
       action: "ignore",
       nextHoldState: { keyDownCaptured: false, holdFired: false },

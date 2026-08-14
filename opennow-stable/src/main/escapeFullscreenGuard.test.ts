@@ -84,8 +84,8 @@ test("shouldCaptureEscapeFullscreenInput allows Escape outside protected stream 
   const input = { type: "keyDown", key: "Escape" };
   assert.equal(shouldCaptureEscapeFullscreenInput(input, {
     allowEscapeToExitFullscreen: true,
-    streamInputActive: true,
-    pointerLockActive: true,
+    streamInputActive: false,
+    pointerLockActive: false,
     rendererControlledFullscreen: true,
     windowFullscreen: true,
     pointerLockEscapeCaptureUntilMs: 1500,
@@ -118,6 +118,21 @@ test("nextPointerLockEscapeCaptureUntilMs only arms grace for unsuppressed point
     nextPointerLockEscapeCaptureUntilMs(false, false, 1000),
     1000 + POINTER_LOCK_ESCAPE_FULLSCREEN_GRACE_MS,
   );
+});
+
+test("shouldCaptureEscapeFullscreenInput keeps Escape in a locked stream even when fullscreen Escape is allowed", () => {
+  assert.equal(shouldCaptureEscapeFullscreenInput(
+    { type: "keyDown", key: "Escape" },
+    {
+      allowEscapeToExitFullscreen: true,
+      streamInputActive: true,
+      pointerLockActive: true,
+      rendererControlledFullscreen: true,
+      windowFullscreen: true,
+      pointerLockEscapeCaptureUntilMs: 0,
+      nowMs: 1000,
+    },
+  ), true);
 });
 
 test("resolveEscapeHoldCaptureAction arms hold then taps on early keyup", () => {
