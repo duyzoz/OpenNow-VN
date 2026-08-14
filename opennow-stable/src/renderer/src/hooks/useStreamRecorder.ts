@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { RecordingEntry } from "@shared/gfn";
-import { fitThumbnailSize, selectRecordingMimeType } from "../components/stream/streamRuntimeHelpers";
+import {
+  fitThumbnailSize,
+  selectPowerEfficientRecordingMimeType,
+} from "../components/stream/streamRuntimeHelpers";
 
 interface UseStreamRecorderOptions {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -89,7 +92,11 @@ export function useStreamRecorder({
     }
 
     const stream = video.srcObject as MediaStream;
-    const mimeType = selectRecordingMimeType((candidate) => MediaRecorder.isTypeSupported(candidate));
+    const mimeSelection = await selectPowerEfficientRecordingMimeType(
+      (candidate) => MediaRecorder.isTypeSupported(candidate),
+      video,
+    );
+    const mimeType = mimeSelection.mimeType;
     setUsedMimeType(mimeType);
 
     const audioElement = audioRef.current;
@@ -158,9 +165,12 @@ export function useStreamRecorder({
     // write queue and waits for it before finalizing, so the renderer never
     // stalls WebRTC decode/compositing on a filesystem callback.
     const recorderOptions: MediaRecorderOptions = { mimeType };
-    // Auto must be bounded for weak machines. This is the recording encoder
-    // bitrate only; the upstream WebRTC receive/decode bitrate is untouched.
-    const effectiveRecordingBitrateMbps = recordingBitrateMbps ?? 8;
+    // When Chromium reports a power-efficient encoder, keep Auto at a sharp
+    // high-quality bitrate. If only software encoding is available, use a
+    // lighter fallback to protect WebRTC decode on weak machines. This is
+    // recorder-only; the upstream WebRTC receive/decode bitrate is untouched.
+    const effectiveRecordingBitrateMbps =
+      recordingBitrateMbps ?? (mimeSelection.powerEfficient ? 25 : 8);
     recorderOptions.videoBitsPerSecond =
       Math.max(1, Math.min(200, Math.round(effectiveRecordingBitrateMbps))) * 1_000_000;
     const recorder = new MediaRecorder(composed, recorderOptions);

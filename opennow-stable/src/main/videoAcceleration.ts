@@ -78,7 +78,13 @@ export function buildVideoAccelerationCommandLine(
     switches["disable-accelerated-video-decode"] = true;
   }
 
-  if (preferences.encoderPreference === "hardware") {
+  if (
+    preferences.encoderPreference === "hardware" ||
+    (platform === "win32" && preferences.encoderPreference === "auto")
+  ) {
+    // On Windows this lets Chromium select the Media Foundation hardware
+    // encoder for MediaRecorder when the driver exposes one. It does not
+    // alter the upstream WebRTC receive/decode path.
     switches["enable-accelerated-video-encode"] = true;
   } else if (preferences.encoderPreference === "software") {
     switches["disable-accelerated-video-encode"] = true;
