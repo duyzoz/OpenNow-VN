@@ -140,15 +140,15 @@ export function StreamQuickMenuSessionPage({
             disabled={isSavingScreenshot || !screenshotApiAvailable}
           >
             <Camera size={16} />
-            <span>{isSavingScreenshot ? "Capturing" : "Screenshot"}</span>
+            <span>{isSavingScreenshot ? "Đang chụp" : "Chụp ảnh"}</span>
           </button>
         </div>
       </section>
       {sessionTimeRemainingText !== null && (
         <label className="sidebar-setting-card sidebar-mini-toggle" tabIndex={0}>
           <span>
-            <strong>Show time in stats</strong>
-            <small>Keep session time visible in the performance overlay.</small>
+            <strong>Hiện thời gian trên F3</strong>
+            <small>Giữ thời gian phiên hiển thị trên bảng hiệu năng.</small>
           </span>
           <input
             type="checkbox"
@@ -161,7 +161,7 @@ export function StreamQuickMenuSessionPage({
         </label>
       )}
       <div className="sidebar-open-shortcuts">
-        <span><kbd>{sidebarToggleShortcutDisplay}</kbd> Keyboard</span>
+        <span><kbd>{sidebarToggleShortcutDisplay}</kbd> Bàn phím</span>
         <span><Gamepad2 size={14} /> {controllerSidebarShortcutDisplay}</span>
       </div>
     </div>

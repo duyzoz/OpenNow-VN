@@ -132,16 +132,16 @@ export function StreamQuickMenu({
         {open && (
           <SideBar
             key="quick-menu-sidebar"
-            title="Quick menu"
+            title="Menu nhanh"
             className="sv-sidebar"
             elementRef={sidebarRef}
             onClose={onClose}
             footer={(
               <>
                 <div className="sidebar-controller-hints" aria-hidden="true">
-                  <span><kbd>A</kbd> Select</span>
-                  <span><kbd>B</kbd> Back</span>
-                  <span><kbd>LB</kbd><kbd>RB</kbd> Pages</span>
+                  <span><kbd>A</kbd> Chọn</span>
+                  <span><kbd>B</kbd> Quay lại</span>
+                  <span><kbd>LB</kbd><kbd>RB</kbd> Trang</span>
                 </div>
                 <button
                   type="button"
@@ -183,7 +183,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("media")}
               >
                 <Images size={16} />
-                <span>Media</span>
+                <span>Phương tiện</span>
               </button>
               <button
                 type="button"

@@ -64,13 +64,26 @@ export function MicrophoneIndicator({
   );
 }
 
-export function AntiAfkIndicator(_props: {
+export function AntiAfkIndicator({
+  antiAfkEnabled,
+  showAntiAfkIndicator,
+  isConnecting,
+}: {
   diagnosticsStore: StreamDiagnosticsStore;
   antiAfkEnabled: boolean;
   showAntiAfkIndicator: boolean;
   isConnecting: boolean;
 }): JSX.Element | null {
-  return null;
+  if (!antiAfkEnabled || !showAntiAfkIndicator || isConnecting) {
+    return null;
+  }
+
+  return (
+    <div className="sv-afk" role="status" aria-label="Anti-AFK đang bật">
+      <span className="sv-afk-dot" aria-hidden="true" />
+      <span className="sv-afk-label">ANTI-AFK BẬT</span>
+    </div>
+  );
 }
 
 export function RecordingIndicator({

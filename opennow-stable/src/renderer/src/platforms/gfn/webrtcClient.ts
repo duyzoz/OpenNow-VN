@@ -563,6 +563,17 @@ export class GfnWebRtcClient {
           timestampUs: timestampUs(),
         });
         this.sendReliableSingleInput(escUp);
+
+        // The native guard normally prevents Chromium from dropping the lock.
+        // If Chromium has already processed Escape before the IPC arrives,
+        // give the existing controller one best-effort reacquire opportunity;
+        // its pointerlockchange handler owns the bounded retry fallback.
+        window.setTimeout(() => {
+          if (!this.inputReady) return;
+          void this.domInputController.attemptAutoPointerLock(false).catch((error: unknown) => {
+            this.log(`Pointer lock reacquire after Escape deferred: ${String(error)}`);
+          });
+        }, 0);
       });
     } catch {
       this.externalEscapeCleanup = null;

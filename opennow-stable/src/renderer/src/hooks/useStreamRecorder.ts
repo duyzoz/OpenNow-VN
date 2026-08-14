@@ -103,13 +103,15 @@ export function useStreamRecorder({
 
     if (!liveMicTrack) {
       // The WebRTC video stream already carries the game audio in direct mode.
-      // Record it directly instead of creating an AudioContext and a second
-      // media graph on the renderer's hot path. This keeps F12 recording from
-      // competing with Chromium's decode/presentation work.
-      composed = new MediaStream([
-        ...stream.getVideoTracks(),
-        ...(gameAudioStream?.getAudioTracks() ?? []),
-      ]);
+      // Pass that exact stream to MediaRecorder when possible: creating a
+      // second MediaStream wrapper is unnecessary work on the renderer hot
+      // path and can make weak machines compete with the decoder.
+      composed = gameAudioStream === stream
+        ? stream
+        : new MediaStream([
+          ...stream.getVideoTracks(),
+          ...(gameAudioStream?.getAudioTracks() ?? []),
+        ]);
     } else {
       // Only pay for audio mixing when the user explicitly enabled a live mic.
       const audioCtx = new AudioContext({ latencyHint: "interactive" });
@@ -151,6 +153,10 @@ export function useStreamRecorder({
     }, 500);
 
     let isFirstChunk = true;
+    // Serialize recording IPC writes. Concurrent chunk writes can queue up in
+    // Electron's main process and cause visible frame pacing spikes, especially
+    // when the user selected a high recording bitrate.
+    let chunkWriteChain: Promise<void> = Promise.resolve();
     const recorderOptions: MediaRecorderOptions = { mimeType };
     if (recordingBitrateMbps !== null) {
       recorderOptions.videoBitsPerSecond =
@@ -180,42 +186,53 @@ export function useStreamRecorder({
         }
       }
 
-      void event.data.arrayBuffer().then((buffer) => {
-        const id = recordingIdRef.current;
-        if (!id) return;
-        window.openNow.sendRecordingChunk({ recordingId: id, chunk: buffer }).catch((error: unknown) => {
+      chunkWriteChain = chunkWriteChain
+        .then(async () => {
+          const id = recordingIdRef.current;
+          if (!id) return;
+          const buffer = await event.data.arrayBuffer();
+          await window.openNow.sendRecordingChunk({ recordingId: id, chunk: buffer });
+        })
+        .catch((error: unknown) => {
           console.error("[StreamView] Failed to send recording chunk:", error);
+          setRecordingError("Một phần dữ liệu ghi hình không thể lưu.");
         });
-      });
     };
 
     recorder.onstop = () => {
-      window.clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = undefined;
-      audioCtxRef.current?.close().catch(() => undefined);
-      audioCtxRef.current = null;
-      const id = recordingIdRef.current;
-      recordingIdRef.current = null;
-      setIsRecording(false);
+      void (async () => {
+        window.clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = undefined;
+        audioCtxRef.current?.close().catch(() => undefined);
+        audioCtxRef.current = null;
+        const id = recordingIdRef.current;
+        recordingIdRef.current = null;
+        setIsRecording(false);
 
-      if (!id) return;
+        if (!id) return;
 
-      const durationMs = Date.now() - recordingStartTimeRef.current;
-      void window.openNow
-        .finishRecording({
-          recordingId: id,
-          durationMs,
-          gameTitle,
-          thumbnailDataUrl: thumbnailDataUrlRef.current ?? undefined,
-        })
-        .then((entry) => {
-          setRecordings((prev) => [entry, ...prev].slice(0, 20));
-          thumbnailDataUrlRef.current = null;
-        })
-        .catch((error: unknown) => {
-          console.error("[StreamView] Failed to finish recording:", error);
-          setRecordingError("Recording could not be saved.");
-        });
+        // Wait for the final serialized chunk before closing the recording;
+        // otherwise a slow IPC write can arrive after finishRecording and be
+        // lost or force the main process to keep an oversized queue.
+        await chunkWriteChain;
+
+        const durationMs = Date.now() - recordingStartTimeRef.current;
+        void window.openNow
+          .finishRecording({
+            recordingId: id,
+            durationMs,
+            gameTitle,
+            thumbnailDataUrl: thumbnailDataUrlRef.current ?? undefined,
+          })
+          .then((entry) => {
+            setRecordings((prev) => [entry, ...prev].slice(0, 20));
+            thumbnailDataUrlRef.current = null;
+          })
+          .catch((error: unknown) => {
+            console.error("[StreamView] Failed to finish recording:", error);
+            setRecordingError("Recording could not be saved.");
+          });
+      })();
     };
 
     recorder.onerror = () => {

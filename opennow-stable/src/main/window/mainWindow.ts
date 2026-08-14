@@ -189,6 +189,22 @@ export async function createMainWindow(
   window.webContents.on("before-input-event", (event, input) => {
     try {
       const mainWindow = deps.getMainWindow();
+      const activeStreamWindow = (() => {
+        try {
+          const candidate = deps.getStreamWindow?.() ?? null;
+          return candidate && !candidate.isDestroyed() && candidate.isVisible()
+            ? candidate
+            : null;
+        } catch {
+          return null;
+        }
+      })();
+      const mainWindowFullscreen = Boolean(
+        mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen(),
+      );
+      const streamWindowFullscreen = Boolean(
+        activeStreamWindow && activeStreamWindow.isFullScreen(),
+      );
       const resolved = resolveEscapeHoldCaptureAction(
         input,
         {
@@ -196,16 +212,13 @@ export async function createMainWindow(
             deps.settingsManager?.get("allowEscapeToExitFullscreen"),
           ),
           streamInputActive:
+            Boolean(activeStreamWindow) ||
             deps.getPointerLockActive() ||
             deps.getRendererControlledFullscreen() ||
             Date.now() <= deps.getPointerLockEscapeCaptureUntilMs(),
           pointerLockActive: deps.getPointerLockActive(),
           rendererControlledFullscreen: deps.getRendererControlledFullscreen(),
-          windowFullscreen: Boolean(
-            mainWindow &&
-              !mainWindow.isDestroyed() &&
-              mainWindow.isFullScreen(),
-          ),
+          windowFullscreen: mainWindowFullscreen || streamWindowFullscreen,
           pointerLockEscapeCaptureUntilMs:
             deps.getPointerLockEscapeCaptureUntilMs(),
           nowMs: Date.now(),
@@ -221,9 +234,18 @@ export async function createMainWindow(
         clearEscapeHoldTimer();
         escapeHoldTimer = setTimeout(() => {
           escapeHoldTimer = null;
-          const activeWindow = deps.getMainWindow();
+          const activeWindow = (() => {
+            try {
+              const stream = deps.getStreamWindow?.() ?? null;
+              if (stream && !stream.isDestroyed() && stream.isVisible()) return stream;
+            } catch {}
+            return deps.getMainWindow();
+          })();
           if (!activeWindow || activeWindow.isDestroyed()) return;
-          if (!activeWindow.isFullScreen() && !deps.getRendererControlledFullscreen()) return;
+          if (
+            !activeWindow.isFullScreen() &&
+            !deps.getRendererControlledFullscreen()
+          ) return;
           escapeHoldState = markEscapeHoldFired(escapeHoldState);
           activeWindow.webContents.send(IPC_CHANNELS.EXIT_FULLSCREEN);
         }, ESCAPE_HOLD_TO_EXIT_FULLSCREEN_MS);
@@ -233,7 +255,10 @@ export async function createMainWindow(
       if (resolved.action === "tap") {
         clearEscapeHoldTimer();
         console.log("[EscapeInput] Forwarding captured Escape tap to the stream session");
-        mainWindow?.webContents.send(IPC_CHANNELS.EXTERNAL_ESCAPE);
+        const targetWindow = activeStreamWindow ?? mainWindow;
+        if (targetWindow && !targetWindow.isDestroyed()) {
+          targetWindow.webContents.send(IPC_CHANNELS.EXTERNAL_ESCAPE);
+        }
       } else if (resolved.action === "hold-consumed-keyup") {
         clearEscapeHoldTimer();
       }
