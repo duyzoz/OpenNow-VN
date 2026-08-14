@@ -135,9 +135,9 @@ test("shouldCaptureEscapeFullscreenInput keeps Escape in a locked stream even wh
   ), true);
 });
 
-test("resolveEscapeHoldCaptureAction arms hold then taps on early keyup", () => {
+test("resolveEscapeHoldCaptureAction forwards Escape immediately in an active stream", () => {
   const guard = {
-    allowEscapeToExitFullscreen: false,
+    allowEscapeToExitFullscreen: true,
     streamInputActive: true,
     pointerLockActive: true,
     rendererControlledFullscreen: true,
@@ -145,31 +145,31 @@ test("resolveEscapeHoldCaptureAction arms hold then taps on early keyup", () => 
     pointerLockEscapeCaptureUntilMs: 0,
     nowMs: 1000,
   };
-  const armed = resolveEscapeHoldCaptureAction(
+  const tap = resolveEscapeHoldCaptureAction(
     { type: "keyDown", key: "Escape" },
     guard,
     { keyDownCaptured: false, holdFired: false },
   );
-  assert.equal(armed.action, "arm-hold");
-  assert.equal(ESCAPE_HOLD_TO_EXIT_FULLSCREEN_MS, 1500);
-
-  const tap = resolveEscapeHoldCaptureAction(
-    { type: "keyUp", key: "Escape" },
-    guard,
-    armed.nextHoldState,
-  );
   assert.equal(tap.action, "tap");
   assert.deepEqual(tap.nextHoldState, { keyDownCaptured: false, holdFired: false });
+
+  const keyup = resolveEscapeHoldCaptureAction(
+    { type: "keyUp", key: "Escape" },
+    guard,
+    tap.nextHoldState,
+  );
+  assert.equal(keyup.action, "ignore");
+  assert.equal(ESCAPE_HOLD_TO_EXIT_FULLSCREEN_MS, 1500);
 });
 
-test("resolveEscapeHoldCaptureAction suppresses tap after hold fires", () => {
+test("resolveEscapeHoldCaptureAction suppresses tap after hold fires outside the stream", () => {
   const guard = {
     allowEscapeToExitFullscreen: false,
-    streamInputActive: true,
-    pointerLockActive: true,
+    streamInputActive: false,
+    pointerLockActive: false,
     rendererControlledFullscreen: true,
     windowFullscreen: true,
-    pointerLockEscapeCaptureUntilMs: 0,
+    pointerLockEscapeCaptureUntilMs: 1500,
     nowMs: 1000,
   };
   const armed = resolveEscapeHoldCaptureAction(

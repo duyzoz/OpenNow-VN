@@ -53,12 +53,12 @@ export function shouldCaptureEscapeFullscreenInput(
   input: EscapeKeyInput,
   state: EscapeFullscreenGuardState,
 ): boolean {
-  const protectedStreamPointerLock = state.streamInputActive && state.pointerLockActive;
-  if (!isEscapeKeyDownInput(input) || (state.allowEscapeToExitFullscreen && !protectedStreamPointerLock)) {
+  const activeStream = state.streamInputActive;
+  if (!isEscapeKeyDownInput(input) || (state.allowEscapeToExitFullscreen && !activeStream)) {
     return false;
   }
 
-  if (protectedStreamPointerLock) {
+  if (activeStream) {
     return true;
   }
 
@@ -75,18 +75,26 @@ export function shouldCaptureEscapeFullscreenInput(
 }
 
 /**
- * Electron Internal/web path: Escape tap → game, hold → exit fullscreen.
- * Mirrors native Internal RawInput hold timing without sending a tap after hold.
+ * Electron web path: while a stream is active, Escape is always a game tap.
+ * Fullscreen/pointer-lock exit remains an explicit F8/shortcut action so a normal
+ * in-game Escape cannot unexpectedly release the cursor.
  */
 export function resolveEscapeHoldCaptureAction(
   input: EscapeKeyInput,
   guardState: EscapeFullscreenGuardState,
   holdState: EscapeHoldCaptureState,
 ): { action: EscapeHoldCaptureAction; nextHoldState: EscapeHoldCaptureState } {
-  const protectedStreamPointerLock = guardState.streamInputActive && guardState.pointerLockActive;
-  if ((guardState.allowEscapeToExitFullscreen && !protectedStreamPointerLock) || !isEscapeKeyInput(input)) {
+  const activeStream = guardState.streamInputActive;
+  if ((guardState.allowEscapeToExitFullscreen && !activeStream) || !isEscapeKeyInput(input)) {
     return {
       action: "ignore",
+      nextHoldState: { keyDownCaptured: false, holdFired: false },
+    };
+  }
+
+  if (activeStream && isEscapeKeyDownInput(input)) {
+    return {
+      action: "tap",
       nextHoldState: { keyDownCaptured: false, holdFired: false },
     };
   }
