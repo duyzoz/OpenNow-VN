@@ -2303,6 +2303,7 @@ export class GfnWebRtcClient {
   }
 
   dispose(): void {
+    this.peerMediaController.dispose();
     this.cleanupPeerConnection();
     this.externalEscapeCleanup?.();
     this.externalEscapeCleanup = null;

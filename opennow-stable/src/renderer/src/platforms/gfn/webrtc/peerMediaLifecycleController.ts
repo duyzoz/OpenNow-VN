@@ -46,6 +46,9 @@ export class PeerMediaLifecycleController {
   private outputVolume = 1;
   private audioOutputMode: AudioOutputMode = "direct";
   private visibilityChangeListener: (() => void) | null = null;
+  private userGestureAudioListener: (() => void) | null = null;
+  /** Only true when Chromium rejected the shared video/audio playback attempt. */
+  private directAudioFallbackActive = false;
   private frameAgeMs = 0;
   private framePacingVarianceMs = 0;
   private lastFrameCallbackMs: number | null = null;
@@ -68,6 +71,13 @@ export class PeerMediaLifecycleController {
     dependencies.videoElement.volume = this.outputVolume;
     dependencies.audioElement.muted = true;
     dependencies.audioElement.volume = this.outputVolume;
+
+    // Chromium may reject audible playback when the remote audio track arrives
+    // after the initial muted video play(). Retry only on a real user gesture;
+    // this is event-driven and does not add work to the frame or stats loops.
+    this.userGestureAudioListener = () => this.resumeAudioPlayback();
+    document.addEventListener("pointerdown", this.userGestureAudioListener, true);
+    document.addEventListener("keydown", this.userGestureAudioListener, true);
   }
 
   getVideoTrack(): MediaStreamTrack | null {
@@ -118,6 +128,24 @@ export class PeerMediaLifecycleController {
     this.audioOutputMode = mode;
     if (this.audioStream.getAudioTracks().length > 0) {
       this.startAudioOutput("Audio output mode changed");
+    }
+  }
+
+  /** Retry playback after a trusted user gesture without creating a new clock. */
+  resumeAudioPlayback(): void {
+    if (this.audioStream.getAudioTracks().length === 0) {
+      return;
+    }
+    if (this.audioOutputMode === "direct") {
+      if (this.directAudioFallbackActive) {
+        this.startDirectAudioFallbackPlayback("User gesture audio resume");
+      } else {
+        this.startDirectAudioPlayback("User gesture audio resume");
+      }
+      return;
+    }
+    if (this.audioContext?.state === "suspended") {
+      void this.audioContext.resume().catch(() => {});
     }
   }
 
@@ -204,6 +232,11 @@ export class PeerMediaLifecycleController {
     }
 
     if (track.kind === "audio") {
+      // Direct playback uses the video element's shared media clock. Keep the
+      // same live audio track in both streams: videoElement must receive it for
+      // audible direct playback, while audioStream remains available for the
+      // AudioContext fallback and recorder pipeline.
+      this.replaceTrackInStream(this.videoStream, track);
       this.replaceTrackInStream(this.audioStream, track);
       this.startAudioOutput("Audio track attached");
     }
@@ -219,6 +252,13 @@ export class PeerMediaLifecycleController {
     if (this.audioGainNode) {
       this.audioGainNode.gain.value = this.outputVolume;
     }
+    // Volume changes originate from a trusted Quick Menu gesture. Use that
+    // gesture to retry a playback that Chromium may have blocked when the
+    // remote audio track arrived; this remains event-driven and does not add
+    // work to the frame or stats loops.
+    if (this.outputVolume > 0 && this.audioStream.getAudioTracks().length > 0) {
+      this.resumeAudioPlayback();
+    }
   }
 
   reset(): void {
@@ -229,6 +269,16 @@ export class PeerMediaLifecycleController {
 
   cleanupAudio(): void {
     this.cleanupAudioRouting();
+  }
+
+  dispose(): void {
+    if (this.userGestureAudioListener) {
+      document.removeEventListener("pointerdown", this.userGestureAudioListener, true);
+      document.removeEventListener("keydown", this.userGestureAudioListener, true);
+      this.userGestureAudioListener = null;
+    }
+    this.cleanupAudioRouting();
+    this.clearTracks();
   }
 
   clearTracks(): void {
@@ -267,6 +317,7 @@ export class PeerMediaLifecycleController {
 
   private startAudioOutput(reason: string): void {
     this.cleanupAudioRouting();
+    this.directAudioFallbackActive = false;
 
     if (this.audioOutputMode === "direct") {
       this.startDirectAudioPlayback(reason);
@@ -360,6 +411,7 @@ export class PeerMediaLifecycleController {
     this.dependencies.audioElement.pause();
     this.dependencies.audioElement.muted = true;
     this.dependencies.videoElement.muted = true;
+    this.directAudioFallbackActive = false;
   }
 
   private startDirectAudioPlayback(reason: string): void {
@@ -372,14 +424,24 @@ export class PeerMediaLifecycleController {
     // Keep the auxiliary audio element available for recording, but do not use
     // it as a second playback clock in direct mode. The video element already
     // owns the same MediaStream and therefore keeps RTP audio/video aligned.
+    // Re-assign the object after the remote audio track arrives because some
+    // Chromium builds do not re-evaluate an initially video-only MediaStream
+    // for audible playback until srcObject is touched again.
     audioElement.pause();
     audioElement.muted = true;
+    // Use a fresh playback stream so Chromium re-evaluates the newly arrived
+    // audio track instead of retaining the initially video-only source.
+    videoElement.srcObject = new MediaStream(this.videoStream.getTracks());
+    videoElement.defaultMuted = false;
+    videoElement.removeAttribute("muted");
     videoElement.muted = false;
     videoElement.volume = this.outputVolume;
 
+    // The video may already be running from the muted video-only phase. Call
+    // play() again after unmuting so Chromium commits the audible track; merely
+    // flipping muted=false can leave that already-playing element silent.
     if (!videoElement.paused) {
-      this.dependencies.log(`${reason}; direct audio uses the shared video media clock`);
-      return;
+      this.dependencies.log(`${reason}; re-arming audible shared-clock playback`);
     }
 
     videoElement.play()
@@ -389,8 +451,32 @@ export class PeerMediaLifecycleController {
       .catch((playError) => {
         this.dependencies.log(`Shared video/audio autoplay blocked: ${String(playError)}`);
         if (this.audioOutputMode === "direct") {
+          // Keep the normal path on the shared media clock. Use the legacy
+          // audio element only as a narrow autoplay fallback; this avoids a
+          // silent stream on Chromium builds that reject audible MediaStream
+          // playback after the remote audio track is attached dynamically.
+          this.directAudioFallbackActive = true;
+          this.startDirectAudioFallbackPlayback("Shared media playback failed");
+        }
+      });
+  }
+
+  private startDirectAudioFallbackPlayback(reason: string): void {
+    const audioElement = this.dependencies.audioElement;
+    audioElement.srcObject = this.audioStream;
+    audioElement.defaultMuted = false;
+    audioElement.removeAttribute("muted");
+    audioElement.muted = false;
+    audioElement.volume = this.outputVolume;
+    audioElement.play()
+      .then(() => {
+        this.dependencies.log(`${reason}; fallback audio element playback started`);
+      })
+      .catch((playError) => {
+        this.dependencies.log(`Fallback audio autoplay blocked: ${String(playError)}`);
+        if (this.audioOutputMode === "direct") {
           this.audioOutputMode = "audio_context";
-          this.startAudioContextPlayback("Shared media playback failed");
+          this.startAudioContextPlayback("Fallback audio playback failed");
         }
       });
   }

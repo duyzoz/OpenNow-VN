@@ -91,25 +91,42 @@ export function useStreamRecorder({
     const mimeType = selectRecordingMimeType((candidate) => MediaRecorder.isTypeSupported(candidate));
     setUsedMimeType(mimeType);
 
-    const audioCtx = new AudioContext();
-    audioCtxRef.current = audioCtx;
-    const audioDest = audioCtx.createMediaStreamDestination();
-
     const audioElement = audioRef.current;
-    const gameAudioStream = audioElement?.srcObject instanceof MediaStream ? audioElement.srcObject : null;
-    if (gameAudioStream && gameAudioStream.getAudioTracks().length > 0) {
-      audioCtx.createMediaStreamSource(gameAudioStream).connect(audioDest);
-    }
+    const audioFallbackStream = audioElement?.srcObject instanceof MediaStream
+      ? audioElement.srcObject
+      : null;
+    const gameAudioStream = stream.getAudioTracks().length > 0
+      ? stream
+      : audioFallbackStream;
+    const liveMicTrack = micTrack && micTrack.readyState === "live" ? micTrack : null;
+    let composed: MediaStream;
 
-    if (micTrack && micTrack.readyState === "live") {
-      const micStream = new MediaStream([micTrack]);
-      audioCtx.createMediaStreamSource(micStream).connect(audioDest);
+    if (!liveMicTrack) {
+      // The WebRTC video stream already carries the game audio in direct mode.
+      // Record it directly instead of creating an AudioContext and a second
+      // media graph on the renderer's hot path. This keeps F12 recording from
+      // competing with Chromium's decode/presentation work.
+      composed = new MediaStream([
+        ...stream.getVideoTracks(),
+        ...(gameAudioStream?.getAudioTracks() ?? []),
+      ]);
+    } else {
+      // Only pay for audio mixing when the user explicitly enabled a live mic.
+      const audioCtx = new AudioContext({ latencyHint: "interactive" });
+      audioCtxRef.current = audioCtx;
+      const audioDest = audioCtx.createMediaStreamDestination();
+      if (gameAudioStream && gameAudioStream.getAudioTracks().length > 0) {
+        audioCtx.createMediaStreamSource(gameAudioStream).connect(audioDest);
+      }
+      audioCtx.createMediaStreamSource(new MediaStream([liveMicTrack])).connect(audioDest);
+      if (audioCtx.state === "suspended") {
+        await audioCtx.resume().catch(() => undefined);
+      }
+      composed = new MediaStream([
+        ...stream.getVideoTracks(),
+        ...audioDest.stream.getAudioTracks(),
+      ]);
     }
-
-    const composed = new MediaStream([
-      ...stream.getVideoTracks(),
-      ...audioDest.stream.getAudioTracks(),
-    ]);
 
     let recordingId: string;
     try {
@@ -117,7 +134,7 @@ export function useStreamRecorder({
       recordingId = result.recordingId;
     } catch (error) {
       console.error("[StreamView] Failed to begin recording:", error);
-      audioCtx.close().catch(() => undefined);
+      audioCtxRef.current?.close().catch(() => undefined);
       audioCtxRef.current = null;
       setRecordingError("Could not start recording.");
       return;

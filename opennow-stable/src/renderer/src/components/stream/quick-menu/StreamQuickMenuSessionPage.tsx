@@ -19,6 +19,7 @@ interface StreamQuickMenuSessionPageProps {
   subscriptionInfo: SubscriptionInfo | null;
   sessionStartedAtMs: number | null;
   isStreaming: boolean;
+  antiAfkEnabled: boolean;
   sessionTimeRemainingText: string | null;
   isFullscreen: boolean;
   isPointerLocked: boolean;
@@ -41,6 +42,7 @@ export function StreamQuickMenuSessionPage({
   subscriptionInfo,
   sessionStartedAtMs,
   isStreaming,
+  antiAfkEnabled,
   sessionTimeRemainingText,
   isFullscreen,
   isPointerLocked,
@@ -63,22 +65,24 @@ export function StreamQuickMenuSessionPage({
         <div className="sidebar-session-card-head">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span className="sidebar-session-kicker">{t("sidebar.nowStreaming") !== "sidebar.nowStreaming" ? t("sidebar.nowStreaming") : "Đang phát trực tuyến"}</span>
-            <span style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "2px 6px",
-              borderRadius: 4,
-              background: "rgba(88, 217, 138, 0.15)",
-              color: "#58d98a",
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: "0.04em",
-              border: "1px solid rgba(88, 217, 138, 0.3)"
-            }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#58d98a" }} />
-              ANTI-AFK ON
-            </span>
+            {antiAfkEnabled && (
+              <span style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                padding: "2px 6px",
+                borderRadius: 4,
+                background: "rgba(88, 217, 138, 0.15)",
+                color: "#58d98a",
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.04em",
+                border: "1px solid rgba(88, 217, 138, 0.3)"
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#58d98a" }} />
+                ANTI-AFK BẬT
+              </span>
+            )}
           </div>
           <strong className="sidebar-session-title">{gameTitle}</strong>
           {PlatformIcon && platformName && (

@@ -182,9 +182,10 @@ export async function createMainWindow(
   );
 
   // Intercept Escape early to avoid Chromium exiting fullscreen before the
-  // renderer can forward the key to the remote session. Keep a short fullscreen
-  // grace window after pointer lock drops so rapid repeated Escape presses cannot
-  // win the race before the renderer re-locks the pointer.
+  // renderer can forward the key to the remote session. Keep a short stream
+  // grace window after pointer lock drops so Chromium cannot release the cursor
+  // before the renderer forwards Escape to the remote session. Intentional
+  // releases clear this window through the suppress flag.
   window.webContents.on("before-input-event", (event, input) => {
     try {
       const mainWindow = deps.getMainWindow();
@@ -195,7 +196,9 @@ export async function createMainWindow(
             deps.settingsManager?.get("allowEscapeToExitFullscreen"),
           ),
           streamInputActive:
-            deps.getPointerLockActive() || deps.getRendererControlledFullscreen(),
+            deps.getPointerLockActive() ||
+            deps.getRendererControlledFullscreen() ||
+            Date.now() <= deps.getPointerLockEscapeCaptureUntilMs(),
           pointerLockActive: deps.getPointerLockActive(),
           rendererControlledFullscreen: deps.getRendererControlledFullscreen(),
           windowFullscreen: Boolean(

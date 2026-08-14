@@ -71,7 +71,10 @@ export function shouldCaptureEscapeFullscreenInput(
     return true;
   }
 
-  return state.windowFullscreen && state.nowMs <= state.pointerLockEscapeCaptureUntilMs;
+  return (
+    (state.windowFullscreen || state.rendererControlledFullscreen)
+    && state.nowMs <= state.pointerLockEscapeCaptureUntilMs
+  );
 }
 
 /**
@@ -84,6 +87,13 @@ export function resolveEscapeHoldCaptureAction(
   guardState: EscapeFullscreenGuardState,
   holdState: EscapeHoldCaptureState,
 ): { action: EscapeHoldCaptureAction; nextHoldState: EscapeHoldCaptureState } {
+  // Chromium can emit pointer-lock loss before Electron delivers the Escape
+  // key event. Treat the short post-loss grace as stream-active so a normal
+  // in-game Escape is still captured and forwarded instead of releasing the
+  // cursor permanently. Intentional releases (Quick Menu, blur, recovery)
+  // suppress this grace through nextPointerLockEscapeCaptureUntilMs().
+  // Grace may arm the fullscreen hold guard after an unexpected pointer-lock
+  // loss, but it must not turn an unrelated window into an active stream.
   const activeStream = guardState.streamInputActive;
   if ((guardState.allowEscapeToExitFullscreen && !activeStream) || !isEscapeKeyInput(input)) {
     return {

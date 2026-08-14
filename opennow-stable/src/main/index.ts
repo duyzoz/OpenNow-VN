@@ -158,6 +158,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let mainWindow: BrowserWindow | null = null;
+let streamWindow: BrowserWindow | null = null;
 // Additive (v9): secondary "cloud client" stream window state. Stays null
 // and unused unless the renderer explicitly requests it.
 let rendererControlledFullscreen = false;
@@ -449,6 +450,14 @@ function createMainWindowDeps() {
 function createStreamWindowDeps() {
   return {
     mainDir: __dirname,
+    getStreamWindow: () => streamWindow,
+    setStreamWindow: (window: BrowserWindow | null) => {
+      streamWindow = window;
+    },
+    getAllowEscapeToExitFullscreen: () => Boolean(settingsManager.getAll().allowEscapeToExitFullscreen),
+    getPointerLockActive: () => isPointerLockActiveRuntime,
+    getRendererControlledFullscreen: () => rendererControlledFullscreen,
+    getPointerLockEscapeCaptureUntilMs: () => pointerLockEscapeCaptureUntilMs,
     notifyStreamWindowClosed: () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send(IPC_CHANNELS.STREAM_WINDOW_CLOSED);

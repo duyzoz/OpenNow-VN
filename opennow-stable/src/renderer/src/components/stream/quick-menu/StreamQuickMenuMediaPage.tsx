@@ -64,11 +64,11 @@ export function StreamQuickMenuMediaPage({
     <div className="sidebar-page" role="tabpanel">
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Gallery</span>
-          <span className="sidebar-section-sub">Screenshot key: {screenshotShortcut}</span>
+          <span>Thư viện</span>
+          <span className="sidebar-section-sub">Phím chụp: {screenshotShortcut}</span>
         </div>
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Screenshots</span>
+          <span className="sidebar-label">Ảnh chụp</span>
           <button
             type="button"
             className="sidebar-button sidebar-screenshot-button"
@@ -76,7 +76,7 @@ export function StreamQuickMenuMediaPage({
             disabled={isSavingScreenshot || !screenshotApiAvailable}
           >
             <Camera size={14} />
-            <span>{isSavingScreenshot ? "Capturing..." : "Capture"}</span>
+            <span>{isSavingScreenshot ? "Đang chụp..." : "Chụp ảnh"}</span>
           </button>
         </div>
         <div className="sidebar-gallery-row">
@@ -84,7 +84,7 @@ export function StreamQuickMenuMediaPage({
             type="button"
             className="sidebar-gallery-arrow"
             onClick={() => onScrollGallery("left")}
-            aria-label="Scroll gallery left"
+            aria-label="Cuộn thư viện sang trái"
           >
             <ChevronLeft size={16} />
           </button>
@@ -105,31 +105,31 @@ export function StreamQuickMenuMediaPage({
             type="button"
             className="sidebar-gallery-arrow"
             onClick={() => onScrollGallery("right")}
-            aria-label="Scroll gallery right"
+            aria-label="Cuộn thư viện sang phải"
           >
             <ChevronRight size={16} />
           </button>
         </div>
         {screenshots.length === 0 && (
-          <span className="sidebar-hint">No screenshots yet. Press {screenshotShortcut} to capture one.</span>
+          <span className="sidebar-hint">Chưa có ảnh chụp. Nhấn {screenshotShortcut} để chụp.</span>
         )}
         {galleryError && <span className="sidebar-hint sidebar-hint--error">{galleryError}</span>}
       </section>
       <div className="sidebar-separator" aria-hidden="true" />
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Recordings</span>
-          <span className="sidebar-section-sub">Record key: {recordingShortcut}</span>
+          <span>Bản ghi</span>
+          <span className="sidebar-section-sub">Phím quay: {recordingShortcut}</span>
         </div>
         {usedMimeType && (
-          <span className="sidebar-hint sidebar-hint--codec">Codec: {usedMimeType}</span>
+          <span className="sidebar-hint sidebar-hint--codec">Định dạng: {usedMimeType}</span>
         )}
         <span className="sidebar-hint sidebar-hint--codec">
-          Recording bitrate: {recordingBitrateMbps === null ? "Auto" : `${recordingBitrateMbps} Mbps`}
+          Tốc độ ghi: {recordingBitrateMbps === null ? "Tự động" : `${recordingBitrateMbps} Mbps`}
         </span>
         <div className="sidebar-row sidebar-row--aligned">
           <span className="sidebar-label">
-            {isRecording ? `Recording ${formatElapsed(Math.round(recordingDurationMs / 1000))}` : "Record"}
+            {isRecording ? `Đang quay ${formatElapsed(Math.round(recordingDurationMs / 1000))}` : "Quay video"}
           </span>
           <button
             type="button"
@@ -138,21 +138,21 @@ export function StreamQuickMenuMediaPage({
             disabled={!recordingApiAvailable}
           >
             {isRecording ? <Square size={14} /> : <Circle size={14} />}
-            <span>{isRecording ? "Stop" : "Start"}</span>
+            <span>{isRecording ? "Dừng" : "Bắt đầu"}</span>
           </button>
         </div>
         {recordingError && (
           <span className="sidebar-hint sidebar-hint--error">{recordingError}</span>
         )}
         {recordings.length === 0 ? (
-          <span className="sidebar-hint">No recordings yet. Press {recordingShortcut} to record.</span>
+          <span className="sidebar-hint">Chưa có bản ghi. Nhấn {recordingShortcut} để quay.</span>
         ) : (
           <div className="sidebar-gallery-row">
             <button
               type="button"
               className="sidebar-gallery-arrow"
               onClick={() => onScrollRecordings("left")}
-              aria-label="Scroll recordings left"
+              aria-label="Cuộn bản ghi sang trái"
             >
               <ChevronLeft size={16} />
             </button>
@@ -171,7 +171,7 @@ export function StreamQuickMenuMediaPage({
                     </div>
                   )}
                   <div className="sidebar-rec-card-meta">
-                    <span className="sidebar-rec-card-title">{recording.gameTitle ?? "Untitled"}</span>
+                    <span className="sidebar-rec-card-title">{recording.gameTitle ?? "Chưa đặt tên"}</span>
                     <span className="sidebar-rec-card-detail">
                       {formatElapsed(Math.round(recording.durationMs / 1000))} · {formatFileSize(recording.sizeBytes)}
                     </span>
@@ -180,8 +180,8 @@ export function StreamQuickMenuMediaPage({
                     <button
                       type="button"
                       className="sidebar-rec-card-action"
-                      aria-label="Show in folder"
-                      title="Show in folder"
+                      aria-label="Mở thư mục chứa bản ghi"
+                      title="Mở thư mục"
                       onClick={() => { void window.openNow.showRecordingInFolder(recording.id); }}
                       disabled={typeof window.openNow?.showRecordingInFolder !== "function"}
                     >
@@ -190,8 +190,8 @@ export function StreamQuickMenuMediaPage({
                     <button
                       type="button"
                       className="sidebar-rec-card-action sidebar-rec-card-action--danger"
-                      aria-label="Delete recording"
-                      title="Delete"
+                      aria-label="Xóa bản ghi"
+                      title="Xóa"
                       onClick={() => onDeleteRecording(recording.id)}
                     >
                       <Trash2 size={11} />
@@ -204,7 +204,7 @@ export function StreamQuickMenuMediaPage({
               type="button"
               className="sidebar-gallery-arrow"
               onClick={() => onScrollRecordings("right")}
-              aria-label="Scroll recordings right"
+              aria-label="Cuộn bản ghi sang phải"
             >
               <ChevronRight size={16} />
             </button>

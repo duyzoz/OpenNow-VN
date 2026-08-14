@@ -7731,15 +7731,24 @@ button.game-card-store-chip.owned.active:hover {
 
 .sv-stats-warn-strip {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   padding: 0 10px 8px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sv-stats-warn-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .sv-stats-warn-pill {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
+  white-space: nowrap;
   padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--panel-border));
@@ -7818,12 +7827,23 @@ button.game-card-store-chip.owned.active:hover {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sv-stats-metrics::-webkit-scrollbar {
+  display: none;
 }
 
 .sv-stats-chip {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
+  white-space: nowrap;
   gap: 5px;
   padding: 2px 5px;
   background: color-mix(in srgb, var(--ink) 3%, transparent);

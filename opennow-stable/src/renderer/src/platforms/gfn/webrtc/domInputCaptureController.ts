@@ -1221,6 +1221,7 @@ export class DomInputCaptureController {
         }
 
         void this.requestPointerLockWithOptionalFullscreen(target, false)
+          .catch(() => this.requestPointerLockCompat(target, { unadjustedMovement: true }))
           .then(() => {
             this.dependencies.log(`Pointer lock restored after ${reason}`);
           })

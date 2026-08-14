@@ -31,6 +31,7 @@ interface StreamQuickMenuProps {
   subscriptionInfo: SubscriptionInfo | null;
   sessionStartedAtMs: number | null;
   isStreaming: boolean;
+  antiAfkEnabled: boolean;
   sessionTimeRemainingText: string | null;
   isFullscreen: boolean;
   isPointerLocked: boolean;
@@ -73,6 +74,7 @@ export function StreamQuickMenu({
   subscriptionInfo,
   sessionStartedAtMs,
   isStreaming,
+  antiAfkEnabled,
   sessionTimeRemainingText,
   isFullscreen,
   isPointerLocked,
@@ -147,12 +149,12 @@ export function StreamQuickMenu({
                   onClick={onEndSession}
                 >
                   <LogOut size={16} />
-                  <span>End session</span>
+                  <span>Kết thúc phiên</span>
                 </button>
               </>
             )}
           >
-            <div className="sidebar-tabs" role="tablist" aria-label="Quick menu pages">
+            <div className="sidebar-tabs" role="tablist" aria-label="Các mục menu nhanh">
               <button
                 type="button"
                 role="tab"
@@ -161,7 +163,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("session")}
               >
                 <Gauge size={16} />
-                <span>Session</span>
+                <span>Phiên</span>
               </button>
               <button
                 type="button"
@@ -171,7 +173,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("controls")}
               >
                 <SlidersHorizontal size={16} />
-                <span>Controls</span>
+                <span>Điều khiển</span>
               </button>
               <button
                 type="button"
@@ -191,7 +193,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("shortcuts")}
               >
                 <Keyboard size={16} />
-                <span>Keys</span>
+                <span>Phím tắt</span>
               </button>
             </div>
 
@@ -203,6 +205,7 @@ export function StreamQuickMenu({
                 subscriptionInfo={subscriptionInfo}
                 sessionStartedAtMs={sessionStartedAtMs}
                 isStreaming={isStreaming}
+                antiAfkEnabled={antiAfkEnabled}
                 sessionTimeRemainingText={sessionTimeRemainingText}
                 isFullscreen={isFullscreen}
                 isPointerLocked={isPointerLocked}
@@ -277,21 +280,21 @@ export function StreamQuickMenu({
       </AnimatePresence>
 
       {screenshotGallery.selectedScreenshot && (
-        <div className="sv-shot-modal" role="dialog" aria-modal="true" aria-label="Screenshot preview">
+        <div className="sv-shot-modal" role="dialog" aria-modal="true" aria-label="Xem trước ảnh chụp">
           <button
             type="button"
             className="sv-shot-modal-backdrop"
             onClick={() => screenshotGallery.setSelectedScreenshotId(null)}
-            aria-label="Close screenshot preview"
+            aria-label="Đóng xem trước ảnh"
           />
           <div className="sv-shot-modal-card">
             <div className="sv-shot-modal-head">
-              <h4>Screenshot</h4>
+              <h4>Ảnh chụp</h4>
               <button
                 type="button"
                 className="sv-shot-modal-close"
                 onClick={() => screenshotGallery.setSelectedScreenshotId(null)}
-                aria-label="Close screenshot preview"
+                aria-label="Đóng xem trước ảnh"
               >
                 <X size={16} />
               </button>
@@ -308,7 +311,7 @@ export function StreamQuickMenu({
                 onClick={() => { void screenshotGallery.saveSelectedScreenshotAs(); }}
               >
                 <Save size={14} />
-                <span>Save</span>
+                <span>Lưu</span>
               </button>
               <button
                 type="button"
@@ -316,7 +319,7 @@ export function StreamQuickMenu({
                 onClick={() => { void screenshotGallery.deleteSelectedScreenshot(); }}
               >
                 <Trash2 size={14} />
-                <span>Delete</span>
+                <span>Xóa</span>
               </button>
             </div>
           </div>

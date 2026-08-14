@@ -397,7 +397,10 @@ export function StreamView({
 
   useEffect(() => {
     const handlePointerLockChange = () => {
-      setIsPointerLocked(document.pointerLockElement === localVideoRef.current);
+      const video = localVideoRef.current;
+      const lockTarget = video?.parentElement ?? video;
+      const activeElement = document.pointerLockElement;
+      setIsPointerLocked(activeElement === video || activeElement === lockTarget);
     };
     handlePointerLockChange();
     document.addEventListener("pointerlockchange", handlePointerLockChange);
@@ -572,6 +575,7 @@ export function StreamView({
         subscriptionInfo={subscriptionInfo}
         sessionStartedAtMs={sessionStartedAtMs}
         isStreaming={isStreaming}
+        antiAfkEnabled={antiAfkEnabled}
         sessionTimeRemainingText={sessionTimeRemainingText}
         isFullscreen={isFullscreen}
         isPointerLocked={isPointerLocked}
