@@ -2402,9 +2402,14 @@ body,
 
 .home-grid-area {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
-  padding-right: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 6px 16px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-behavior: auto;
+  contain: layout paint;
 }
 
 .home-empty-state {
@@ -2725,9 +2730,14 @@ body,
 
 .library-grid-area {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
-  padding-right: 2px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 6px 16px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-behavior: auto;
+  contain: layout paint;
 }
 
 .library-game-wrapper {
@@ -2791,7 +2801,7 @@ body,
   grid-template-columns: repeat(auto-fill, minmax(var(--game-poster-width), 1fr));
   justify-content: start;
   gap: 16px;
-  padding-bottom: 16px;
+  padding: 2px 0 16px;
 }
 
 
