@@ -566,14 +566,18 @@
       "interface": "Giao diện",
       "about": "Giới thiệu",
       "thanks": "Cảm ơn",
-      "performance": "Hiệu năng"
+      "performance": "Hiệu năng",
+      "console": "Bảng điều khiển",
+      "diagnostics": "Chẩn đoán"
     },
     "region": {
       "title": "Khu vực",
       "autoBest": "Tự động (Tốt nhất)",
       "searchPlaceholder": "Tìm kiếm khu vực...",
       "refreshPing": "Làm mới ping",
-      "noRegionsMatch": "Không có khu vực nào khớp với \"{{query}}\""
+      "noRegionsMatch": "Không có khu vực nào khớp với \"{{query}}\"",
+      "serverRegion": "Khu vực máy chủ",
+      "serverRegionHint": "Chọn khu vực máy chủ ưu tiên hoặc để OpenNOW tự chọn khu vực phù hợp nhất."
     },
     "persistentStorage": {
       "title": "Lưu trữ liên tục",
@@ -689,7 +693,27 @@
       "identifyAsSteamDeck": "Nhận dạng là Steam Deck",
       "identifyAsSteamDeckHint": "Nhận dạng là client GFN Steam Deck để mở khóa độ phân giải dành riêng cho Deck và 90 FPS. Tùy chọn video sẽ tự động làm mới.",
       "launchInConsoleMode": "Chế độ giao diện TV (Big Picture)",
-      "launchInConsoleModeHint": "Khởi động OpenNOW toàn màn hình với Chế độ tay cầm bật, giống chế độ TV của GeForce NOW. Các phiên sẽ yêu cầu NVIDIA khởi chạy trò chơi thân thiện với gamepad khi chế độ này hoạt động."
+      "launchInConsoleModeHint": "Khởi động OpenNOW toàn màn hình với Chế độ tay cầm bật, giống chế độ TV của GeForce NOW. Các phiên sẽ yêu cầu NVIDIA khởi chạy trò chơi thân thiện với gamepad khi chế độ này hoạt động.",
+      "codecAndColor": "Codec và màu sắc",
+      "codecAndColorHint": "Chọn codec video và cách xử lý màu sắc cho luồng phát.",
+      "codecAutoHint": "Tự động chọn codec phù hợp nhất dựa trên khả năng của thiết bị.",
+      "codecAutoPick": "Tự động chọn {{codec}}",
+      "codecManualHint": "Chọn codec thủ công nếu bạn muốn ưu tiên một định dạng cụ thể.",
+      "codecUnsupported": "Không được hỗ trợ",
+      "fallbackCodec": "Codec dự phòng",
+      "fallbackCodecHint": "Codec sẽ được dùng khi codec ưu tiên không khả dụng.",
+      "gfnLaunchMode": "Chế độ khởi chạy GFN",
+      "gfnLaunchModeHint": "Chọn cách OpenNOW yêu cầu GeForce NOW khởi chạy trò chơi.",
+      "identifyAsConsole": "Nhận diện là máy console",
+      "identifyAsConsoleHint": "Gửi thông tin nhận diện tương thích console khi khởi tạo phiên chơi.",
+      "processing": "Xử lý video",
+      "processingHint": "Điều chỉnh cách OpenNOW xử lý và hiển thị hình ảnh từ luồng phát.",
+      "profile": "Cấu hình video",
+      "profileHint": "Chọn cấu hình chất lượng video phù hợp với thiết bị và đường truyền.",
+      "recordingFps": "FPS ghi hình",
+      "recordingResolution": "Độ phân giải ghi hình",
+      "session": "Phiên phát trực tuyến",
+      "sessionHint": "Cấu hình chất lượng và hành vi của phiên phát trực tuyến."
     },
     "videoFilters": {
       "title": "Bộ lọc video",
@@ -714,7 +738,9 @@
       "decode": "Giải mã",
       "encode": "Mã hóa",
       "profiles": "Cấu hình:",
-      "linuxHardwareHint": "Chẩn đoán AppImage Linux dùng báo cáo WebRTC/MediaCapabilities của Chromium. Giải mã phần cứng phụ thuộc vào bản dựng Chromium cộng với ngăn xếp GPU/video của bản phân phối: hệ thống x64 có thể cần driver VA-API/NVIDIA VA-API, trong khi hỗ trợ ARM V4L2 phụ thuộc vào Chromium/Electron hiển thị bộ giải mã đó."
+      "linuxHardwareHint": "Chẩn đoán AppImage Linux dùng báo cáo WebRTC/MediaCapabilities của Chromium. Giải mã phần cứng phụ thuộc vào bản dựng Chromium cộng với ngăn xếp GPU/video của bản phân phối: hệ thống x64 có thể cần driver VA-API/NVIDIA VA-API, trong khi hỗ trợ ARM V4L2 phụ thuộc vào Chromium/Electron hiển thị bộ giải mã đó.",
+      "gpuDriverLine": "{{gpu}} · Trình điều khiển {{version}}",
+      "quickSyncHint": "Nếu Quick Sync không hoạt động, hãy cập nhật trình điều khiển đồ họa Intel và khởi động lại ứng dụng."
     },
     "colorQuality": {
       "mostCompatible": "Tương thích nhất",
@@ -783,7 +809,12 @@
       "screenshot": "Chụp màn hình",
       "recording": "Ghi màn hình",
       "toggleStreamSidebar": "Bật/tắt thanh bên luồng",
-      "shortcutHint": "Nhấp vào ô và bấm phím để gán, hoặc dán phím tắt ({{examples}}). Escape hủy tiêu điểm. Toàn màn hình: {{fullscreen}}. Dừng: {{stop}}. Mic: {{mic}}. Chụp màn hình: {{screenshot}}. Ghi hình: {{recording}}."
+      "shortcutHint": "Nhấp vào ô và bấm phím để gán, hoặc dán phím tắt ({{examples}}). Escape hủy tiêu điểm. Toàn màn hình: {{fullscreen}}. Dừng: {{stop}}. Mic: {{mic}}. Chụp màn hình: {{screenshot}}. Ghi hình: {{recording}}.",
+      "behavior": "Hành vi nhập liệu",
+      "behaviorDescription": "Điều chỉnh cách chuột, bàn phím và phím tắt hoạt động trong phiên chơi.",
+      "mouse": "Chuột",
+      "mouseDescription": "Tinh chỉnh độ nhạy và gia tốc chuột khi điều khiển trò chơi từ xa.",
+      "shortcutsDescription": "Thiết lập phím tắt để điều khiển nhanh các chức năng trong phiên chơi."
     },
     "interface": {
       "appearance": "Giao diện",
@@ -833,7 +864,24 @@
       "off": "Tắt",
       "everyMinutes": "Mỗi {{count}} phút",
       "streamInSeparateWindow": "Mở game cloud bằng cửa sổ riêng",
-      "streamInSeparateWindowHint": "Chơi game cloud trong một cửa sổ riêng biệt thay vì trong app chính, giúp tiết kiệm RAM. Có thể quản lý từ cả hai cửa sổ."
+      "streamInSeparateWindowHint": "Chơi game cloud trong một cửa sổ riêng biệt thay vì trong app chính, giúp tiết kiệm RAM. Có thể quản lý từ cả hai cửa sổ.",
+      "antiAfkReminderDuration": "Thời lượng nhắc Anti-AFK",
+      "antiAfkReminderDurationHint": "Chọn thời gian hiển thị lời nhắc trước khi phiên có thể bị xem là không hoạt động.",
+      "antiAfkReminderInterval": "Khoảng nhắc Anti-AFK",
+      "antiAfkReminderIntervalHint": "Chọn khoảng thời gian giữa các lần nhắc Anti-AFK.",
+      "appearanceDescription": "Tùy chỉnh cách OpenNOW hiển thị và phản hồi trong quá trình sử dụng.",
+      "behavior": "Hành vi giao diện",
+      "behaviorDescription": "Điều chỉnh thông báo, thanh trạng thái và cách giao diện phản hồi.",
+      "libraryAndPresence": "Thư viện và trạng thái hoạt động",
+      "libraryAndPresenceDescription": "Tùy chỉnh cách thư viện và trạng thái phiên được hiển thị.",
+      "posBottomLeft": "Góc dưới bên trái",
+      "posBottomRight": "Góc dưới bên phải",
+      "posTopLeft": "Góc trên bên trái",
+      "posTopRight": "Góc trên bên phải",
+      "showSessionReport": "Hiện báo cáo phiên",
+      "showSessionReportHint": "Hiện bản tóm tắt thông số sau khi phiên phát trực tuyến kết thúc.",
+      "statsOverlayPosition": "Vị trí lớp thống kê",
+      "statsOverlayPositionHint": "Chọn vị trí hiển thị lớp thông tin thống kê trong phiên chơi."
     },
     "about": {
       "applicationUpdates": "Cập nhật ứng dụng",
@@ -875,7 +923,13 @@
         "updateAvailable": "Có cập nhật mới",
         "downloading": "Đang tải xuống",
         "readyToInstall": "Sẵn sàng cài đặt"
-      }
+      },
+      "localData": "Dữ liệu cục bộ",
+      "localDataDescription": "Quản lý dữ liệu cài đặt và bộ nhớ cục bộ của ứng dụng.",
+      "supportAndPrivacy": "Hỗ trợ và quyền riêng tư",
+      "supportAndPrivacyDescription": "Xem thông tin hỗ trợ, quyền riêng tư và cách liên hệ khi cần trợ giúp.",
+      "updates": "Cập nhật",
+      "updatesDescription": "Kiểm tra và cấu hình cách OpenNOW nhận các bản cập nhật mới."
     },
     "nativeStreamer": {
       "title": "Bộ phát gốc",
@@ -938,7 +992,11 @@
       "transportModeWebrtc": "WebRTC (Mặc định)",
       "transportModeNvst": "NVST (Thực nghiệm)",
       "transportModeHint": "WebRTC là đường dẫn được hỗ trợ. NVST (thực nghiệm) dùng RTSPS + UDP video cổ điển trong khi bàn phím/chuột/tay cầm vẫn dùng SCTP datachannels của WebRTC.",
-      "transportModeWindowsOnlyHint": "Truyền tải NVST hiện chỉ dành cho Windows. Nền tảng này luôn dùng WebRTC."
+      "transportModeWindowsOnlyHint": "Truyền tải NVST hiện chỉ dành cho Windows. Nền tảng này luôn dùng WebRTC.",
+      "runtime": "Môi trường Native Stream",
+      "runtimeDescription": "Cấu hình bộ phát Native Stream chạy cục bộ và các thành phần hỗ trợ.",
+      "videoOutput": "Đầu ra video",
+      "videoOutputDescription": "Chọn cách Native Stream xuất video vào cửa sổ OpenNOW."
     },
     "thanks": {
       "title": "Cảm ơn bạn đã giúp OpenNOW phát triển",
@@ -957,6 +1015,27 @@
       "loadingSupporters": "Đang tải danh sách nhà hảo tâm từ GitHub Sponsors...",
       "noContributors": "Không thể hiển thị người đóng góp lúc này.",
       "noSupporters": "Không thể hiển thị nhà hảo tâm lúc này."
+    },
+    "console": {
+      "appShell": "Vỏ ứng dụng",
+      "appShellDescription": "Điều chỉnh cách ứng dụng quản lý cửa sổ và phiên chơi.",
+      "controllerMode": "Chế độ tay cầm",
+      "controllerModeHint": "Tối ưu điều hướng giao diện bằng tay cầm hoặc bộ điều khiển.",
+      "profilePicker": "Bộ chọn cấu hình",
+      "profilePickerHint": "Hiển thị bộ chọn cấu hình khi khởi chạy trò chơi.",
+      "title": "Bảng điều khiển"
+    },
+    "diagnostics": {
+      "codecHardware": "Tăng tốc phần cứng codec",
+      "codecHardwareHint": "Kiểm tra khả năng mã hóa và giải mã video bằng phần cứng của thiết bị.",
+      "description": "Theo dõi thông tin khung hình, codec và các chẩn đoán của phiên phát trực tuyến.",
+      "frameStats": "Thống kê khung hình",
+      "frameStatsHint": "Hiển thị thông tin FPS, độ trễ và chất lượng khung hình trong phiên chơi.",
+      "title": "Chẩn đoán"
+    },
+    "recording": {
+      "description": "Ghi lại phiên chơi trực tiếp từ luồng phát trong ứng dụng.",
+      "title": "Ghi hình"
     }
   },
   "navbar": {
