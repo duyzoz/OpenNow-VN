@@ -13904,12 +13904,12 @@ button.game-card-store-chip.owned.active:hover {
   }
 }
 
-/* Verified square logo artwork: keep official wordmarks crisp without using a landscape poster as a fake logo. */
+/* Per-game square key art/icon: never substitute a shared wordmark or hero. */
 .game-info-cover,
 .sload-cover {
   display: grid;
   place-items: center;
-  background: #ffffff;
+  background: color-mix(in srgb, var(--bg-c) 82%, #000 18%);
 }
 
 .game-info-cover {
@@ -13922,7 +13922,7 @@ button.game-card-store-chip.owned.active:hover {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center;
   image-rendering: auto;
   backface-visibility: hidden;
@@ -13949,7 +13949,7 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 .sload-cover-empty {
-  background: #ffffff;
+  background: color-mix(in srgb, var(--bg-c) 82%, #000 18%);
 }
 
 .sload-cover-initials {
@@ -13961,6 +13961,6 @@ button.game-card-store-chip.owned.active:hover {
 @media (prefers-color-scheme: dark) {
   .game-info-cover.is-fallback,
   .sload-cover-empty {
-    background: linear-gradient(145deg, #f4f6fc, #dfe5f4);
+    background: linear-gradient(145deg, #1f2937, #111827);
   }
 }

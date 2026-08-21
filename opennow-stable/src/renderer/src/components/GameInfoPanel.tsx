@@ -242,7 +242,7 @@ export function GameInfoPanel({
             {coverUrl && !coverErr ? (
               <img
                 src={coverUrl}
-                alt={`${game.title} logo`}
+                alt={`${game.title} — ảnh đại diện game`}
                 className="game-info-cover-img"
                 loading="eager"
                 decoding="sync"

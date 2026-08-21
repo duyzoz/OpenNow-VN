@@ -1,38 +1,51 @@
 import type { GameInfo } from "@shared/gfn";
-import genshinImpactWordmarkUrl from "../assets/game-artwork/genshin-impact-wordmark.svg";
-import wutheringWavesLogoUrl from "../assets/game-artwork/wuthering-waves-logo.svg";
+import wutheringWavesSquareUrl from "../assets/game-artwork/wuthering-waves-square.png";
 
-export type GameArtworkSource = "official-override" | "catalog-logo" | "catalog-box-art" | "catalog-key-art";
+export type GameArtworkSource = "local-key-art" | "catalog-icon" | "catalog-box-art" | "catalog-key-art";
 
 interface GameArtworkInput {
   id?: string;
   title?: string;
   shortName?: string;
-  imageUrl?: string;
   imageUrlsByType?: Record<string, string[]>;
 }
 
-/**
- * Explicit, verified logo overrides for titles whose GFN payload is missing a
- * proper square/logo asset. These are bundled locally so the detail panel can
- * paint the artwork in the first render instead of waiting for another fetch.
- */
-const OFFICIAL_LOGO_OVERRIDES: Array<{ aliases: string[]; url: string }> = [
+const LOCAL_GAME_ARTWORK: Array<{ aliases: string[]; url: string }> = [
   {
-    aliases: ["wuthering waves", "鸣潮", "mingchao"],
-    url: wutheringWavesLogoUrl,
-  },
-  {
-    aliases: ["genshin impact", "原神"],
-    url: genshinImpactWordmarkUrl,
+    aliases: ["wuthering waves", "mingchao", "鸣潮"],
+    url: wutheringWavesSquareUrl,
   },
 ];
 
-const CATALOG_LOGO_KEYS = [
-  "GAME_LOGO",
-  "LOGO",
+function normalizeIdentity(value: string | undefined): string {
+  return (value ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/[：:()[\]{}'"`.,/\\_+-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function findLocalArtwork(game: GameArtworkInput): string | undefined {
+  const identities = [game.title, game.shortName, game.id]
+    .map(normalizeIdentity)
+    .filter(Boolean);
+  return LOCAL_GAME_ARTWORK.find(({ aliases }) => aliases.some((alias) => {
+    const normalizedAlias = normalizeIdentity(alias);
+    return identities.some((identity) => identity === normalizedAlias || identity.includes(normalizedAlias));
+  }))?.url;
+}
+
+/*
+ * These are ordered by visual meaning, not by the presence of a text logo:
+ * a per-game icon is the closest match to the square artwork used by the
+ * client, followed by the provider's box/key art. Text wordmarks are never
+ * used as square cover art.
+ */
+const CATALOG_ICON_KEYS = [
   "GAME_ICON",
   "ICON",
+  "APP_ICON",
 ] as const;
 
 const CATALOG_BOX_ART_KEYS = [
@@ -45,31 +58,12 @@ const CATALOG_KEY_ART_KEYS = [
   "KEY_ART",
 ] as const;
 
-function normalizeIdentity(value: string | undefined): string {
-  return (value ?? "")
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(/[：:()[\]{}'"`.,/\\_+-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function firstUsableUrl(values: unknown): string | undefined {
   if (!Array.isArray(values)) return undefined;
   return values.find((value): value is string => (
     typeof value === "string" && value.trim().length > 0
   ));
-}
-
-function findOfficialOverride(game: GameArtworkInput): string | undefined {
-  const identities = [game.title, game.shortName, game.id]
-    .map(normalizeIdentity)
-    .filter(Boolean);
-  const match = OFFICIAL_LOGO_OVERRIDES.find(({ aliases }) => aliases.some((alias) => {
-    const normalizedAlias = normalizeIdentity(alias);
-    return identities.some((identity) => identity === normalizedAlias || identity.includes(normalizedAlias));
-  }));
-  return match?.url;
 }
 
 function findCatalogUrl(game: GameArtworkInput, keys: readonly string[]): string | undefined {
@@ -80,19 +74,25 @@ function findCatalogUrl(game: GameArtworkInput, keys: readonly string[]): string
   return undefined;
 }
 
-/** Return the best square/logo asset without silently reusing a landscape hero. */
-export function getGameBoxArtUrl(game: Pick<GameInfo, "id" | "title" | "shortName" | "imageUrl" | "imageUrlsByType">): string | undefined {
-  return findOfficialOverride(game)
-    || findCatalogUrl(game, CATALOG_LOGO_KEYS)
+/**
+ * Return the provider artwork that belongs to this title. Never reuse a
+ * landscape hero/imageUrl here, and never inject one bundled image for every
+ * title. Each game therefore keeps its own icon/box/key artwork identity.
+ */
+export function getGameBoxArtUrl(
+  game: Pick<GameInfo, "id" | "title" | "shortName" | "imageUrlsByType">,
+): string | undefined {
+  return findLocalArtwork(game)
+    || findCatalogUrl(game, CATALOG_ICON_KEYS)
     || findCatalogUrl(game, CATALOG_BOX_ART_KEYS)
     || findCatalogUrl(game, CATALOG_KEY_ART_KEYS);
 }
 
 export function getGameArtworkSource(
-  game: Pick<GameInfo, "id" | "title" | "shortName" | "imageUrl" | "imageUrlsByType">,
+  game: Pick<GameInfo, "id" | "title" | "shortName" | "imageUrlsByType">,
 ): GameArtworkSource | undefined {
-  if (findOfficialOverride(game)) return "official-override";
-  if (findCatalogUrl(game, CATALOG_LOGO_KEYS)) return "catalog-logo";
+  if (findLocalArtwork(game)) return "local-key-art";
+  if (findCatalogUrl(game, CATALOG_ICON_KEYS)) return "catalog-icon";
   if (findCatalogUrl(game, CATALOG_BOX_ART_KEYS)) return "catalog-box-art";
   if (findCatalogUrl(game, CATALOG_KEY_ART_KEYS)) return "catalog-key-art";
   return undefined;

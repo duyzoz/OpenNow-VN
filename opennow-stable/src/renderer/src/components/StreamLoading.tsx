@@ -244,14 +244,14 @@ export function StreamLoading({
             {squareArtwork ? (
               <img
                 src={squareArtwork}
-                alt={`${gameTitle} logo`}
+                alt={`${gameTitle} — ảnh đại diện game`}
                 className="sload-cover-img"
                 loading="eager"
                 decoding="sync"
                 fetchPriority="high"
               />
             ) : (
-              <div className="sload-cover-empty" aria-label={`${gameTitle} logo`}>
+              <div className="sload-cover-empty" aria-label={`${gameTitle} — ảnh đại diện game`}>
                 <span className="sload-cover-initials">{artworkInitials}</span>
               </div>
             )}
