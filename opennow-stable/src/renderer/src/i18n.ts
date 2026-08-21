@@ -1,31 +1,20 @@
 import { useMemo, useSyncExternalStore } from "react";
 
-import fallbackTranslations from "../../../../locales/en.json";
+import fallbackTranslations from "../../../../locales/vi.json";
 
 type TranslationValue = string | number | boolean | null | undefined;
 type TranslationValues = Record<string, TranslationValue>;
 type TranslationLeaf = string;
 type TranslationTree = { [key: string]: TranslationLeaf | TranslationTree };
 
-const FALLBACK_LOCALE = "en";
+const FIXED_LOCALE = "vi";
 const LOCALE_STORAGE_KEY = "opennow.locale";
-
-const localeSources = import.meta.glob<string>([
-  "../../../../locales/*.json",
-  "!../../../../locales/en.json",
-], {
-  query: "?raw",
-  import: "default",
-});
-
 const fallbackTree = fallbackTranslations as TranslationTree;
-const loadedLocales = new Map<string, TranslationTree>([[FALLBACK_LOCALE, fallbackTree]]);
 const listeners = new Set<() => void>();
 
-let activeLocale = FALLBACK_LOCALE;
+let activeLocale = FIXED_LOCALE;
 let activeTranslations = fallbackTree;
 let snapshotVersion = 0;
-let localeLoadGeneration = 0;
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener);
@@ -45,93 +34,18 @@ function emitChange(): void {
   }
 }
 
-function localeFromPath(path: string): string | null {
-  const fileName = path.split("/").pop();
-  if (!fileName?.endsWith(".json")) return null;
-  return normalizeLocale(fileName.slice(0, -".json".length));
-}
-
-async function getLocaleSource(locale: string): Promise<string | null> {
-  const normalized = normalizeLocale(locale);
-  for (const [path, loadSource] of Object.entries(localeSources)) {
-    if (localeFromPath(path) === normalized) {
-      return loadSource();
-    }
-  }
-  return null;
-}
-
-function readStoredLocale(): string | null {
+function persistFixedLocale(): void {
   try {
-    const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-    return stored ? normalizeLocale(stored) : null;
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, FIXED_LOCALE);
   } catch {
-    return null;
+    // Ignore storage failures; Vietnamese remains active for this runtime.
   }
 }
 
-function writeStoredLocale(locale: string): void {
-  try {
-    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-  } catch {
-    // Ignore storage failures; locale can still apply for this runtime.
-  }
-}
-
-function normalizeLocale(locale: string): string {
-  const trimmed = locale.trim().toLowerCase().replace("_", "-");
-  return trimmed.split("-")[0] || FALLBACK_LOCALE;
-}
-
-function getBrowserLocaleCandidates(): string[] {
-  const languages = Array.isArray(navigator.languages) && navigator.languages.length > 0
-    ? navigator.languages
-    : [navigator.language];
-  return languages
-    .filter((locale): locale is string => typeof locale === "string" && locale.trim().length > 0)
-    .map(normalizeLocale);
-}
-
-function getInitialLocale(): string {
-  return readStoredLocale() ?? getBrowserLocaleCandidates()[0] ?? FALLBACK_LOCALE;
-}
-
-function parseLocaleJson(locale: string, raw: string): TranslationTree | null {
-  if (raw.trim().length === 0) {
-    console.warn(`[i18n] Locale "${locale}" is empty; falling back to English.`);
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw) as TranslationTree;
-  } catch (error) {
-    console.warn(`[i18n] Failed to parse locale "${locale}"; falling back to English.`, error);
-    return null;
-  }
-}
-
-async function loadTranslations(locale: string): Promise<TranslationTree | null> {
-  const normalized = normalizeLocale(locale);
-  if (normalized === FALLBACK_LOCALE) return fallbackTree;
-
-  const cached = loadedLocales.get(normalized);
-  if (cached) return cached;
-
-  const source = await getLocaleSource(normalized);
-  if (source === null) return null;
-
-  const parsed = parseLocaleJson(normalized, source);
-  if (parsed) {
-    loadedLocales.set(normalized, parsed);
-  }
-  return parsed;
-}
-
-function setActiveTranslations(locale: string, translations: TranslationTree | null): void {
-  const normalized = normalizeLocale(locale);
-  activeLocale = normalized;
-  activeTranslations = translations ?? fallbackTree;
-  document.documentElement.lang = activeLocale;
+function setFixedTranslations(): void {
+  activeLocale = FIXED_LOCALE;
+  activeTranslations = fallbackTree;
+  document.documentElement.lang = FIXED_LOCALE;
   emitChange();
 }
 
@@ -159,13 +73,11 @@ export function t(key: string, values: TranslationValues = {}): string {
   const resolvedKey = resolvePluralKey(key, values);
   const translation =
     readNestedValue(activeTranslations, resolvedKey) ??
-    readNestedValue(activeTranslations, key) ??
-    readNestedValue(fallbackTree, resolvedKey) ??
-    readNestedValue(fallbackTree, key);
+    readNestedValue(activeTranslations, key);
 
   if (!translation) {
     if (import.meta.env.DEV) {
-      console.warn(`[i18n] Missing translation key "${key}".`);
+      console.warn(`[i18n] Missing Vietnamese translation key "${key}".`);
     }
     return key;
   }
@@ -174,33 +86,21 @@ export function t(key: string, values: TranslationValues = {}): string {
 }
 
 export function getLocale(): string {
-  return activeLocale;
+  return FIXED_LOCALE;
 }
 
 export function getAvailableLocales(): string[] {
-  const locales = new Set<string>([FALLBACK_LOCALE]);
-  for (const path of Object.keys(localeSources)) {
-    const locale = localeFromPath(path);
-    if (locale) locales.add(locale);
-  }
-  return [...locales].sort();
+  return [FIXED_LOCALE];
 }
 
-export async function setLocale(locale: string): Promise<void> {
-  const normalized = normalizeLocale(locale);
-  const generation = ++localeLoadGeneration;
-  writeStoredLocale(normalized);
-  const translations = await loadTranslations(normalized);
-  if (generation !== localeLoadGeneration) return;
-  setActiveTranslations(normalized, translations);
+export async function setLocale(_locale: string): Promise<void> {
+  persistFixedLocale();
+  setFixedTranslations();
 }
 
 export async function initializeLocale(): Promise<void> {
-  const initialLocale = getInitialLocale();
-  const generation = ++localeLoadGeneration;
-  const translations = await loadTranslations(initialLocale);
-  if (generation !== localeLoadGeneration) return;
-  setActiveTranslations(initialLocale, translations);
+  persistFixedLocale();
+  setFixedTranslations();
 }
 
 export function useTranslation(): {
@@ -211,8 +111,8 @@ export function useTranslation(): {
 } {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   return useMemo(() => ({
-    locale: activeLocale,
-    availableLocales: getAvailableLocales(),
+    locale: FIXED_LOCALE,
+    availableLocales: [FIXED_LOCALE],
     setLocale,
     t,
   }), [snapshot]);

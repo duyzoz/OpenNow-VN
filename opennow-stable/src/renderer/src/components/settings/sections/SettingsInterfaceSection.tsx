@@ -6,7 +6,6 @@ import { SelectDropdown } from "../../ui/SelectDropdown";
 import { SettingRange } from "../SettingRange";
 import {
   accentColorOptions,
-  getAppLanguageLabel,
   POSTER_SIZE_MAX,
   POSTER_SIZE_MIN,
   POSTER_SIZE_STEP,
@@ -21,12 +20,12 @@ export interface SettingsInterfaceSectionProps {
 }
 
 export function SettingsInterfaceSection({ settings, showAll, handleChange, handlePreview, onSaved }: SettingsInterfaceSectionProps): JSX.Element {
-  const { locale, availableLocales, setLocale, t } = useTranslation();
+  const { locale, t } = useTranslation();
   const posterSizePercent = Math.round(settings.posterSizeScale * 100);
 
   const appLanguageOptions = useMemo(
-    () => availableLocales.map((value) => ({ value, label: getAppLanguageLabel(value) })),
-    [availableLocales],
+    () => [{ value: "vi", label: "Tiếng Việt" }],
+    [],
   );
 
   const accentDropdownOptions = useMemo(
@@ -49,13 +48,11 @@ export function SettingsInterfaceSection({ settings, showAll, handleChange, hand
     [locale, t],
   );
 
-  const handleAppLanguageChange = useCallback((nextLocale: string): void => {
-    void setLocale(nextLocale)
-      .then(onSaved)
-      .catch((error) => {
-        console.warn("[Settings] Failed to change app language:", error);
-      });
-  }, [onSaved, setLocale]);
+  const handleAppLanguageChange = useCallback((): void => {
+    // The remake is intentionally Vietnamese-only. Keep this callback as a no-op
+    // so stale UI events cannot switch the application to another locale.
+    onSaved();
+  }, [onSaved]);
 
   return (
     <>
@@ -84,6 +81,8 @@ export function SettingsInterfaceSection({ settings, showAll, handleChange, hand
                 value={locale}
                 options={appLanguageOptions}
                 onChange={handleAppLanguageChange}
+                disabled
+                ariaLabel="Ngôn ngữ ứng dụng: Tiếng Việt"
               />
             </div>
           </div>

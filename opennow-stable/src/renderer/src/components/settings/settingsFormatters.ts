@@ -56,24 +56,13 @@ export const nativeVideoBackendOptions: { value: NativeVideoBackendPreference; l
 ];
 
 export const APP_LANGUAGE_LABELS: Record<string, string> = {
-  en: "English",
-  es: "Español",
-  fr: "Français",
-  de: "Deutsch",
-  ja: "日本語",
-  zh: "中文",
-  pl: "Polski",
-  ru: "Русский",
-  tr: "Türkçe",
-  ko: "한국어",
-  nl: "Nederlands",
-  ro: "Română",
+  vi: "Tiếng Việt",
 };
 
 export const accentColorOptions = getAccentColorOptions();
 
-export function getAppLanguageLabel(locale: string): string {
-  return APP_LANGUAGE_LABELS[locale] ?? locale.toUpperCase();
+export function getAppLanguageLabel(_locale: string): string {
+  return APP_LANGUAGE_LABELS.vi;
 }
 
 export function formatNativeVideoBackendName(backend: string | undefined): string {

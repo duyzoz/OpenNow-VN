@@ -12,7 +12,7 @@ initLogCapture("renderer");
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
 const localeReady = initializeLocale().catch((error) => {
-  console.warn("[i18n] Failed to initialize locale; using English.", error);
+  console.warn("[i18n] Failed to initialize locale; using Vietnamese.", error);
 });
 const devToolsReady = import.meta.env.DEV
   ? import("react-scan").then(({ scan }) => scan()).catch((error) => {
