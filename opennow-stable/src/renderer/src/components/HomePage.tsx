@@ -1,10 +1,11 @@
-import { Search, LayoutGrid, ArrowUpDown, Filter, ChevronDown } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { Search, LayoutGrid, ArrowUpDown, Filter, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 import type { CatalogFilterGroup, CatalogSortOption, GameInfo, GamePanelResult } from "@shared/gfn";
 import { GameCardListItem, useCatalogCardActionsRef } from "./GameCardListItem";
 import { gameNeedsPurchase, getNextVariantId } from "../lib/controllerCatalogUi";
-import { matchesGameSearch } from "../lib/gameCatalog";
+import { getGameSearchSuggestions, matchesGameSearch } from "../lib/gameCatalog";
+import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
 import { isControllerKeyboardActivationTarget } from "../lib/controllerKeyboard";
 import { clampRowFocus, moveRowFocus, type RowFocusDirection } from "../lib/consoleRowFocus";
 import { getConsoleStoreChoices } from "../lib/consoleStoreChoices";
@@ -15,12 +16,15 @@ import { useControllerKeyDown, useControllerNavigation } from "../hooks/useContr
 import { ConsoleStoreView } from "./console/ConsoleStoreView";
 import { SelectDropdown } from "./ui/SelectDropdown";
 import { MotionSpinner } from "./MotionSpinner";
+import { SearchSuggestions } from "./SearchSuggestions";
 
 /** Cap per shelf so a curated panel cannot produce an unbounded row. */
 const CONTROLLER_STORE_ROW_LIMIT = 18;
 
 export interface HomePageProps {
   games: GameInfo[];
+  /** Complete local catalog used only for lightweight autocomplete. */
+  allGames?: GameInfo[];
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onPlayGame: (game: GameInfo) => void;
@@ -42,6 +46,9 @@ export interface HomePageProps {
   surfaceActive?: boolean;
   storePanels?: GamePanelResult[];
   activeSessionAppIds?: number[];
+  activeSessionGameTitle?: string | null;
+  onResumeSession?: () => void;
+  onTerminateSession?: () => void;
   onBuyGame?: (game: GameInfo, selectedVariantId?: string) => void;
   onMarkGameOwned?: (game: GameInfo, selectedVariantId?: string) => void;
   markOwnedInFlightByVariantId?: Record<string, boolean>;
@@ -52,6 +59,7 @@ export interface HomePageProps {
 
 export const HomePage = memo(function HomePage({
   games,
+  allGames = games,
   searchQuery,
   onSearchChange,
   onPlayGame,
@@ -73,6 +81,9 @@ export const HomePage = memo(function HomePage({
   surfaceActive = true,
   storePanels = [],
   activeSessionAppIds: _activeSessionAppIds = [],
+  activeSessionGameTitle = null,
+  onResumeSession,
+  onTerminateSession,
   onBuyGame,
   onMarkGameOwned,
   markOwnedInFlightByVariantId = {},
@@ -80,6 +91,92 @@ export const HomePage = memo(function HomePage({
   onNextControllerPage,
 }: HomePageProps): JSX.Element {
   const { t } = useTranslation();
+  const [draftQuery, setDraftQuery] = useState(searchQuery);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [suggestions, setSuggestions] = useState<GameInfo[]>([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [recentGames, setRecentGames] = useState<RecentGame[]>(loadRecentGames);
+
+  useEffect(() => {
+    setDraftQuery(searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const trimmed = draftQuery.trim();
+    setSelectedSuggestionIndex(-1);
+    if (!trimmed) {
+      setSuggestions([]);
+      setIsSuggesting(false);
+      return undefined;
+    }
+    setIsSuggesting(true);
+    const timer = window.setTimeout(() => {
+      setSuggestions(getGameSearchSuggestions(allGames, trimmed, 30));
+      setIsSuggesting(false);
+    }, 40);
+    return () => window.clearTimeout(timer);
+  }, [allGames, draftQuery]);
+
+  const rememberGame = useCallback((game: GameInfo): void => {
+    setRecentGames((current) => rememberRecentGame(current, game));
+  }, []);
+
+  const clearRecentGamesHistory = useCallback((): void => {
+    setRecentGames([]);
+    clearRecentGames();
+  }, []);
+
+  const selectSuggestedGame = useCallback((game: GameInfo): void => {
+    rememberGame(game);
+    setIsSearchFocused(false);
+    setSelectedSuggestionIndex(-1);
+    onOpenDetails(game);
+  }, [onOpenDetails, rememberGame]);
+
+  const commitSearch = useCallback((value: string): void => {
+    onSearchChange(value.trim());
+    setIsSearchFocused(false);
+    setSelectedSuggestionIndex(-1);
+  }, [onSearchChange]);
+
+  const PAGE_SIZE = 64;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isPageLoading, setIsPageLoading] = useState(false);
+  const pageResetRef = useRef<number | null>(null);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(games.length / PAGE_SIZE)),
+    [games.length],
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [games]);
+
+  useEffect(() => () => {
+    if (pageResetRef.current !== null) window.clearTimeout(pageResetRef.current);
+  }, []);
+
+  const goToPage = useCallback((targetPage: number): void => {
+    if (targetPage < 1 || targetPage > totalPages || targetPage === currentPage || isPageLoading) return;
+    setIsPageLoading(true);
+    setCurrentPage(targetPage);
+    requestAnimationFrame(() => {
+      const gridArea = document.querySelector<HTMLElement>(".home-grid-area");
+      gridArea?.scrollTo({ top: 0, behavior: "auto" });
+      pageResetRef.current = window.setTimeout(() => {
+        setIsPageLoading(false);
+        pageResetRef.current = null;
+      }, 120);
+    });
+  }, [currentPage, isPageLoading, totalPages]);
+
+  const currentPageGames = useMemo(
+    () => games.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [currentPage, games],
+  );
+
   const catalogActionsRef = useCatalogCardActionsRef({
     onPlayGame,
     onSelectGame,
@@ -358,7 +455,7 @@ export const HomePage = memo(function HomePage({
   });
 
   const gameGridItems = useMemo(
-    () => games.map((game) => (
+    () => currentPageGames.map((game) => (
       <GameCardListItem
         key={game.id}
         game={game}
@@ -368,7 +465,7 @@ export const HomePage = memo(function HomePage({
         actionsRef={catalogActionsRef}
       />
     )),
-    [catalogActionsRef, games, selectedGameId, selectedVariantByGameId],
+    [catalogActionsRef, currentPageGames, selectedGameId, selectedVariantByGameId],
   );
 
   if (controllerMode) {
@@ -438,9 +535,47 @@ export const HomePage = memo(function HomePage({
             type="text"
             className="home-search-input"
             placeholder={t("home.searchPlaceholder")}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={draftQuery}
+            onChange={(event) => {
+              const value = event.target.value;
+              setDraftQuery(value);
+              if (value.trim() === "" && searchQuery !== "") onSearchChange("");
+            }}
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => window.setTimeout(() => setIsSearchFocused(false), 120)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" && suggestions.length > 0) {
+                event.preventDefault();
+                setSelectedSuggestionIndex((index) => Math.min(index + 1, suggestions.length - 1));
+              } else if (event.key === "ArrowUp" && suggestions.length > 0) {
+                event.preventDefault();
+                setSelectedSuggestionIndex((index) => Math.max(index - 1, -1));
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                const selected = suggestions[selectedSuggestionIndex];
+                if (selected) selectSuggestedGame(selected);
+                else commitSearch(draftQuery);
+                event.currentTarget.blur();
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                setIsSearchFocused(false);
+                event.currentTarget.blur();
+              }
+            }}
           />
+          {isSearchFocused && (
+            <SearchSuggestions
+              query={draftQuery}
+              games={suggestions}
+              isLoading={isSuggesting}
+              maxResults={30}
+              selectedIndex={selectedSuggestionIndex}
+              recentGames={recentGames}
+              onSelectRecent={selectSuggestedGame}
+              onClearRecent={clearRecentGamesHistory}
+              onSelect={selectSuggestedGame}
+            />
+          )}
         </div>
 
         {visibleFilterGroups.length > 0 && (
@@ -496,6 +631,26 @@ export const HomePage = memo(function HomePage({
         </span>
       </header>
 
+      {activeSessionGameTitle && onResumeSession && (
+        <section className="home-resume-strip" aria-label="Phiên chơi đang hoạt động">
+          <div className="home-resume-copy">
+            <span className="home-resume-kicker">Phiên chơi dở</span>
+            <strong>{activeSessionGameTitle}</strong>
+            <span className="home-resume-status">Phiên vẫn đang được giữ lại để tiếp tục.</span>
+          </div>
+          <div className="home-resume-actions">
+            <button type="button" className="home-resume-primary" onClick={onResumeSession}>
+              Tiếp tục chơi
+            </button>
+            {onTerminateSession && (
+              <button type="button" className="home-resume-secondary" onClick={onTerminateSession}>
+                Dừng phiên
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       <div className="home-grid-area">
         {showInitialLoading ? (
           <div className="home-empty-state">
@@ -513,9 +668,53 @@ export const HomePage = memo(function HomePage({
             </p>
           </div>
         ) : (
-          <div className="game-grid">
-            {gameGridItems}
-          </div>
+          <>
+            {isPageLoading && (
+              <div className="batch-load-floating-pill" role="status" aria-live="polite">
+                <MotionSpinner size={16} />
+                <span>{t("common.loading")}</span>
+              </div>
+            )}
+            <div className="game-grid">
+              {gameGridItems}
+            </div>
+            {hasGames && totalPages > 1 && (
+              <nav className="catalog-pagination" aria-label="Phân trang kho game">
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage <= 1 || isPageLoading}
+                >
+                  <ChevronLeft size={16} />
+                  <span>Trang trước</span>
+                </button>
+                <div className="pagination-numbers">
+                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                    <button
+                      key={page}
+                      type="button"
+                      className={`pagination-btn pagination-num ${page === currentPage ? "active" : ""}`}
+                      onClick={() => goToPage(page)}
+                      disabled={isPageLoading}
+                      aria-current={page === currentPage ? "page" : undefined}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="pagination-btn"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages || isPageLoading}
+                >
+                  <span>Trang sau</span>
+                  <ChevronRight size={16} />
+                </button>
+              </nav>
+            )}
+          </>
         )}
       </div>
     </div>

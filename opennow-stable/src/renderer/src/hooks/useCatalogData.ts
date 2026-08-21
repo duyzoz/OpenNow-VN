@@ -49,7 +49,7 @@ export interface UseCatalogDataInput {
   authSession: AuthSession | null;
   activeSessionProxyUrl: string | undefined;
   effectiveStreamingBaseUrl: string;
-  currentPage: "home" | "library" | "settings";
+  currentPage: "home" | "library" | "favorites" | "settings";
   effectiveControllerMode: boolean;
   isInitializing: boolean;
   t: TranslateFunction;
@@ -574,7 +574,7 @@ export function useCatalogData({
   }, [libraryGames, storePanelGames]);
 
   useEffect(() => {
-    if (!authSession || currentPage !== "home" || effectiveControllerMode || isInitializing) {
+    if (!authSession || !["home", "favorites"].includes(currentPage) || effectiveControllerMode || isInitializing) {
       return;
     }
     const queryKey = buildProxyAwareCatalogQueryKey(searchQuery, catalogSelectedFilterIds, catalogSelectedSortId, activeSessionProxyUrl);

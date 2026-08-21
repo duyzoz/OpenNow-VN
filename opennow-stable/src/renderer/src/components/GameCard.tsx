@@ -1,5 +1,5 @@
-import { Eye, Play, Monitor } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { Eye, Heart, Play, Monitor } from "lucide-react";
+import { memo, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 import { m } from "motion/react";
 import type { GameInfo } from "@shared/gfn";
@@ -11,6 +11,9 @@ import {
   normalizeStoreKey,
 } from "../lib/gameCardStores";
 import { useTranslation } from "../i18n";
+import { getFavoritesSnapshot, isFavorite, subscribeToFavorites, toggleFavorite } from "../lib/gamePreferences";
+import { getPlaytimeStat } from "../lib/playtimeStats";
+import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 
 // Re-exported for the many call sites that still reach for these through the
 // card module; the implementations live in lib/gameCardStores so pure modules
@@ -144,6 +147,10 @@ export const GameCard = memo(function GameCard({
   onSelectStore,
 }: GameCardProps): JSX.Element {
   const { t } = useTranslation();
+  useSyncExternalStore(subscribeToFavorites, getFavoritesSnapshot, getFavoritesSnapshot);
+  const favorite = isFavorite(game.id);
+  const lastAccessAt = getPlaytimeStat(game.id).lastPlayedAt ?? game.lastPlayed;
+  const lastAccessLabel = formatCatalogAccessTime(lastAccessAt ?? undefined);
   const storeOptions = useMemo(
     () => getGameCardStoreOptions(game, selectedVariantId).map((option) => ({
       ...option,
@@ -200,6 +207,11 @@ export const GameCard = memo(function GameCard({
     onSelectStore?.(variantId);
   };
 
+  const handleFavoriteClick = (event: React.MouseEvent): void => {
+    event.stopPropagation();
+    toggleFavorite(game.id);
+  };
+
   return (
     <m.article
       className={`game-card ${isSelected ? "selected" : ""}`}
@@ -233,6 +245,17 @@ export const GameCard = memo(function GameCard({
             <Monitor size={40} />
           </div>
         )}
+
+        <button
+          type="button"
+          className={`game-card-favorite-button ${favorite ? "is-favorite" : ""}`}
+          onClick={handleFavoriteClick}
+          aria-label={favorite ? `Bỏ yêu thích ${game.title}` : `Thêm ${game.title} vào yêu thích`}
+          aria-pressed={favorite}
+          title={favorite ? "Bỏ yêu thích" : "Thêm vào yêu thích"}
+        >
+          <Heart size={16} fill={favorite ? "currentColor" : "none"} />
+        </button>
 
         <div className="game-card-overlay">
           <div className="game-card-gradient" />
@@ -304,6 +327,11 @@ export const GameCard = memo(function GameCard({
           <h3 className="game-card-title" title={game.title}>
             {game.title}
           </h3>
+          {lastAccessLabel && (
+            <span className="game-card-last-access" title={lastAccessLabel}>
+              {lastAccessLabel}
+            </span>
+          )}
         </div>
       </div>
       <span className="game-card-details-label" aria-hidden="true">

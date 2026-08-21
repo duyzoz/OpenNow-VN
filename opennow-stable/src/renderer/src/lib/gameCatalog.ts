@@ -44,6 +44,38 @@ export function findSessionContextForAppId(
   return null;
 }
 
+export function matchesGameTitlePrefix(game: GameInfo, query: string): boolean {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return true;
+  return [game.title, game.shortName]
+    .filter((value): value is string => typeof value === "string" && value.length > 0)
+    .some((value) => value.trim().toLocaleLowerCase().startsWith(normalizedQuery));
+}
+
+/** Fast, side-effect-free autocomplete. Lower scores appear first. */
+export function getGameSearchSuggestions(gameList: GameInfo[], query: string, maxResults = 30): GameInfo[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return [];
+
+  const ranked = gameList
+    .map((game, index) => {
+      const title = game.title.trim().toLocaleLowerCase();
+      const shortName = game.shortName?.trim().toLocaleLowerCase() ?? "";
+      const searchText = game.searchText?.toLocaleLowerCase() ?? "";
+      let score = Number.POSITIVE_INFINITY;
+      if (title === normalizedQuery || shortName === normalizedQuery) score = 0;
+      else if (title.startsWith(normalizedQuery) || shortName.startsWith(normalizedQuery)) score = 1;
+      else if (title.split(/\s+/).some((word) => word.startsWith(normalizedQuery))) score = 2;
+      else if (title.includes(normalizedQuery) || shortName.includes(normalizedQuery)) score = 3;
+      else if (searchText.includes(normalizedQuery)) score = 4;
+      return { game, index, score };
+    })
+    .filter((item) => Number.isFinite(item.score))
+    .sort((left, right) => left.score - right.score || left.game.title.localeCompare(right.game.title) || left.index - right.index);
+
+  return ranked.slice(0, maxResults).map((item) => item.game);
+}
+
 export function matchesGameSearch(game: GameInfo, query: string): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return true;
