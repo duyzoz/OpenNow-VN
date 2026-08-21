@@ -9,6 +9,7 @@ import { getActiveGameAvailabilityBadge } from "../lib/gameCardStatus";
 import { getStoreOptions as getGameCardStoreOptions } from "../lib/gameCardStores";
 import { useTranslation } from "../i18n";
 import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
+import { preloadGameBoxArt } from "../lib/gameArtwork";
 
 interface GameCardProps {
   game: GameInfo;
@@ -239,9 +240,16 @@ export const GameCard = memo(function GameCard({
     onOpenStore?.(variantId);
   };
 
+  const handleShowInfo = (event: React.MouseEvent): void => {
+    event.stopPropagation();
+    preloadGameBoxArt(game);
+    onShowInfo?.();
+  };
+
   return (
     <div
       className={`game-card ${isSelected ? "selected" : ""}`}
+      onPointerEnter={() => { preloadGameBoxArt(game); }}
       onClick={onSelect}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) {
@@ -257,7 +265,7 @@ export const GameCard = memo(function GameCard({
       aria-label={t("gameCard.selectGame", { title: game.title })}
     >
       <div
-        className="game-card-image-wrapper" onClick={(e) => { if (onShowInfo) { e.stopPropagation(); onShowInfo(); } }}
+        className="game-card-image-wrapper" onClick={handleShowInfo}
         style={
           aspectPct
             ? (({ ["--game-aspect" as any]: `${aspectPct}%` } as unknown) as React.CSSProperties)
@@ -322,7 +330,7 @@ export const GameCard = memo(function GameCard({
             <button
               type="button"
               className="game-card-details-button"
-              onClick={(e) => { e.stopPropagation(); onShowInfo(); }}
+              onClick={handleShowInfo}
               tabIndex={-1}
               aria-label={t("gameCard.viewDetailsFor", { title: game.title })}
             >

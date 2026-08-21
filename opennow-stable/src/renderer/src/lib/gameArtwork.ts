@@ -42,20 +42,20 @@ function findLocalArtwork(game: GameArtworkInput): string | undefined {
  * client, followed by the provider's box/key art. Text wordmarks are never
  * used as square cover art.
  */
-const CATALOG_ICON_KEYS = [
-  "GAME_ICON",
-  "ICON",
-  "APP_ICON",
-] as const;
-
 const CATALOG_BOX_ART_KEYS = [
   "GAME_BOX_ART",
   "BOX_ART",
 ] as const;
 
 const CATALOG_KEY_ART_KEYS = [
-  "KEY_IMAGE",
   "KEY_ART",
+  "KEY_IMAGE",
+] as const;
+
+const CATALOG_ICON_KEYS = [
+  "GAME_ICON",
+  "ICON",
+  "APP_ICON",
 ] as const;
 
 
@@ -99,6 +99,22 @@ export function getGameArtworkSource(
 }
 
 /** A lightweight no-image fallback; it is never a catalog poster masquerading as a logo. */
+const preloadedArtworkUrls = new Set<string>();
+
+/** Preload the exact per-game artwork while the pointer is over a card. */
+export function preloadGameBoxArt(
+  game: Pick<GameInfo, "id" | "title" | "shortName" | "imageUrlsByType">,
+): string | undefined {
+  const url = getGameBoxArtUrl(game);
+  if (!url || typeof Image === "undefined" || preloadedArtworkUrls.has(url)) return url;
+  const image = new Image();
+  image.decoding = "async";
+  image.fetchPriority = "high";
+  image.src = url;
+  preloadedArtworkUrls.add(url);
+  return url;
+}
+
 export function getGameArtworkInitials(title: string): string {
   const words = title.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return "?";

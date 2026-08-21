@@ -232,9 +232,13 @@ fragment minimalGameFields on GameItem {
   app {
     id
     images {
+      GAME_BOX_ART
       TV_BANNER
       HERO_IMAGE
       KEY_ART
+      KEY_IMAGE
+      FEATURE_IMAGE
+      MARQUEE_HERO_IMAGE
     }
     title
     itemMetadata {
@@ -321,6 +325,9 @@ query GetAppDataQueryForAppId($vpcId: String!, $locale: String!, $appIds: [Strin
         SCREENSHOTS
         TV_BANNER
         KEY_ART
+        KEY_IMAGE
+        FEATURE_IMAGE
+        MARQUEE_HERO_IMAGE
       }
       nvidiaTech {
         PHOTO_MODE
