@@ -4283,8 +4283,8 @@ button.game-card-store-chip.owned.active:hover {
 .settings-modal {
   position: relative;
   z-index: 1;
-  width: min(940px, calc(100vw - 48px));
-  height: min(720px, calc(100vh - 72px));
+  width: min(1180px, calc(100vw - 48px));
+  height: min(780px, calc(100vh - 56px));
   max-height: calc(100vh - 72px);
   display: flex;
   flex-direction: column;
@@ -4323,7 +4323,40 @@ button.game-card-store-chip.owned.active:hover {
   letter-spacing: -0.01em;
 }
 
+.settings-modal-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-modal-heading-separator {
+  width: 1px;
+  height: 16px;
+  flex: 0 0 auto;
+  background: var(--panel-border);
+}
+
+.settings-modal-section-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-modal-header > .settings-search-wrap {
+  width: min(360px, 34vw);
+  min-width: 220px;
+  flex: 0 1 360px;
+  margin: 0;
+}
+
 .settings-modal-header-actions {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -4644,6 +4677,62 @@ button.game-card-store-chip.owned.active:hover {
   overflow-y: auto;
   will-change: scroll-position;
   transform: translateZ(0);
+  transition: width var(--t-normal), padding var(--t-normal), background var(--t-normal);
+}
+
+.settings-sidebar--collapsed {
+  width: 68px;
+  padding-inline: 10px;
+}
+
+.settings-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: 100%;
+  min-height: 36px;
+  margin: 0 0 14px;
+  padding: 0 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+  color: var(--ink-muted);
+  cursor: pointer;
+  font: inherit;
+  transition: color var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+}
+
+.settings-sidebar-toggle:hover {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--panel-border));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.settings-sidebar-toggle-label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-sidebar--collapsed .settings-sidebar-toggle {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.settings-sidebar--collapsed .settings-sidebar-toggle-label,
+.settings-sidebar--collapsed .settings-nav-item-label,
+.settings-sidebar--collapsed .settings-nav-badge {
+  display: none;
+}
+
+.settings-sidebar--collapsed .settings-nav-item {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
 }
 
 [data-translucent="true"] .settings-sidebar {
@@ -4942,6 +5031,22 @@ button.game-card-store-chip.owned.active:hover {
   border-bottom: none;
 }
 
+/* Complex Native Stream capability blocks must span the content column.
+   Keeping them as the generic two-column settings grid compresses the whole
+   backend panel into the label column and makes Vietnamese text break per
+   character. */
+.settings-native-capability-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.settings-native-capability-row > * {
+  min-width: 0;
+  width: 100%;
+}
+
 .settings-row:has(.settings-hint),
 .settings-row:has(.settings-subtle-hint),
 .settings-row:has(.settings-input-hint),
@@ -5111,7 +5216,9 @@ button.game-card-store-chip.owned.active:hover {
   flex: 1 1 auto;
   min-width: 0;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
   cursor: default;
 }
 
@@ -6069,7 +6176,7 @@ button.game-card-store-chip.owned.active:hover {
 
 .settings-native-capability-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(250px, 1fr));
   gap: 12px;
   width: 100%;
   min-width: 0;
@@ -13159,5 +13266,115 @@ button.game-card-store-chip.owned.active:hover {
   .sload-backdrop-mosaic {
     transform: none !important;
     transition: none !important;
+  }
+}
+
+
+/* ── Settings visual polish: spacious Vietnamese layout + responsive collapse ── */
+.settings-native-capability-header > div {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-native-capability-grid {
+  align-items: stretch;
+}
+
+.settings-native-capability-card {
+  overflow: hidden;
+}
+
+.settings-native-capability-card-top,
+.settings-native-capability-meta {
+  min-width: 0;
+}
+
+.settings-native-capability-meta span {
+  min-width: 0;
+}
+
+.settings-row {
+  --settings-label-col: minmax(15rem, 17rem);
+}
+
+@media (max-width: 900px) {
+  .settings-modal {
+    width: min(960px, calc(100vw - 24px));
+    height: min(780px, calc(100vh - 32px));
+    max-height: calc(100vh - 32px);
+  }
+
+  .settings-modal-header {
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding: 14px 16px;
+  }
+
+  .settings-modal-header > .settings-search-wrap {
+    order: 3;
+    width: 100%;
+    min-width: 0;
+    flex: 1 0 100%;
+  }
+
+  .settings-content {
+    padding: 16px 16px 22px;
+  }
+
+  .settings-row {
+    --settings-label-col: minmax(13rem, 15rem);
+  }
+}
+
+@media (max-width: 720px) {
+  .settings-sidebar {
+    width: 68px;
+    padding-inline: 10px;
+  }
+
+  .settings-sidebar-toggle {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .settings-sidebar-toggle-label,
+  .settings-nav-item-label,
+  .settings-nav-badge {
+    display: none;
+  }
+
+  .settings-nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0;
+  }
+
+  .settings-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .settings-row > .settings-label,
+  .settings-row > .settings-chip-row,
+  .settings-row > .select-dropdown,
+  .settings-row > .settings-toggle,
+  .settings-row > .settings-row-control,
+  .settings-row > .settings-subtle-hint,
+  .settings-row > .settings-input-hint {
+    width: 100%;
+    grid-column: auto;
+    justify-self: stretch;
+  }
+
+  .settings-row > .settings-toggle {
+    align-self: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-sidebar {
+    transition: none;
   }
 }

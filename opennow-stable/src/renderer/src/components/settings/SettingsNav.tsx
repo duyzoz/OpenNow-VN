@@ -1,4 +1,18 @@
-import { Activity, Users, Wifi, Cpu, Globe, Mic, Keyboard, Gamepad2, Monitor, Info, Heart } from "lucide-react";
+import {
+  Activity,
+  Cpu,
+  Gamepad2,
+  Globe,
+  Heart,
+  Info,
+  Keyboard,
+  Mic,
+  Monitor,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Users,
+  Wifi,
+} from "lucide-react";
 import { useMemo, type JSX } from "react";
 import { useTranslation } from "../../i18n";
 import type { SettingsNavItem, SettingsSectionId } from "./settingsTypes";
@@ -6,12 +20,16 @@ import type { SettingsNavItem, SettingsSectionId } from "./settingsTypes";
 export interface SettingsNavProps {
   activeSection: SettingsSectionId;
   showAll: boolean;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   onSectionChange: (section: SettingsSectionId) => void;
 }
 
 export function SettingsNav({
   activeSection,
   showAll,
+  collapsed,
+  onToggleCollapsed,
   onSectionChange,
 }: SettingsNavProps): JSX.Element {
   const { locale, t } = useTranslation();
@@ -30,8 +48,21 @@ export function SettingsNav({
     { id: "thanks", label: t("settings.sections.thanks"), icon: <Heart /> },
   ], [t, locale]);
 
+  const toggleLabel = collapsed ? t("settings.expandSidebar") : t("settings.collapseSidebar");
+
   return (
-    <nav className="settings-sidebar" aria-label={t("settings.title")}>
+    <nav className={`settings-sidebar ${collapsed ? "settings-sidebar--collapsed" : ""}`} aria-label={t("settings.title")}>
+      <button
+        type="button"
+        className="settings-sidebar-toggle"
+        onClick={onToggleCollapsed}
+        aria-label={toggleLabel}
+        title={toggleLabel}
+        aria-expanded={!collapsed}
+      >
+        {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+        <span className="settings-sidebar-toggle-label">{toggleLabel}</span>
+      </button>
       <div className="settings-nav">
         {settingsNavItems.map((item) => {
           const isActive = !showAll && activeSection === item.id;

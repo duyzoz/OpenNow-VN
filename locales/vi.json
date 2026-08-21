@@ -554,6 +554,8 @@
   "settings": {
     "title": "Cài đặt",
     "saved": "Đã lưu",
+    "collapseSidebar": "Thu gọn danh mục cài đặt",
+    "expandSidebar": "Mở rộng danh mục cài đặt",
     "searchPlaceholder": "Tìm kiếm cài đặt...",
     "noMatches": "Không tìm thấy cài đặt nào khớp với \"{{query}}\".",
     "sections": {

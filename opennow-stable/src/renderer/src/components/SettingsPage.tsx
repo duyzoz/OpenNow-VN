@@ -62,6 +62,7 @@ export function SettingsPage({
   const { t } = useTranslation();
   const [savedIndicator, setSavedIndicator] = useState(false);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("stream");
+  const [settingsSidebarCollapsed, setSettingsSidebarCollapsed] = useState(false);
   const [settingsSearch, setSettingsSearch] = useState("");
   const settingsSearchShowsAll = settingsSearch.trim().length > 0;
   const settingsContentRef = useRef<HTMLDivElement | null>(null);
@@ -307,6 +308,8 @@ export function SettingsPage({
         <SettingsNav
           activeSection={activeSection}
           showAll={showAll}
+          collapsed={settingsSidebarCollapsed}
+          onToggleCollapsed={() => setSettingsSidebarCollapsed((value) => !value)}
           onSectionChange={(section) => {
             setActiveSection(section);
             setSettingsSearch("");
