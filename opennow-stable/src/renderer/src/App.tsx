@@ -65,6 +65,7 @@ import {
   parseNumericId,
   sortLibraryGames,
 } from "./lib/gameCatalog";
+import { getGameBoxArtUrl, getGameHeroArtUrl } from "./lib/gameArtwork";
 import { resolveInstallToPlayStorageRegionUrl } from "./lib/launchOwnership";
 import { hasAnyEligiblePrintedWasteZone, isAllianceStreamingBaseUrl } from "./lib/printedWaste";
 import { normalizeMembershipTier } from "./lib/queueAds";
@@ -2872,7 +2873,8 @@ export function App(): JSX.Element {
           >
             <StreamLoading
               gameTitle={streamingGame?.title ?? t("app.labels.game")}
-              gameCover={streamingGame?.imageUrl}
+              gameCover={streamingGame ? getGameHeroArtUrl(streamingGame) : undefined}
+              gameLogo={streamingGame ? getGameBoxArtUrl(streamingGame) : undefined}
               platformStore={streamingStore ?? undefined}
               status={loadingStatus}
               launchStartedAtMs={launchStartedAtMs ?? undefined}

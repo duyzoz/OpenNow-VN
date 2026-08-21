@@ -28,6 +28,7 @@ const launchStages = [
 export interface StreamLoadingProps {
   gameTitle: string;
   gameCover?: string;
+  gameLogo?: string;
   platformStore?: string;
   status: "queue" | "setup" | "starting" | "connecting";
   launchStartedAtMs?: number;
@@ -124,6 +125,7 @@ function getAdSummary(t: TranslateFunction, adState?: SessionAdState): string | 
 export function StreamLoading({
   gameTitle,
   gameCover,
+  gameLogo,
   platformStore,
   status,
   launchStartedAtMs,
@@ -151,6 +153,7 @@ export function StreamLoading({
   const effectiveStartedAt = launchStartedAtMs ?? mountedAt;
   const statusMessage = getStatusMessage(t, status, queuePosition, adState, hasError);
   const platformName = platformStore ? getStoreDisplayName(platformStore) : "";
+  const squareArtwork = gameLogo || gameCover;
   const PlatformIcon = platformStore ? getStoreIconComponent(platformStore) : null;
   const adSummary = getAdSummary(t, adState);
   const cachedAdMediaUrl = activeAdMediaUrl ?? getPreferredSessionAdMediaUrl(activeAd);
@@ -226,8 +229,8 @@ export function StreamLoading({
       <div className="sload-content">
         <div className="sload-game">
           <div className="sload-cover">
-            {gameCover ? (
-              <img src={gameCover} alt="" className="sload-cover-img" />
+            {squareArtwork ? (
+              <img src={squareArtwork} alt="" className="sload-cover-img" />
             ) : (
               <div className="sload-cover-empty"><Monitor size={24} /></div>
             )}

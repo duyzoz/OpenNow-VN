@@ -26,6 +26,7 @@ import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 import { getControllerHeroBackgroundCandidates, getPlayerSummary } from "../lib/controllerCatalogUi";
 import { getStoreOptions } from "../lib/gameCardStores";
 import { getRequiredPaidMembershipTier } from "../lib/premiumMembership";
+import { getGameBoxArtUrl } from "../lib/gameArtwork";
 import { getStoreDisplayName, getStoreIconComponent } from "./GameCard";
 
 interface GameInfoPanelProps {
@@ -149,7 +150,7 @@ export function GameInfoPanel({
   if (!game) return <></>;
 
   const heroUrl = heroCandidates[heroIndex] ?? (!imgErr ? game.heroImageUrl ?? game.imageUrl : undefined);
-  const coverUrl = game.imageUrl;
+  const coverUrl = getGameBoxArtUrl(game);
   const stats = getPlaytimeStat(game.id);
   const lastPlayedLabel = stats.lastPlayedAt ? formatCatalogAccessTime(stats.lastPlayedAt) : null;
   const hasStats = stats.sessionCount > 0 || stats.totalSeconds > 0;
