@@ -1,5 +1,5 @@
-import { Play, Monitor, PlayCircle, Square, Heart } from "lucide-react";
-import { isFavorite } from "../lib/gamePreferences";
+import { Clock, Heart, Monitor, Play, PlayCircle, Square } from "lucide-react";
+import { getPlaytimeStat } from "../lib/playtimeStats";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { m } from "motion/react";
@@ -8,6 +8,7 @@ import type { GameInfo } from "@shared/gfn";
 import { getActiveGameAvailabilityBadge } from "../lib/gameCardStatus";
 import { getStoreOptions as getGameCardStoreOptions } from "../lib/gameCardStores";
 import { useTranslation } from "../i18n";
+import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 
 interface GameCardProps {
   game: GameInfo;
@@ -17,6 +18,7 @@ interface GameCardProps {
   onSelect: () => void;
   selectedVariantId?: string;
   onSelectStore?: (variantId: string) => void;
+  onOpenStore?: (variantId: string) => void;
   isActiveGame?: boolean;
   isFavorite?: boolean;
   onResume?: () => void;
@@ -156,6 +158,7 @@ function gameCardPropsAreEqual(prev: GameCardProps, next: GameCardProps): boolea
     && prev.onPlay === next.onPlay
     && prev.onSelect === next.onSelect
     && prev.onSelectStore === next.onSelectStore
+    && prev.onOpenStore === next.onOpenStore
     && prev.isActiveGame === next.isActiveGame
     && prev.isFavorite === next.isFavorite
     && prev.onResume === next.onResume
@@ -173,6 +176,7 @@ export const GameCard = memo(function GameCard({
   onSelect,
   selectedVariantId,
   onSelectStore,
+  onOpenStore,
   isActiveGame = false,
   isFavorite: isFav = false,
   onResume,
@@ -193,6 +197,8 @@ export const GameCard = memo(function GameCard({
     () => getActiveGameAvailabilityBadge(game, selectedVariantId),
     [game, selectedVariantId],
   );
+  const lastPlayedAt = getPlaytimeStat(game.id).lastPlayedAt ?? game.lastPlayed;
+  const accessLabel = lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : null;
 
   const fallbackAspectPct = GAME_CARD_FALLBACK_ASPECT[surface];
   const [aspectPct, setAspectPct] = useState(
@@ -230,6 +236,7 @@ export const GameCard = memo(function GameCard({
   const handleStoreClick = (event: React.MouseEvent, variantId: string): void => {
     event.stopPropagation();
     onSelectStore?.(variantId);
+    onOpenStore?.(variantId);
   };
 
   return (
@@ -370,6 +377,12 @@ export const GameCard = memo(function GameCard({
                   })}
                 </div>
               )}
+            </div>
+          )}
+          {accessLabel && (
+            <div className="game-card-access-time" title={accessLabel}>
+              <Clock size={12} aria-hidden="true" />
+              <span>{accessLabel}</span>
             </div>
           )}
           <h3 className="game-card-title" title={game.title}>

@@ -9,7 +9,10 @@ import type {
   AuthSession,
   AuthSessionRequest,
   DirectLaunchRequest,
+  MainWindowCloseChoice,
+  MainWindowCloseChoiceRequest,
   GamesFetchRequest,
+  StreamWindowOpenRequest,
   CatalogBrowseRequest,
   ResolveLaunchIdRequest,
   ResolveStoreUrlRequest,
@@ -19,6 +22,12 @@ import type {
   MarkGameOwnedResult,
   OpenNowApi,
   SavedAccount,
+  ConsolePinClearRequest,
+  ConsolePinMutationResult,
+  ConsolePinSetRequest,
+  ConsolePinStatus,
+  ConsolePinVerifyRequest,
+  ConsolePinVerifyResult,
   SessionAdReportRequest,
   SessionCreateRequest,
   SessionPollRequest,
@@ -27,6 +36,8 @@ import type {
   SignalingConnectRequest,
   SendAnswerRequest,
   IceCandidatePayload,
+  NativeInputPacket,
+  NativeRenderSurfaceUpdate,
   KeyframeRequest,
   Settings,
   SubscriptionFetchRequest,
@@ -46,10 +57,6 @@ import type {
   PrintedWasteServerMapping,
   ThankYouDataResult,
   AppUpdaterState,
-  StreamWindowOpenRequest,
-  StreamWindowOpenResult,
-  MainWindowCloseChoice,
-  MainWindowCloseChoiceRequest,
   PersistentStorageLocationsFetchRequest,
   PersistentStorageResetRequest,
   GameAccountOperationRequest,
@@ -57,6 +64,7 @@ import type {
   GameAccountOperationResult,
 } from "@shared/gfn";
 import type { DiscordActivityUpdate } from "@shared/discord";
+import type { DesktopBugReportReceipt, DesktopBugReportRequest } from "@shared/bugReport";
 import { parseSerializedSessionErrorTransport } from "@shared/sessionError";
 
 const { contextBridge, ipcRenderer } = electron;
@@ -92,9 +100,17 @@ const api: OpenNowApi = {
   logout: () => ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGOUT),
   logoutAll: () => ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGOUT_ALL),
   getSavedAccounts: (): Promise<SavedAccount[]> => ipcRenderer.invoke(IPC_CHANNELS.AUTH_GET_SAVED_ACCOUNTS),
-  switchAccount: (userId: string): Promise<AuthSession> =>
-    ipcRenderer.invoke(IPC_CHANNELS.AUTH_SWITCH_ACCOUNT, userId),
+  switchAccount: (userId: string, pin?: string): Promise<AuthSession> =>
+    ipcRenderer.invoke(IPC_CHANNELS.AUTH_SWITCH_ACCOUNT, { userId, pin }),
   removeAccount: (userId: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.AUTH_REMOVE_ACCOUNT, userId),
+  getConsolePinStatus: (userId: string): Promise<ConsolePinStatus> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONSOLE_PIN_GET_STATUS, userId),
+  setConsolePin: (input: ConsolePinSetRequest): Promise<ConsolePinMutationResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONSOLE_PIN_SET, input),
+  clearConsolePin: (input: ConsolePinClearRequest): Promise<ConsolePinMutationResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONSOLE_PIN_CLEAR, input),
+  verifyConsolePin: (input: ConsolePinVerifyRequest): Promise<ConsolePinVerifyResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONSOLE_PIN_VERIFY, input),
   fetchSubscription: (input: SubscriptionFetchRequest) =>
     ipcRenderer.invoke(IPC_CHANNELS.SUBSCRIPTION_FETCH, input),
   fetchPersistentStorageLocations: (input: PersistentStorageLocationsFetchRequest = {}) =>
@@ -148,6 +164,18 @@ const api: OpenNowApi = {
   sendAnswer: (input: SendAnswerRequest) => ipcRenderer.invoke(IPC_CHANNELS.SEND_ANSWER, input),
   sendIceCandidate: (input: IceCandidatePayload) =>
     ipcRenderer.invoke(IPC_CHANNELS.SEND_ICE_CANDIDATE, input),
+  sendNativeInput: (input: NativeInputPacket) => {
+    ipcRenderer.send(IPC_CHANNELS.NATIVE_INPUT, input);
+  },
+  setNativeInputPaused: (paused: boolean) => {
+    ipcRenderer.send(IPC_CHANNELS.NATIVE_INPUT_PAUSED, paused);
+  },
+  updateNativeRenderSurface: (input: NativeRenderSurfaceUpdate) => {
+    ipcRenderer.send(IPC_CHANNELS.NATIVE_RENDER_SURFACE, input);
+  },
+  updateNativeShortcuts: (shortcuts) => {
+    ipcRenderer.send(IPC_CHANNELS.NATIVE_UPDATE_SHORTCUTS, shortcuts);
+  },
   requestKeyframe: (input: KeyframeRequest) =>
     ipcRenderer.invoke(IPC_CHANNELS.REQUEST_KEYFRAME, input),
   onSignalingEvent: (listener: (event: MainToRendererSignalingEvent) => void) => {
@@ -195,19 +223,39 @@ const api: OpenNowApi = {
   getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) =>
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, key, value),
+  getGpuInfo: () => ipcRenderer.invoke(IPC_CHANNELS.GPU_GET_INFO),
   resetSettings: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_RESET),
+  selectNativeStreamerExecutable: () => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SELECT_NATIVE_STREAMER_EXECUTABLE),
+  getNativeStreamerStatus: () => ipcRenderer.invoke(IPC_CHANNELS.NATIVE_STREAMER_STATUS),
+  getNativeCloudGsyncCapabilities: () => ipcRenderer.invoke(IPC_CHANNELS.NATIVE_CLOUD_GSYNC_CAPABILITIES),
   notifyPointerLockChange: (active: boolean, suppressEscapeFullscreenGrace?: boolean) => {
     ipcRenderer.send(IPC_CHANNELS.POINTER_LOCK_CHANGE, active, suppressEscapeFullscreenGrace);
+  },
+  notifyNativeInputModeChange: (active: boolean, rawInputOwnsEscape: boolean) => {
+    ipcRenderer.send(IPC_CHANNELS.NATIVE_INPUT_MODE_CHANGE, active, rawInputOwnsEscape);
   },
   onExternalEscape: (listener: () => void) => {
     const wrapped = () => listener();
     ipcRenderer.on(IPC_CHANNELS.EXTERNAL_ESCAPE, wrapped);
     return () => ipcRenderer.off(IPC_CHANNELS.EXTERNAL_ESCAPE, wrapped);
   },
+  onStreamShortcutAction: (listener) => {
+    const wrapped = (
+      _event: Electron.IpcRendererEvent,
+      action: import("@shared/gfn").NativeStreamerShortcutAction,
+    ) => listener(action);
+    ipcRenderer.on(IPC_CHANNELS.STREAM_SHORTCUT_ACTION, wrapped);
+    return () => ipcRenderer.off(IPC_CHANNELS.STREAM_SHORTCUT_ACTION, wrapped);
+  },
+  setStreamShortcutInterceptionGate: (gate) => {
+    ipcRenderer.send(IPC_CHANNELS.STREAM_SHORTCUT_INTERCEPTION_CHANGE, gate);
+  },
   openExternalUrl: (url: string): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL_URL, url),
   getMicrophonePermission: () => ipcRenderer.invoke(IPC_CHANNELS.MICROPHONE_PERMISSION_GET),
   readClipboardText: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.CLIPBOARD_READ_TEXT),
   exportLogs: (format?: "text" | "json") => ipcRenderer.invoke(IPC_CHANNELS.LOGS_EXPORT, format),
+  submitBugReport: (input: DesktopBugReportRequest): Promise<DesktopBugReportReceipt> =>
+    ipcRenderer.invoke(IPC_CHANNELS.BUG_REPORT_SUBMIT, input),
   pingRegions: (regions: StreamRegion[]) => ipcRenderer.invoke(IPC_CHANNELS.PING_REGIONS, regions),
   saveScreenshot: (input: ScreenshotSaveRequest) => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_SAVE, input),
   listScreenshots: () => ipcRenderer.invoke(IPC_CHANNELS.SCREENSHOT_LIST),
@@ -222,15 +270,8 @@ const api: OpenNowApi = {
   },
   beginRecording: (input: RecordingBeginRequest): Promise<RecordingBeginResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.RECORDING_BEGIN, input),
-  sendRecordingChunk: (input: RecordingChunkRequest): Promise<void> => {
-    // Do not await a filesystem write for every MediaRecorder timeslice.
-    // The main process receives the chunk through an event and appends it in
-    // order, while the renderer remains free for WebRTC decode/compositing.
-    // This Electron version types the transfer list for MessagePort only;
-    // the ArrayBuffer is still sent through postMessage without an IPC reply.
-    ipcRenderer.postMessage(IPC_CHANNELS.RECORDING_CHUNK_STREAM, input);
-    return Promise.resolve();
-  },
+  sendRecordingChunk: (input: RecordingChunkRequest): Promise<void> =>
+    ipcRenderer.invoke(IPC_CHANNELS.RECORDING_CHUNK, input),
   finishRecording: (input: RecordingFinishRequest): Promise<RecordingEntry> =>
     ipcRenderer.invoke(IPC_CHANNELS.RECORDING_FINISH, input),
   abortRecording: (input: RecordingAbortRequest): Promise<void> =>
@@ -267,7 +308,7 @@ const api: OpenNowApi = {
   getReleaseHighlights: (version?: string): Promise<import("@shared/gfn").ReleaseHighlightsPayload> =>
     ipcRenderer.invoke(IPC_CHANNELS.RELEASE_HIGHLIGHTS_GET, version),
   ackReleaseHighlights: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.RELEASE_HIGHLIGHTS_ACK),
-  openStreamWindow: (input: import("@shared/gfn").StreamWindowOpenRequest): Promise<import("@shared/gfn").StreamWindowOpenResult> =>
+  openStreamWindow: (input: StreamWindowOpenRequest) =>
     ipcRenderer.invoke(IPC_CHANNELS.STREAM_WINDOW_OPEN, input),
   onStreamWindowClosed: (listener: () => void) => {
     ipcRenderer.on(IPC_CHANNELS.STREAM_WINDOW_CLOSED, listener);
@@ -275,11 +316,8 @@ const api: OpenNowApi = {
       ipcRenderer.off(IPC_CHANNELS.STREAM_WINDOW_CLOSED, listener);
     };
   },
-  // Custom in-app close prompt (replaces the native OS confirm dialog).
-  onRequestMainWindowCloseChoice: (listener) => {
-    const wrapped = (_event: Electron.IpcRendererEvent, payload: MainWindowCloseChoiceRequest) => {
-      listener(payload);
-    };
+  onRequestMainWindowCloseChoice: (listener: (payload: MainWindowCloseChoiceRequest) => void) => {
+    const wrapped = (_event: Electron.IpcRendererEvent, payload: MainWindowCloseChoiceRequest) => listener(payload);
     ipcRenderer.on(IPC_CHANNELS.MAIN_WINDOW_REQUEST_CLOSE_CHOICE, wrapped);
     return () => {
       ipcRenderer.off(IPC_CHANNELS.MAIN_WINDOW_REQUEST_CLOSE_CHOICE, wrapped);

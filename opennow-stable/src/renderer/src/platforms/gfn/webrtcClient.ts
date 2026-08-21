@@ -6,6 +6,7 @@ import type {
   SessionInfo,
   VideoCodec,
   MicrophoneMode,
+  NativeTransitionDiagnostics,
   KeyboardLayout,
 } from "@shared/gfn";
 
@@ -119,6 +120,7 @@ interface OfferSettings {
   fps: number;
   maxBitrateKbps: number;
   fallbackCodec?: FallbackCodecPreference;
+  nativeTransitionDiagnostics?: NativeTransitionDiagnostics;
 }
 
 const DEFAULT_CLIPBOARD_MAX_BYTES = 1024 * 1024;
@@ -433,6 +435,15 @@ export class GfnWebRtcClient {
     decoderPressureActive: false,
     decoderRecoveryAttempts: 0,
     decoderRecoveryAction: "none",
+    nativeRequestedFps: undefined,
+    nativeCapsFramerate: undefined,
+    nativeQueueMode: undefined,
+    nativeFramesPendingToPresent: undefined,
+    nativePartialFlushCount: undefined,
+    nativeCompleteFlushCount: undefined,
+    nativeTransitionSummary: undefined,
+    nativeRequestedStreamingFeaturesSummary: undefined,
+    nativeFinalizedStreamingFeaturesSummary: undefined,
     micState: "uninitialized",
     micEnabled: false,
   };
@@ -453,7 +464,11 @@ export class GfnWebRtcClient {
     this.inputChannelPolicyController = new InputChannelPolicyController(
       this.riInputCapabilities,
       {
+        isNativeInputActive: () => this.nativeInputActive,
         getPartiallyReliableChannel: () => this.partiallyReliableInputChannel,
+        sendNativeInput: (payload, partiallyReliable) => {
+          this.sendNativeInput(payload, partiallyReliable);
+        },
         sendReliable: (payload) => this.sendReliable(payload),
       },
     );
@@ -461,6 +476,8 @@ export class GfnWebRtcClient {
       inputEncoder: this.inputEncoder,
       isInputReady: () => this.inputReady,
       isInputPaused: () => this.inputPaused || this.windowStateInputPaused,
+      isNativeInputActive: () => this.nativeInputActive,
+      isNativeElectronInputBridge: () => this.nativeElectronInputBridge,
       isReliableChannelOpen: () => this.reliableInputChannel?.readyState === "open",
       canSendPartiallyReliableGamepad: (controllerId) => (
         this.inputChannelPolicyController.canSendGamepad(controllerId)
@@ -484,6 +501,8 @@ export class GfnWebRtcClient {
         inputEncoder: this.inputEncoder,
         isInputReady: () => this.inputReady,
         isInputBlocked: () => this.isStreamInputBlocked(),
+        isNativeInputActive: () => this.nativeInputActive,
+        isNativeElectronInputBridge: () => this.nativeElectronInputBridge,
         shouldAutoFullscreen: () => this.shouldAutoFullscreen(),
         getCurrentResolution: () => this.currentResolution,
         getKeyboardLayout: () => this.keyboardLayout,
@@ -855,6 +874,15 @@ export class GfnWebRtcClient {
       decoderPressureActive: false,
       decoderRecoveryAttempts: 0,
       decoderRecoveryAction: "none",
+      nativeRequestedFps: undefined,
+      nativeCapsFramerate: undefined,
+      nativeQueueMode: undefined,
+      nativeFramesPendingToPresent: undefined,
+      nativePartialFlushCount: undefined,
+      nativeCompleteFlushCount: undefined,
+      nativeTransitionSummary: undefined,
+      nativeRequestedStreamingFeaturesSummary: undefined,
+      nativeFinalizedStreamingFeaturesSummary: undefined,
       micState: this.micState,
       micEnabled: this.micManager?.isEnabled() ?? false,
     };
@@ -1304,6 +1332,103 @@ export class GfnWebRtcClient {
     this.inputQueuePressureLoggedAtMs = 0;
   }
 
+  public activateNativeInput(
+    protocolVersion?: number,
+    settings?: OfferSettings,
+    options?: { electronInputBridge?: boolean },
+  ): void {
+    this.cleanupPeerConnection();
+    this.nativeInputActive = true;
+    // Internal (one-window) mode: Electron owns capture and IPC-forwards packets.
+    // External floating window: OS-level capture stays in the native streamer.
+    // Linux is Internal-only: always use the Electron IPC bridge regardless of stale options.
+    const isLinuxHost = typeof navigator !== "undefined"
+      && /linux/i.test(`${navigator.platform} ${navigator.userAgent}`);
+    this.nativeElectronInputBridge = isLinuxHost || options?.electronInputBridge !== false;
+    this.inputReady = true;
+    const nativeProtocolVersion = GfnWebRtcClient.normalizeInputProtocolVersion(
+      protocolVersion
+        ?? (this.inputProtocolVersion > 2
+          ? this.inputProtocolVersion
+          : GfnWebRtcClient.NATIVE_INPUT_PROTOCOL_FALLBACK),
+    );
+    this.inputProtocolVersion = nativeProtocolVersion;
+    this.inputEncoder.setProtocolVersion(nativeProtocolVersion);
+    this.diagnostics.connectionState = "connected";
+    this.diagnostics.inputReady = true;
+    this.diagnostics.nativeRendererActive = true;
+    if (settings) {
+      this.applyStreamSettingsDiagnostics(settings, settings.codec, true);
+    } else {
+      this.diagnostics.hardwareAcceleration = describeNativeHardwareAcceleration();
+      this.diagnostics.codec = this.currentCodec || "Native";
+    }
+    this.diagnostics.lagReason = "stable";
+    this.diagnostics.lagReasonDetail = this.nativeElectronInputBridge
+      ? "Native streamer Electron input bridge active"
+      : "Native streamer external-window input active";
+    this.diagnostics.inputQueueBufferedBytes = 0;
+    this.diagnostics.inputQueuePeakBufferedBytes = 0;
+    this.diagnostics.partiallyReliableInputQueueBufferedBytes = 0;
+    this.diagnostics.partiallyReliableInputQueuePeakBufferedBytes = 0;
+    this.diagnostics.inputQueueDropCount = 0;
+    this.diagnostics.inputQueueMaxSchedulingDelayMs = 0;
+    this.diagnostics.mouseAdaptiveFlushActive = false;
+    this.diagnostics.mousePacketsPerSecond = 0;
+    this.diagnostics.mouseResidualMagnitude = 0;
+    this.diagnostics.partiallyReliableInputOpen = true;
+    this.diagnostics.mouseMoveTransport = this.canSendInputTypePartiallyReliable(INPUT_MOUSE_REL)
+      ? "partially_reliable"
+      : "reliable";
+    this.emitStats();
+    this.inputPaused = false;
+    this.windowStateInputPaused = false;
+
+    if (this.nativeElectronInputBridge) {
+      // Native mode never runs handleOffer() in the renderer, so input listeners
+      // were never installed. Re-attach capture and forward via sendNativeInput.
+      // Defer one frame so the StreamView native-hole DOM is painted and focusable.
+      this.domInputController.install(this.options.videoElement);
+      this.gamepadController.start();
+      const video = this.options.videoElement;
+      const focusTarget = (video.parentElement as HTMLElement | null) ?? video;
+      requestAnimationFrame(() => {
+        try {
+          focusTarget.focus({ preventScroll: true });
+        } catch {
+          focusTarget.focus();
+        }
+        // Kick pointer lock so relative mouse works immediately in internal mode.
+        void this.domInputController.requestPointerLockCompat(focusTarget, { unadjustedMovement: true }).catch(() => {
+          void this.domInputController.requestPointerLockCompat(focusTarget).catch(() => {});
+        });
+      });
+      this.log(
+        `Native internal input bridge active (protocol v${nativeProtocolVersion}); Electron keyboard/mouse/gamepad → IPC → streamer.`,
+      );
+    } else {
+      this.detachInputCapture();
+      // Overlay Meta/Home detection only; gamepad state is owned by the floating window.
+      this.gamepadController.start();
+      this.log(
+        `Native external-window input active (protocol v${nativeProtocolVersion}); OS capture handled by streamer, Electron overlay shortcuts only.`,
+      );
+    }
+  }
+
+  public setNativeInputProtocolVersion(protocolVersion: number): void {
+    const version = GfnWebRtcClient.normalizeInputProtocolVersion(protocolVersion);
+    if (this.inputProtocolVersion === version) {
+      return;
+    }
+
+    this.inputProtocolVersion = version;
+    this.inputEncoder.setProtocolVersion(version);
+    this.gamepadController.resetProtocolState();
+    this.log(`Native input protocol updated to v${version}`);
+
+  }
+
   private async waitForIceGathering(pc: RTCPeerConnection, timeoutMs: number): Promise<string> {
     if (pc.iceGatheringState === "complete" && pc.localDescription?.sdp) {
       return pc.localDescription.sdp;
@@ -1646,7 +1771,22 @@ export class GfnWebRtcClient {
     this.sendReliable(packet);
   }
 
+  private sendNativeInput(payload: Uint8Array, partiallyReliable: boolean): void {
+    const safePayload = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
+      ? payload
+      : payload.slice();
+    window.openNow.sendNativeInput({
+      payload: safePayload,
+      partiallyReliable,
+    });
+  }
+
   public sendReliable(payload: Uint8Array): void {
+    if (this.nativeInputActive) {
+      this.sendNativeInput(payload, false);
+      return;
+    }
+
     if (this.reliableInputChannel?.readyState === "open") {
       const view = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
         ? payload
@@ -2162,7 +2302,8 @@ export class GfnWebRtcClient {
       codec: effectiveCodec,
       colorQuality: settings.colorQuality,
       credentials,
-      dynamicSplitEncodeUpdatesEnabled: true,
+      dynamicSplitEncodeUpdatesEnabled:
+        settings.nativeTransitionDiagnostics?.disableDynamicSplitEncodeUpdates !== true,
     });
 
     await window.openNow.sendAnswer({

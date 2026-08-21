@@ -8,9 +8,6 @@ import {
   systemPreferences,
   session,
   protocol,
-  Tray,
-  Menu,
-  nativeImage,
 } from "electron";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -18,7 +15,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 // Keyboard shortcuts reference (matching Rust implementation):
 // Screenshot keybind - configurable, handled in renderer
-// F3  - Toggle stats overlay (handled in renderer)
+// Ctrl+N - Cycle stats overlay (handled in renderer)
 // Ctrl+Shift+Q - Stop streaming (handled in renderer)
 // F8  - Toggle mouse/pointer lock (handled in main process via IPC)
 
@@ -56,12 +53,13 @@ import {
 import {
   discordMonitorActivityDecision,
 } from "./discordPresence";
-import { lookupGameImageUrl, lookupGameTitle } from "./gameTitleCache";
 import {
   createAppUpdaterController,
   type AppUpdaterController,
 } from "./updater";
 import { registerAccountCatalogIpcHandlers } from "./ipc/accountCatalogHandlers";
+import { registerConsolePinIpcHandlers } from "./ipc/consolePinHandlers";
+import { createSafeStorageAdapter } from "./security/safeStorageAdapter";
 import { registerCoreIpcHandlers } from "./ipc/coreHandlers";
 import { registerSessionIpcHandlers } from "./ipc/sessionHandlers";
 import {
@@ -81,10 +79,19 @@ import { parseDirectLaunchArgs, type DirectLaunchArgs } from "@shared/directLaun
 import { getReleaseHighlightsPayload, shouldShowReleaseHighlights } from "./releaseHighlights";
 import { shutdownMainTelemetry, syncMainTelemetry } from "./telemetry/posthog";
 import { createMainWindow } from "./window/mainWindow";
-import type { StreamWindowOpenRequest } from "@shared/gfn";
+import { resolveAppInstanceProfile } from "./appInstance";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+const appInstanceProfile = resolveAppInstanceProfile(
+  process.argv,
+  app.getPath("userData"),
+);
+if (appInstanceProfile.isSecondary) {
+  app.setPath("userData", appInstanceProfile.userDataPath);
+  app.setPath("sessionData", appInstanceProfile.userDataPath);
+}
 
 // Configure Chromium video, WebRTC, and input behavior before app.whenReady().
 
@@ -139,8 +146,19 @@ app.commandLine.appendSwitch("disable-renderer-backgrounding");
 app.commandLine.appendSwitch("disable-backgrounding-occluded-windows");
 // Remove getUserMedia FPS cap (not strictly needed for receive-only but avoids potential limits)
 app.commandLine.appendSwitch("max-gum-fps", "999");
+/*
+ * Catalog artwork is served with `Cache-Control: max-age=604800`, but a browsed
+ * store plus library is a few thousand images. Chromium's default disk cache is
+ * small enough that the catalog evicts itself, so every launch re-downloaded the
+ * same art. 512 MB comfortably holds a fully browsed catalog at the sizes the
+ * shell actually requests (see lib/consoleImageSizing.ts).
+ */
+app.commandLine.appendSwitch("disk-cache-size", String(512 * 1024 * 1024));
 if (!app.isPackaged && process.env.OPENNOW_REMOTE_DEBUG === "1") {
-  app.commandLine.appendSwitch("remote-debugging-port", "9222");
+  app.commandLine.appendSwitch(
+    "remote-debugging-port",
+    appInstanceProfile.isSecondary ? "9223" : "9222",
+  );
 }
 
 // file:// in &lt;video&gt; is blocked by Chromium for renderer pages; use a privileged custom scheme.
@@ -158,9 +176,6 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let mainWindow: BrowserWindow | null = null;
-let streamWindow: BrowserWindow | null = null;
-// Additive (v9): secondary "cloud client" stream window state. Stays null
-// and unused unless the renderer explicitly requests it.
 let rendererControlledFullscreen = false;
 let signalingCoordinator: SignalingCoordinator | null = null;
 let authService: AuthService;
@@ -168,9 +183,6 @@ let settingsManager: SettingsManager;
 let appUpdater: AppUpdaterController | null = null;
 const EXPLICIT_SHUTDOWN_FORCE_EXIT_DELAY_MS = 2000;
 let isShutdownRequested = false;
-let skipCloseChoicePrompt = false;
-let appTray: Tray | null = null;
-
 let isShutdownCleanupComplete = false;
 let isUpdaterInstallQuitInProgress = false;
 let explicitShutdownFallbackTimer: NodeJS.Timeout | null = null;
@@ -180,6 +192,8 @@ let pendingDirectLaunchRequest: DirectLaunchRequest | null = createDirectLaunchR
 // Runtime pointer-lock state (updated by renderer)
 let isPointerLockActiveRuntime = false;
 let pointerLockEscapeCaptureUntilMs = 0;
+let isStreamInputActiveRuntime = false;
+let nativeRawInputOwnsEscapeRuntime = false;
 
 function createDirectLaunchRequest(args: DirectLaunchArgs): DirectLaunchRequest {
   return {
@@ -379,12 +393,7 @@ class DiscordStatusMonitor {
         [1, 2, 3].includes(s.status),
       );
       const currentActivity = getCurrentActivity();
-      const decision = discordMonitorActivityDecision(
-        currentActivity,
-        activeSession ?? null,
-        lookupGameTitle,
-        lookupGameImageUrl,
-      );
+      const decision = discordMonitorActivityDecision(currentActivity, activeSession ?? null);
 
       if (decision.action === "set") {
         void setActivity({
@@ -414,13 +423,11 @@ function emitUpdaterStateToRenderer(state: AppUpdaterState): void {
 function createMainWindowDeps() {
   return {
     mainDir: __dirname,
+    windowTitle: appInstanceProfile.windowTitle,
     settingsManager,
     getMainWindow: () => mainWindow,
     setMainWindow: (window: BrowserWindow | null) => {
       mainWindow = window;
-      if (window) {
-        setupAppTray(window);
-      }
     },
     getRendererControlledFullscreen: () => rendererControlledFullscreen,
     setRendererControlledFullscreen: (value: boolean) => {
@@ -436,33 +443,15 @@ function createMainWindowDeps() {
     setPointerLockEscapeCaptureUntilMs: (value: number) => {
       pointerLockEscapeCaptureUntilMs = value;
     },
-    isQuittingFully: () => isShutdownRequested || skipCloseChoicePrompt,
-    setQuittingFully: (value: boolean) => {
-      skipCloseChoicePrompt = value;
+    getStreamInputActive: () => isStreamInputActiveRuntime,
+    setStreamInputActive: (active: boolean) => {
+      isStreamInputActiveRuntime = active;
     },
-    quitApp: () => {
-      requestAppShutdown({ reason: "close-choice-quit", forceExitFallback: true });
+    getNativeRawInputOwnsEscape: () => nativeRawInputOwnsEscapeRuntime,
+    setNativeRawInputOwnsEscape: (ownsEscape: boolean) => {
+      nativeRawInputOwnsEscapeRuntime = ownsEscape;
     },
-  };
-}
-
-// Additive (v9): deps for the secondary cloud-stream window module.
-function createStreamWindowDeps() {
-  return {
-    mainDir: __dirname,
-    getStreamWindow: () => streamWindow,
-    setStreamWindow: (window: BrowserWindow | null) => {
-      streamWindow = window;
-    },
-    getAllowEscapeToExitFullscreen: () => Boolean(settingsManager.getAll().allowEscapeToExitFullscreen),
-    getPointerLockActive: () => isPointerLockActiveRuntime,
-    getRendererControlledFullscreen: () => rendererControlledFullscreen,
-    getPointerLockEscapeCaptureUntilMs: () => pointerLockEscapeCaptureUntilMs,
-    notifyStreamWindowClosed: () => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(IPC_CHANNELS.STREAM_WINDOW_CLOSED);
-      }
-    },
+    isAppShutdownRequested: () => isShutdownRequested,
   };
 }
 
@@ -485,6 +474,11 @@ function registerIpcHandlers(): void {
     refreshScheduler,
   });
 
+  registerConsolePinIpcHandlers({
+    getConsoleProfiles: () => authService.getConsoleProfiles(),
+    isSavedAccount: (userId) => authService.getSavedAccounts().some((account) => account.userId === userId),
+  });
+
   registerSessionIpcHandlers({
     ipcMain,
     dialog,
@@ -498,6 +492,8 @@ function registerIpcHandlers(): void {
 
   signalingCoordinator = registerSignalingIpcHandlers({
     ipcMain,
+    mainDir: __dirname,
+    settingsManager,
     getMainWindow: () => mainWindow,
   });
 
@@ -523,10 +519,6 @@ function registerIpcHandlers(): void {
     discordMonitor,
     requestAppShutdown,
   });
-
-  // Additive (v9): secondary "cloud client" stream window. This handler is
-  // brand new and only runs when the renderer explicitly calls
-  // openStreamWindow(); it never fires as part of any existing flow.
 }
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
@@ -548,12 +540,17 @@ if (gotSingleInstanceLock) {
 app.whenReady().then(async () => {
   // Initialize log capture first to capture all console output
   initLogCapture("main");
+  if (appInstanceProfile.isSecondary) {
+    console.log(`[Main] Secondary instance profile: ${appInstanceProfile.userDataPath}`);
+  }
   initSessionProxyAuth();
 
   await cacheManager.initialize();
 
   authService = new AuthService(
     join(app.getPath("userData"), "auth-state.json"),
+    join(app.getPath("userData"), "console-profiles.json"),
+    createSafeStorageAdapter(),
   );
   await authService.initialize();
 
@@ -563,6 +560,9 @@ app.whenReady().then(async () => {
     onStateChanged: emitUpdaterStateToRenderer,
     automaticChecksEnabled: settingsManager.get("autoCheckForUpdates"),
     updateChannel: settingsManager.get("updateChannel"),
+    disabledReason: appInstanceProfile.isSecondary
+      ? "Updates are managed by the primary OpenNOW instance."
+      : undefined,
     onBeforeQuitAndInstall: () => {
       isUpdaterInstallQuitInProgress = true;
       clearExplicitShutdownFallback();
@@ -696,45 +696,6 @@ app.whenReady().then(async () => {
     }
   });
 });
-}
-
-
-
-
-// Tray icon: 1×1 white pixel PNG (valid minimal image for Windows tray)
-const TRAY_ICON_B64 =
-  'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAE7UlEQVR42u2WXYheVxWGn3ftfc53vr/MZGYyZiaTTNLWqikkjUV7EbUYUm9Mr2wRIQWlBgtSLAhSKNILf6CIF0HBm3jVokhvBKFVrEq1oUIlvQi0ldKfzGidmLT5MpnOz/nO2cuL801NIEioF4LMC/vi7HP2WS/rfddaG7awhS38j6EPfMpB47GYOtK/Z/bT/S/3ZuIhM2ewWJ1ZOr3y0wu/v/IMg2pdAvf/loBd9aE3Pxy/e9uR2x+e/vlNh7rTY9siuYwo4Rhry4mzpy+d/8tPzt83eHb5T5uEr4dwQwT8qgXsPD759bt+OPeLW2/vdFumMtUuT8hqg4rUyWz4kQNjY7N3jX3l3OLG4uoray9h1ydxQxlof7SYm/xM/77e3vxgXTK1/96xz8/ty8vhKjELZlEQZEREcJFZoK489Vph9dxS2Xvy+Ct3rPx55YwMPN0Igc1dM+06MfHYxx6cfGxiT0a7ZZgLVVSWiFEimBAiT0aQkKBFQAglpXZH1dNPLQ2eP/HmTFpLSWFEwq8jgawJLmue5x+afvyO7+14dGK2VVF78jKlVJNMREkECSTMRQBsdD66NQSCFJzh9pn22NnTg2fLhXLhfRl0PQ9cpXW2qzWx96vjP6sv14sXXl4bDpel7mTWbmJIJprAoyUJQ8ghw3CEAXKLmSm15sOXpg73j1bbzFfe3HiZ0hO6SgKLon+gPe+F9Ux4MZHtHkZ9KBqhGqa6uy8/eviR6fs7Y6GyCvOEhSQiwgQRI8MQ0FLAEQFhctwT3SInmnHp8jrP/fri31/49uLBjbfKdxqaCeJ4lt12cnfZmTXKdScKlMBlhODIRXfC8ARFW0zvycmCjdSGzI1ohgEtYrOrBHKCG9RKBqkdQtnuhc4Tp84tvvDNhZuvMWHoZ7kVCl43GllAdQUhiDohyUOqqccOFEc/d2r3LyemY0lteWSUgZEnCo/IwOWYgOREjBACqqCltD5Y9+LUw689EG/6xszJ7v7iSBBWrdXvUivlBVbVTqogz0VyTDXvKaXL1RBvT9otnX7Ea0Vz8FGNy/9tppRAAXBHCMOwGgynlvLxbpZmPtl7KK6/O3yjuGi991bScig0lQUbXrnkq3XtahewloyyrHx8rnVw/xfH7271DKsFGw61m6RrPCwg0QSVO5g3rTSBzMHAkBnO9p3ZXHz7iYsn36bxQDUYDkFYP2RBMCxdCkguz25uHdp5uHh+am9WMlSRmczMwBx/v9eO6tdtlA4hDw0RjV47eEWqM7i0VL4aMdh9YvrxvfdPfuuv3186Vnw4Ozb/hckHq+UhoQN5EfCUCLkYn8twVwyma4cSDt40IRychG2SSaDNcnNIldPJYrkw2Chee2bwXQEUe1r9zr7WrpWza6/H7dZtz+U7U2777vzB7NPbbwuk1VQGM2Po0bwpvUhT91FCNCZreURAlCEXmQJOIljTppU8tbO4XmV0nvzRG8+99OjfPvsfZ8G2O3sfv/WRHb+b/1Rn3GNNJwSyEMCd6CJXQDjCyYnkbrg7bctGmYEsRLxORMDM+MeFDf741D9/9eJ3Fu5lOZXaTKVMePJRS26GuCdozeS9iWNjX9vxieJ4qx9mhSAlw0UMIUluaehkmSUD8+TgSq0gahJVCtbN4cpq2lg5X59Z+MPgx+/85vJvqd0/4G1kC1vYwv8Z/gWhivQ5qBo3ewAAAABJRU5ErkJggg==';
-
-function setupAppTray(win: BrowserWindow): void {
-  if (appTray) return; // already created
-  try {
-    const iconBuf = Buffer.from(TRAY_ICON_B64, 'base64');
-    const icon = nativeImage.createFromBuffer(iconBuf);
-    appTray = new Tray(icon);
-    appTray.setToolTip('OpenNOW');
-    const menu = Menu.buildFromTemplate([
-      {
-        label: 'Mở OpenNOW',
-        click: () => {
-          if (!win.isDestroyed()) { win.show(); win.focus(); }
-        },
-      },
-      {
-        label: 'Thoát',
-        click: () => {
-          requestAppShutdown({ reason: 'tray-quit' });
-        },
-      },
-    ]);
-    appTray.setContextMenu(menu);
-    appTray.on('click', () => {
-      if (!win.isDestroyed()) { win.show(); win.focus(); }
-    });
-  } catch (err) {
-    // Tray creation failed (missing icon / unsupported platform) - silently skip
-    console.warn('[tray] setup failed:', err);
-    appTray = null;
-  }
 }
 
 app.on("window-all-closed", () => {

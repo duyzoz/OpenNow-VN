@@ -7,6 +7,7 @@
  */
 export * from "./stream";
 export * from "./keyboard";
+export * from "./nativeStreamer";
 export * from "./videoShader";
 export * from "./settings";
 export * from "./entitlements";
@@ -21,3 +22,4 @@ export * from "./api";
 export * from "./media";
 export * from "./printedWaste";
 export * from "./endpoints";
+export * from "./sdpValidation";

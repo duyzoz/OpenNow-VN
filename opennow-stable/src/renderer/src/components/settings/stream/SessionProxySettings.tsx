@@ -28,7 +28,7 @@ export function SessionProxySettings({
 
   return (
     <>
-      <div className="settings-row settings-row--column">
+      <div className="settings-row settings-row--toggle">
         <div className="settings-row-top settings-row-top--compact">
           <label
             className="settings-label settings-label--wrap"
@@ -86,9 +86,9 @@ export function SessionProxySettings({
         onClose={communityProxy.closePrompt}
         onExitComplete={communityProxy.handlePromptExit}
         motion="compact"
-        overlayClassName="community-proxy-warning"
-        backdropClassName="community-proxy-warning-backdrop"
-        panelClassName="community-proxy-warning-card"
+        overlayClassName="native-streamer-warning"
+        backdropClassName="native-streamer-warning-backdrop"
+        panelClassName="native-streamer-warning-card"
         ariaLabelledBy="zortos-community-proxy-title"
         ariaDescribedBy="zortos-community-proxy-copy"
         backdropLabel={t("app.actions.cancel")}
@@ -96,26 +96,26 @@ export function SessionProxySettings({
         closeOnBackdrop={!communityProxy.provisioning}
         closeOnEscape={!communityProxy.provisioning}
       >
-        <div className="community-proxy-warning-kicker">
+        <div className="native-streamer-warning-kicker">
           <Heart size={14} />
           {t("settings.video.zortosCommunityProxy.enablePromptKicker")}
         </div>
-        <h3 id="zortos-community-proxy-title" className="community-proxy-warning-title">
+        <h3 id="zortos-community-proxy-title" className="native-streamer-warning-title">
           {t("settings.video.zortosCommunityProxy.enablePromptTitle")}
         </h3>
-        <p id="zortos-community-proxy-copy" className="community-proxy-warning-text">
+        <p id="zortos-community-proxy-copy" className="native-streamer-warning-text">
           {t("settings.video.zortosCommunityProxy.enablePromptBody")}
         </p>
-        <p className="community-proxy-warning-text">
+        <p className="native-streamer-warning-text">
           {t("settings.video.zortosCommunityProxy.enablePromptCostHint")}
         </p>
         {communityProxy.error && (
           <p className="settings-community-proxy-error">{communityProxy.error}</p>
         )}
-        <div className="community-proxy-warning-actions">
+        <div className="native-streamer-warning-actions">
           <button
             type="button"
-            className="community-proxy-warning-btn community-proxy-warning-btn--primary community-proxy-warning-btn--with-icon"
+            className="native-streamer-warning-btn native-streamer-warning-btn--primary native-streamer-warning-btn--with-icon"
             onClick={communityProxy.openSponsors}
           >
             <Heart size={15} />
@@ -123,7 +123,7 @@ export function SessionProxySettings({
           </button>
           <button
             type="button"
-            className="community-proxy-warning-btn community-proxy-warning-btn--secondary"
+            className="native-streamer-warning-btn native-streamer-warning-btn--secondary"
             onClick={() => {
               void communityProxy.confirmPrompt();
             }}
@@ -135,7 +135,7 @@ export function SessionProxySettings({
               : t("settings.video.zortosCommunityProxy.enablePromptContinue")}
           </button>
         </div>
-        <div className="community-proxy-warning-hint">
+        <div className="native-streamer-warning-hint">
           <kbd>Esc</kbd> {t("settings.video.zortosCommunityProxy.enablePromptEsc")}
         </div>
       </ModalSurface>

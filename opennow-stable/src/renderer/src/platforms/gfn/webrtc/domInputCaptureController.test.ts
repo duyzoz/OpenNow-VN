@@ -127,6 +127,8 @@ function installMouseHarness(options: {
       inputEncoder: new InputEncoder(),
       isInputReady: () => true,
       isInputBlocked: () => false,
+      isNativeInputActive: () => false,
+      isNativeElectronInputBridge: () => false,
       shouldAutoFullscreen: () => false,
       getCurrentResolution: () => options.resolution,
       getKeyboardLayout: () => undefined,

@@ -49,6 +49,8 @@ interface GamepadControllerDependencies {
   inputEncoder: InputEncoder;
   isInputReady: () => boolean;
   isInputPaused: () => boolean;
+  isNativeInputActive: () => boolean;
+  isNativeElectronInputBridge: () => boolean;
   isReliableChannelOpen: () => boolean;
   canSendPartiallyReliableGamepad: (controllerId: number) => boolean;
   sendPartiallyReliable: (payload: Uint8Array) => void;
@@ -276,9 +278,12 @@ export class GamepadController {
           this.dependencies.onConnectedGamepadsChanged(this.connectedGamepads.size, true);
         }
 
-        // Read and encode gamepad state for the WebRTC input channels.
+        // Read and encode gamepad state.
+        // Skip when blocked, overlay chord preempts, or external native window owns pads.
+        // Internal native mode still forwards gamepads through the Electron bridge.
         if (
           streamInputBlocked
+          || (this.dependencies.isNativeInputActive() && !this.dependencies.isNativeElectronInputBridge())
           || overlayShortcutGate.preemptInput
         ) {
           continue;

@@ -17,7 +17,7 @@ export function StreamTitleBar({
 }): JSX.Element | null {
   const hasResolution = useStreamDiagnosticsSelector(
     diagnosticsStore,
-    (stats) => stats.resolution !== "",
+    (stats) => stats.nativeRendererActive || stats.resolution !== "",
   );
 
   if (!hasResolution || !showHints) {

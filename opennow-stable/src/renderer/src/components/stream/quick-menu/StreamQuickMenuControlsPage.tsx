@@ -5,18 +5,18 @@ import type { StreamDiagnosticsStore } from "../../../utils/streamDiagnosticsSto
 import { SidebarMicMutedBadge } from "../StreamEmptyStates";
 
 const MICROPHONE_MODES = [
-  { value: "disabled" as MicrophoneMode, label: "Tắt", description: "Không sử dụng micrô" },
-  { value: "push-to-talk" as MicrophoneMode, label: "Nhấn để nói", description: "Giữ phím để nói" },
-  { value: "voice-activity" as MicrophoneMode, label: "Nhận diện giọng nói", description: "Luôn lắng nghe" },
+  { value: "disabled" as MicrophoneMode, label: "Disabled", description: "No microphone input" },
+  { value: "push-to-talk" as MicrophoneMode, label: "Push-to-Talk", description: "Hold a key to talk" },
+  { value: "voice-activity" as MicrophoneMode, label: "Voice Activity", description: "Always listen" },
 ];
 
 const VIDEO_FILTER_CONTROLS = [
-  { key: "sharpen", label: "Độ nét", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%`, hint: "Tăng độ nét thích ứng để giảm mờ do nén luồng." },
-  { key: "saturation", label: "Độ bão hòa", min: 0, max: 200, neutral: 100, format: (value: number) => `${value}%` },
-  { key: "contrast", label: "Độ tương phản", min: 50, max: 150, neutral: 100, format: (value: number) => `${value}%` },
-  { key: "brightness", label: "Độ sáng", min: 50, max: 150, neutral: 100, format: (value: number) => `${value}%` },
-  { key: "vibrance", label: "Màu rực", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%`, hint: "Tăng màu dịu mà không làm quá bão hòa." },
-  { key: "filmGrain", label: "Hạt phim", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%` },
+  { key: "sharpen", label: "Sharpen", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%`, hint: "Contrast-adaptive sharpening. Counters stream compression blur." },
+  { key: "saturation", label: "Saturation", min: 0, max: 200, neutral: 100, format: (value: number) => `${value}%` },
+  { key: "contrast", label: "Contrast", min: 50, max: 150, neutral: 100, format: (value: number) => `${value}%` },
+  { key: "brightness", label: "Brightness", min: 50, max: 150, neutral: 100, format: (value: number) => `${value}%` },
+  { key: "vibrance", label: "Vibrance", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%`, hint: "Boosts muted colors without oversaturating." },
+  { key: "filmGrain", label: "Film Grain", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%` },
 ] as const;
 
 interface StreamQuickMenuControlsPageProps {
@@ -24,6 +24,7 @@ interface StreamQuickMenuControlsPageProps {
   onMouseSensitivityChange: (value: number) => void;
   mouseAcceleration: number;
   onMouseAccelerationChange: (value: number) => void;
+  gstreamerEnabled: boolean;
   videoShader: VideoShaderSettings;
   onVideoShaderChange: (value: VideoShaderSettings) => void;
   microphoneMode: MicrophoneMode;
@@ -38,6 +39,7 @@ export function StreamQuickMenuControlsPage({
   onMouseSensitivityChange,
   mouseAcceleration,
   onMouseAccelerationChange,
+  gstreamerEnabled,
   videoShader,
   onVideoShaderChange,
   microphoneMode,
@@ -50,18 +52,18 @@ export function StreamQuickMenuControlsPage({
     <div className="sidebar-page" role="tabpanel">
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Tùy chỉnh chuột</span>
-          <span className="sidebar-section-sub">Tinh chỉnh chuyển động con trỏ.</span>
+          <span>Mouse Preferences</span>
+          <span className="sidebar-section-sub">Fine-tune cursor movement.</span>
         </div>
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Độ nhạy chuột</span>
+            <span className="sidebar-label">Mouse Sensitivity</span>
             <span className="settings-value-badge">{mouseSensitivity.toFixed(2)}x</span>
           </div>
           <input
             type="range"
             name="mouse-sensitivity"
-            aria-label="Độ nhạy chuột"
+            aria-label="Mouse sensitivity"
             className="settings-slider"
             min={0.1}
             max={4}
@@ -74,17 +76,17 @@ export function StreamQuickMenuControlsPage({
               }
             }}
           />
-          <span className="sidebar-hint">Hệ số áp dụng cho chuyển động chuột (1,00 = mặc định).</span>
+          <span className="sidebar-hint">Multiplier applied to mouse movement (1.00 = default).</span>
         </div>
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Tăng tốc chuột</span>
+            <span className="sidebar-label">Mouse Accelerator</span>
             <span className="settings-value-badge">{Math.round(mouseAcceleration)}%</span>
           </div>
           <input
             type="range"
             name="mouse-acceleration"
-            aria-label="Tăng tốc chuột"
+            aria-label="Mouse accelerator"
             className="settings-slider"
             min={1}
             max={150}
@@ -97,24 +99,27 @@ export function StreamQuickMenuControlsPage({
               }
             }}
           />
-          <span className="sidebar-hint">Mức tăng tốc xoay động (1% = gần tắt, 150% = mạnh nhất).</span>
+          <span className="sidebar-hint">Dynamic turn boost strength (1% = off-like, 150% = strongest).</span>
         </div>
       </section>
       <div className="sidebar-separator" aria-hidden="true" />
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Bộ lọc hình ảnh</span>
-          <span className="sidebar-section-sub">Shader GPU áp dụng cho luồng phát.</span>
+          <span>Video Filters</span>
+          <span className="sidebar-section-sub">GPU shaders applied to the stream.</span>
         </div>
-        <>
+        {gstreamerEnabled ? (
+          <span className="sidebar-hint">Video filters are unavailable while the native streamer renders the video.</span>
+        ) : (
+          <>
             <div className="sidebar-row sidebar-row--aligned">
-              <span className="sidebar-label">Bật bộ lọc</span>
-              <label className="sidebar-mini-toggle" title="Bật bộ lọc hậu kỳ GPU" tabIndex={0}>
+              <span className="sidebar-label">Enable Filters</span>
+              <label className="sidebar-mini-toggle" title="Enable GPU post-processing filters" tabIndex={0}>
                 <input
                   type="checkbox"
                   name="enable-video-filters"
                   checked={videoShader.enabled}
-                  aria-label="Bật bộ lọc hình ảnh"
+                  aria-label="Enable video filters"
                   onChange={(event) => onVideoShaderChange({ ...videoShader, enabled: event.target.checked })}
                 />
                 <span className="sidebar-mini-toggle-track" />
@@ -152,28 +157,29 @@ export function StreamQuickMenuControlsPage({
                   </div>
                 ))}
                 <div className="sidebar-row sidebar-row--aligned">
-                  <span className="sidebar-label">Đặt lại bộ lọc</span>
+                  <span className="sidebar-label">Reset Filters</span>
                   <button
                     type="button"
                     className="sidebar-button"
                     onClick={() => onVideoShaderChange({ ...DEFAULT_VIDEO_SHADER_SETTINGS, enabled: true })}
                   >
-                    <span>Đặt lại</span>
+                    <span>Reset</span>
                   </button>
                 </div>
               </>
             )}
-        </>
+          </>
+        )}
       </section>
       <div className="sidebar-separator" aria-hidden="true" />
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Âm thanh</span>
-          <span className="sidebar-section-sub">Cấu hình micrô.</span>
+          <span>Audio</span>
+          <span className="sidebar-section-sub">Configure microphone handling.</span>
         </div>
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Chế độ micrô</span>
+            <span className="sidebar-label">Microphone Mode</span>
             <span className="settings-value-badge">
               {MICROPHONE_MODES.find((option) => option.value === microphoneMode)?.label ?? microphoneMode}
             </span>
@@ -197,15 +203,15 @@ export function StreamQuickMenuControlsPage({
         {microphoneMode !== "disabled" && (
           <div className="sidebar-row sidebar-row--column">
             <div className="sidebar-row-top">
-              <span className="sidebar-label">Mức gửi</span>
+              <span className="sidebar-label">Send level</span>
               <SidebarMicMutedBadge diagnosticsStore={diagnosticsStore} micTrack={micTrack} />
             </div>
             <canvas
               ref={micMeterRef}
               className="mic-meter-canvas"
-              aria-label="Mức gửi micrô (người khác nghe thấy)"
+              aria-label="Microphone send level (what others hear)"
             />
-            {!micTrack && <span className="sidebar-hint">Micrô chưa hoạt động — hãy kiểm tra chế độ và quyền truy cập.</span>}
+            {!micTrack && <span className="sidebar-hint">Mic not active — check mode and permissions.</span>}
           </div>
         )}
       </section>

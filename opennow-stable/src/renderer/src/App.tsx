@@ -45,7 +45,13 @@ import { useQueueAdRuntime } from "./hooks/useQueueAdRuntime";
 import { usePlaytime } from "./utils/usePlaytime";
 import { createStreamDiagnosticsStore, useStreamDiagnosticsSelector } from "./utils/streamDiagnosticsStore";
 import type { StreamStatus } from "./lib/appTypes";
-import { loadStoredCodecResults, saveStoredCodecResults, testCodecSupport, type CodecTestResult } from "./lib/codecDiagnostics";
+import {
+  loadStoredCodecResults,
+  resolveEffectiveCodec,
+  saveStoredCodecResults,
+  testCodecSupport,
+  type CodecTestResult,
+} from "./lib/codecDiagnostics";
 import {
   createSyntheticDirectLaunchGame,
   findDirectLaunchTarget,
@@ -733,7 +739,7 @@ export function App(): JSX.Element {
       resolution: streamProfile.resolution,
       fps: streamProfile.fps,
       maxBitrateMbps: settings.maxBitrateMbps,
-      codec: settings.codec,
+      codec: resolveEffectiveCodec(settings.codec, codecResults),
       colorQuality: settings.colorQuality,
       keyboardLayout: settings.keyboardLayout,
       gameLanguage: settings.gameLanguage,
@@ -747,6 +753,7 @@ export function App(): JSX.Element {
     };
   }, [
     settings.codec,
+    codecResults,
     settings.colorQuality,
     settings.controllerMode,
     directLaunchConsoleMode,
@@ -842,6 +849,7 @@ export function App(): JSX.Element {
     setQueuePosition,
     setSession,
     subscriptionInfo,
+
     t,
   });
 
@@ -934,6 +942,24 @@ export function App(): JSX.Element {
     });
     return true;
   }, [authSession]);
+
+  const warmNativeStreamerForLaunch = useCallback((): void => {
+    if (settings.streamClientMode !== "native") {
+      return;
+    }
+
+    void window.openNow.getNativeStreamerStatus()
+      .then((status) => {
+        if (status.detected) {
+          console.log("[NativeStreamer] Launch warm-up ready:", status.message);
+        } else {
+          console.warn("[NativeStreamer] Launch warm-up did not detect native streamer:", status.message);
+        }
+      })
+      .catch((error) => {
+        console.warn("[NativeStreamer] Launch warm-up failed:", error);
+      });
+  }, [settings.streamClientMode]);
 
   useEffect(() => {
     if (!authSession || streamStatus !== "idle") {
@@ -1746,7 +1772,7 @@ export function App(): JSX.Element {
     resolveSubscriptionInfoForLaunch,
   ]);
 
-  const handleExpectedSessionClose = useCallback((reason: string): void => {
+  const handleExpectedNativeSessionClose = useCallback((reason: string): void => {
     console.log("[Recovery] Treating signaling close as ended session:", reason);
     const activeGameId = streamingGameRef.current?.id;
     if (activeGameId) {
@@ -1764,7 +1790,7 @@ export function App(): JSX.Element {
     runtime: streamRuntime,
     attemptSessionRecovery,
     diagnosticsStore,
-    handleExpectedSessionClose,
+    handleExpectedNativeSessionClose,
     markDiscordStreamStarted,
     refreshNavbarActiveSession,
     resetLaunchRuntime,
@@ -1793,9 +1819,11 @@ export function App(): JSX.Element {
     resolveSubscriptionInfoForLaunch,
     settings,
     startPlaytimeSession,
+    stopSessionByTarget,
     subscriptionInfo,
     t,
     variantByGameId,
+    warmNativeStreamerForLaunch,
   });
 
   useEffect(() => {
@@ -2672,6 +2700,7 @@ export function App(): JSX.Element {
                   playtimeData={playtime}
                   isCatalogLoading={isLoadingCatalog}
                   onPlayGame={handleInitiatePlay}
+                  onBuyGame={handleBuyGame}
                   selectedGameId={selectedGameId}
                   onSelectGame={setSelectedGameId}
                   selectedVariantByGameId={variantByGameId}
@@ -2765,6 +2794,9 @@ export function App(): JSX.Element {
               streamRevealComplete={streamRevealComplete}
               isStreaming={isStreaming}
               recordingBitrateMbps={settings.recordingBitrateMbps}
+              recordingResolution={settings.recordingResolution}
+              recordingFps={settings.recordingFps}
+              statsOverlayPosition={settings.statsOverlayPosition}
               gameTitle={streamingGame?.title ?? t("app.labels.game")}
               platformStore={streamingStore ?? undefined}
               onToggleFullscreen={() => {
@@ -2789,6 +2821,15 @@ export function App(): JSX.Element {
               }}
               onRecordingShortcutChange={(value) => {
                 void updateSetting("shortcutToggleRecording", value);
+              }}
+              onRecordingResolutionChange={(value) => {
+                void updateSetting("recordingResolution", value);
+              }}
+              onRecordingFpsChange={(value) => {
+                void updateSetting("recordingFps", value);
+              }}
+              onRecordingBitrateMbpsChange={(value) => {
+                void updateSetting("recordingBitrateMbps", value);
               }}
               onShowSessionTimeRemainingInStatsOverlayChange={(value) => {
                 void updateSetting("showSessionTimeRemainingInStatsOverlay", value);

@@ -7,10 +7,14 @@ import { useTranslation } from "../../i18n";
 import { MotionSpinner } from "../MotionSpinner";
 
 export function hasVisibleStreamVideo(stats: {
+  nativeRendererActive: boolean;
   framesDecoded: number;
   resolution: string;
 }): boolean {
-  return stats.framesDecoded > 0 || stats.resolution !== "";
+  if (stats.nativeRendererActive) {
+    return true;
+  }
+  return stats.framesDecoded > 0;
 }
 
 export function StreamEmptyState({
@@ -51,7 +55,7 @@ export function StreamWaitingForVideo({
   const waitingForFirstFrame = useStreamDiagnosticsSelector(
     diagnosticsStore,
     (stats) => {
-      if (stats.framesDecoded > 0) {
+      if (stats.nativeRendererActive || stats.framesDecoded > 0) {
         return false;
       }
       return stats.connectionState === "connected" || stats.resolution !== "";
@@ -108,7 +112,7 @@ export function VideoFocusOnReady({
 }): null {
   const shouldFocusVideo = useStreamDiagnosticsSelector(
     diagnosticsStore,
-    (stats) => stats.resolution !== "",
+    (stats) => stats.resolution !== "" && !stats.nativeRendererActive,
   );
 
   useEffect(() => {

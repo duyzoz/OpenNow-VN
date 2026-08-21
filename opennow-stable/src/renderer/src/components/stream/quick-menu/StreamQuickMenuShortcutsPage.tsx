@@ -225,17 +225,17 @@ export function StreamQuickMenuShortcutsPage({
     <div className="sidebar-page" role="tabpanel">
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Gán phím tắt</span>
-          <span className="sidebar-section-sub">Chỉnh phím chụp ảnh tại đây</span>
+          <span>Shortcut Bindings</span>
+          <span className="sidebar-section-sub">Edit screenshot keybind here</span>
         </div>
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Phím chụp ảnh</span>
+            <span className="sidebar-label">Screenshot Shortcut</span>
           </div>
           <input
             type="text"
             name="screenshot-shortcut"
-            aria-label="Phím tắt chụp ảnh"
+            aria-label="Screenshot shortcut"
             className={`settings-text-input settings-shortcut-input sidebar-shortcut-input ${screenshotShortcutError ? "error" : ""}`}
             value={screenshotShortcutInput}
             readOnly
@@ -259,8 +259,8 @@ export function StreamQuickMenuShortcutsPage({
               }
             }}
             onKeyDown={handleScreenshotShortcutKeyDown}
-            placeholder="Bấm vào rồi nhấn một phím"
-            title="Chọn ô rồi nhấn tổ hợp phím muốn gán"
+            placeholder="Click, then press a key"
+            title="Focus and press the key combination to bind"
             spellCheck={false}
           />
         </div>
@@ -269,12 +269,12 @@ export function StreamQuickMenuShortcutsPage({
         )}
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Phím quay video</span>
+            <span className="sidebar-label">Recording Shortcut</span>
           </div>
           <input
             type="text"
             name="recording-shortcut"
-            aria-label="Phím tắt quay video"
+            aria-label="Recording shortcut"
             className={`settings-text-input settings-shortcut-input sidebar-shortcut-input ${recordingShortcutError ? "error" : ""}`}
             value={recordingShortcutInput}
             readOnly
@@ -298,8 +298,8 @@ export function StreamQuickMenuShortcutsPage({
               }
             }}
             onKeyDown={handleRecordingShortcutKeyDown}
-            placeholder="Bấm vào rồi nhấn một phím"
-            title="Chọn ô rồi nhấn tổ hợp phím muốn gán"
+            placeholder="Click, then press a key"
+            title="Focus and press the key combination to bind"
             spellCheck={false}
           />
         </div>
@@ -307,25 +307,25 @@ export function StreamQuickMenuShortcutsPage({
           <span className="sidebar-hint sidebar-hint--error">{recordingShortcutError}</span>
         )}
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Bật/tắt thông số</span>
+          <span className="sidebar-label">Toggle Stats</span>
           <span className="settings-value-badge">{shortcuts.toggleStats}</span>
         </div>
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Khóa chuột</span>
+          <span className="sidebar-label">Mouse Lock</span>
           <span className="settings-value-badge">{shortcuts.togglePointerLock}</span>
         </div>
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Dừng luồng phát</span>
+          <span className="sidebar-label">Stop Stream</span>
           <span className="settings-value-badge">{shortcuts.stopStream}</span>
         </div>
         {shortcuts.toggleMicrophone && (
           <div className="sidebar-row sidebar-row--aligned">
-            <span className="sidebar-label">Bật/tắt micrô</span>
+            <span className="sidebar-label">Toggle Microphone</span>
             <span className="settings-value-badge">{shortcuts.toggleMicrophone}</span>
           </div>
         )}
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Bật/tắt menu bên</span>
+          <span className="sidebar-label">Toggle Sidebar</span>
           <span className="sidebar-shortcut-stack">
             <span className="settings-value-badge">{sidebarToggleShortcutDisplay}</span>
             <span className="settings-value-badge">{controllerSidebarShortcutDisplay}</span>

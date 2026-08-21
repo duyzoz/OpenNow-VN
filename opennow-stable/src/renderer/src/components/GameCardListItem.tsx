@@ -11,6 +11,7 @@ export interface CatalogCardActions {
   onPlayGame: (game: GameInfo) => void;
   onSelectGame: (gameId: string) => void;
   onSelectGameVariant: (gameId: string, variantId: string) => void;
+  onOpenStore?: (game: GameInfo, variantId?: string) => void;
   onResumeGame?: () => void;
   onTerminateGame?: () => void;
   onShowGameInfo?: (game: GameInfo) => void;
@@ -84,6 +85,10 @@ export const GameCardListItem = memo(function GameCardListItem({
     actionsRef.current?.onSelectGameVariant(game.id, variantId);
   }, [actionsRef, game.id]);
 
+  const handleOpenStore = useCallback((variantId: string) => {
+    actionsRef.current?.onOpenStore?.(game, variantId);
+  }, [actionsRef, game, game.id]);
+
   const isActiveGame = (actionsRef.current?.activeSessionAppIds ?? []).some(
     (id) => game.variants.some((v) => String(v.id) === String(id)) || String(game.launchAppId) === String(id),
   );
@@ -96,6 +101,7 @@ export const GameCardListItem = memo(function GameCardListItem({
       onSelect={handleSelect}
       onPlay={handlePlay}
       onSelectStore={handleSelectStore}
+      onOpenStore={handleOpenStore}
       isActiveGame={isActiveGame}
       isFavorite={favState}
       onResume={handleResume}

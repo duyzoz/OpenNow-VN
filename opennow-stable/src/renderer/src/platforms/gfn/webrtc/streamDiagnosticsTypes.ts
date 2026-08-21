@@ -1,3 +1,4 @@
+import type { NativeQueueMode } from "@shared/gfn";
 import type { MicState } from "../microphoneManager";
 
 export interface StreamDiagnostics {
@@ -70,6 +71,15 @@ export interface StreamDiagnostics {
   decoderPressureActive: boolean;
   decoderRecoveryAttempts: number;
   decoderRecoveryAction: string;
+  nativeRequestedFps?: number;
+  nativeCapsFramerate?: string;
+  nativeQueueMode?: NativeQueueMode;
+  nativeFramesPendingToPresent?: number;
+  nativePartialFlushCount?: number;
+  nativeCompleteFlushCount?: number;
+  nativeTransitionSummary?: string;
+  nativeRequestedStreamingFeaturesSummary?: string;
+  nativeFinalizedStreamingFeaturesSummary?: string;
 
   // Microphone state
   micState: MicState;

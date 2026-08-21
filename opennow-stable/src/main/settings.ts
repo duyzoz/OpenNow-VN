@@ -2,6 +2,7 @@ import { app } from "electron";
 import { join } from "node:path";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import type {
+  NativeVideoBackendPreference,
   AppAccentColor,
   AppTheme,
   ErrorReportingConsent,
@@ -11,10 +12,18 @@ import {
   createDefaultSettings,
   createPlatformShortcutDefaults,
   SHORTCUT_SETTING_KEYS,
+  normalizeNativeExternalRendererForPlatform,
+  normalizeFallbackCodecPreference,
+  normalizeStreamClientModeForPlatform,
   normalizeStreamPreferences,
+  normalizeTransportModeForPlatform,
   normalizeVideoShaderSettings,
   normalizeUpdateChannel,
+  normalizeRecordingBitrateMbps,
+  normalizeRecordingFps,
+  normalizeRecordingResolution,
 } from "@shared/gfn";
+import type { StatsOverlayPosition } from "@shared/gfn";
 
 export type { Settings } from "@shared/gfn";
 
@@ -25,8 +34,24 @@ const defaultMicShortcut = DEFAULT_SHORTCUTS.shortcutToggleMicrophone;
 const LEGACY_STOP_SHORTCUTS = new Set(["META+SHIFT+Q", "CMD+SHIFT+Q"]);
 const LEGACY_ANTI_AFK_SHORTCUTS = new Set(["META+SHIFT+F10", "CMD+SHIFT+F10", "CTRL+SHIFT+F10"]);
 
+const NATIVE_VIDEO_BACKEND_PREFERENCES = new Set<NativeVideoBackendPreference>([
+  "auto",
+  "d3d11",
+  "d3d12",
+  "nvdec",
+  "vaapi",
+  "v4l2",
+  "vulkan",
+  "software",
+]);
 const APP_ACCENT_COLORS = new Set<AppAccentColor>(["green", "blue", "violet", "amber", "rose"]);
 const APP_THEMES = new Set<AppTheme>(["light", "dark", "auto"]);
+
+function normalizeNativeVideoBackendPreference(raw: unknown): NativeVideoBackendPreference {
+  return NATIVE_VIDEO_BACKEND_PREFERENCES.has(raw as NativeVideoBackendPreference)
+    ? (raw as NativeVideoBackendPreference)
+    : "auto";
+}
 
 function normalizeAppAccentColor(raw: unknown): AppAccentColor {
   return APP_ACCENT_COLORS.has(raw as AppAccentColor) ? (raw as AppAccentColor) : "green";
@@ -35,18 +60,6 @@ function normalizeAppAccentColor(raw: unknown): AppAccentColor {
 function normalizeAppTheme(raw: unknown): AppTheme {
   return APP_THEMES.has(raw as AppTheme) ? (raw as AppTheme) : "auto";
 }
-
-function normalizeRecordingBitrateMbps(raw: unknown): number | null {
-  if (raw === null || raw === undefined) {
-    return null;
-  }
-  const value = Number(raw);
-  if (!Number.isFinite(value)) {
-    return null;
-  }
-  return Math.max(1, Math.min(200, Math.round(value)));
-}
-
 
 const ERROR_REPORTING_CONSENTS = new Set<ErrorReportingConsent>(["unset", "granted", "denied"]);
 
@@ -65,7 +78,7 @@ type ShortcutSettingKey = typeof SHORTCUT_SETTING_KEYS[number];
 const SIDEBAR_RESERVED_SHORTCUTS_NON_MAC = new Set(["CTRL+G", "CTRL+SHIFT+G"]);
 const SIDEBAR_RESERVED_SHORTCUTS_MAC = new Set(["META+G", "CMD+G", "COMMAND+G"]);
 const SIDEBAR_RESERVED_SHORTCUT_FALLBACKS: Record<ShortcutSettingKey, readonly string[]> = {
-  shortcutToggleStats: ["Ctrl+N", "F3", "Ctrl+Shift+F3", "Ctrl+Alt+F3"],
+  shortcutToggleStats: ["F3", "Ctrl+Shift+F3", "Ctrl+Alt+F3"],
   shortcutTogglePointerLock: ["F8", "Ctrl+Shift+F8", "Ctrl+Alt+F8"],
   shortcutToggleFullscreen: ["F10", "Ctrl+Shift+F10", "Ctrl+Alt+F10"],
   shortcutStopStream: [defaultStopShortcut, "Ctrl+Alt+Q", "Ctrl+Alt+Shift+Q"],
@@ -124,21 +137,12 @@ export class SettingsManager {
       }
 
       const content = readFileSync(this.settingsPath, "utf-8");
-      type PersistedSettings = Partial<Settings> & Record<string, unknown> & {
+      type PersistedSettings = Partial<Settings> & {
         sessionTimeRemainingDisplay?: unknown;
       };
       const parsed = JSON.parse(content) as PersistedSettings;
       const {
         sessionTimeRemainingDisplay: legacySessionTimeDisplay,
-        nativeStreamerBackend: _legacyNativeStreamerBackend,
-        nativeVideoBackend: _legacyNativeVideoBackend,
-        nativeStreamerExecutablePath: _legacyNativeStreamerExecutablePath,
-        nativeCloudGsyncMode: _legacyNativeCloudGsyncMode,
-        nativeD3dFullscreenMode: _legacyNativeD3dFullscreenMode,
-        nativeExternalRenderer: _legacyNativeExternalRenderer,
-        transportMode: _legacyTransportMode,
-        showNativeStreamerStats: _legacyShowNativeStreamerStats,
-        nativeTransitionDiagnostics: legacyNativeTransitionDiagnostics,
         ...parsedSettings
       } = parsed;
 
@@ -146,16 +150,9 @@ export class SettingsManager {
       const merged: Settings = {
         ...createDefaultSettings(process.platform),
         ...parsedSettings,
-        ...(parsedSettings.streamTransitionDiagnostics === undefined
-          && legacyNativeTransitionDiagnostics !== undefined
-          ? { streamTransitionDiagnostics: legacyNativeTransitionDiagnostics as Settings["streamTransitionDiagnostics"] }
-          : {}),
       };
 
       let migrated = this.migrateLegacyShortcutDefaults(merged);
-      if (legacyNativeTransitionDiagnostics !== undefined && parsedSettings.streamTransitionDiagnostics === undefined) {
-        migrated = true;
-      }
       migrated = this.enforceCompatibility(merged) || migrated;
 
       const accentColorBefore = merged.appAccentColor;
@@ -183,9 +180,24 @@ export class SettingsManager {
       }
 
       merged.mouseAcceleration = Math.max(1, Math.min(150, Math.round(merged.mouseAcceleration)));
+      const statsOverlayPositionBefore = merged.statsOverlayPosition;
+      merged.statsOverlayPosition = normalizeStatsOverlayPosition(merged.statsOverlayPosition);
+      if (merged.statsOverlayPosition !== statsOverlayPositionBefore) {
+        migrated = true;
+      }
       const recordingBitrateBefore = merged.recordingBitrateMbps;
       merged.recordingBitrateMbps = normalizeRecordingBitrateMbps(merged.recordingBitrateMbps);
       if (merged.recordingBitrateMbps !== recordingBitrateBefore) {
+        migrated = true;
+      }
+      const recordingResolutionBefore = merged.recordingResolution;
+      merged.recordingResolution = normalizeRecordingResolution(merged.recordingResolution);
+      if (merged.recordingResolution !== recordingResolutionBefore) {
+        migrated = true;
+      }
+      const recordingFpsBefore = merged.recordingFps;
+      merged.recordingFps = normalizeRecordingFps(merged.recordingFps);
+      if (merged.recordingFps !== recordingFpsBefore) {
         migrated = true;
       }
       if (migrated) {
@@ -213,12 +225,22 @@ export class SettingsManager {
       migrated = true;
     }
 
-    // Older builds persisted "native" here. WebRTC is now the only stream path.
-    if ((settings as Settings & { streamClientMode?: unknown }).streamClientMode !== "web") {
-      settings.streamClientMode = "web";
+    const fallbackCodec = normalizeFallbackCodecPreference(settings.fallbackCodec);
+    if (settings.fallbackCodec !== fallbackCodec) {
+      settings.fallbackCodec = fallbackCodec;
       migrated = true;
     }
 
+    const streamClientMode = normalizeStreamClientModeForPlatform(settings.streamClientMode, process.platform);
+    if (settings.streamClientMode !== streamClientMode) {
+      settings.streamClientMode = streamClientMode;
+      migrated = true;
+    }
+
+    if (settings.nativeStreamerBackend !== "gstreamer") {
+      settings.nativeStreamerBackend = "gstreamer";
+      migrated = true;
+    }
     const appAccentColor = normalizeAppAccentColor(settings.appAccentColor);
     if (settings.appAccentColor !== appAccentColor) {
       settings.appAccentColor = appAccentColor;
@@ -238,9 +260,54 @@ export class SettingsManager {
       settings.translucentUI = false;
       migrated = true;
     }
+    if (typeof settings.controllerModePromptDismissed !== "boolean") {
+      settings.controllerModePromptDismissed = false;
+      migrated = true;
+    }
+    if (typeof settings.showSessionReport !== "boolean") {
+      settings.showSessionReport = true;
+      migrated = true;
+    }
+    if (typeof settings.nativeExternalRenderer !== "boolean") {
+      settings.nativeExternalRenderer = false;
+      migrated = true;
+    }
+    const nativeExternalRenderer = normalizeNativeExternalRendererForPlatform(
+      settings.nativeExternalRenderer,
+      process.platform,
+    );
+    if (settings.nativeExternalRenderer !== nativeExternalRenderer) {
+      settings.nativeExternalRenderer = nativeExternalRenderer;
+      migrated = true;
+    }
+    const transportMode = normalizeTransportModeForPlatform(
+      settings.transportMode === "nvst" ? "nvst" : "webrtc",
+      process.platform,
+      settings.streamClientMode,
+    );
+    if (settings.transportMode !== transportMode) {
+      settings.transportMode = transportMode;
+      migrated = true;
+    }
+    const nativeVideoBackend = normalizeNativeVideoBackendPreference(settings.nativeVideoBackend);
+    if (settings.nativeVideoBackend !== nativeVideoBackend) {
+      settings.nativeVideoBackend = nativeVideoBackend;
+      migrated = true;
+    }
+
     const recordingBitrate = normalizeRecordingBitrateMbps(settings.recordingBitrateMbps);
     if (settings.recordingBitrateMbps !== recordingBitrate) {
       settings.recordingBitrateMbps = recordingBitrate;
+      migrated = true;
+    }
+    const recordingResolution = normalizeRecordingResolution(settings.recordingResolution);
+    if (settings.recordingResolution !== recordingResolution) {
+      settings.recordingResolution = recordingResolution;
+      migrated = true;
+    }
+    const recordingFps = normalizeRecordingFps(settings.recordingFps);
+    if (settings.recordingFps !== recordingFps) {
+      settings.recordingFps = recordingFps;
       migrated = true;
     }
 
@@ -374,6 +441,17 @@ export class SettingsManager {
     const defaults = createDefaultSettings(process.platform);
     this.enforceCompatibility(defaults);
     return defaults;
+  }
+}
+
+function normalizeStatsOverlayPosition(value: unknown): StatsOverlayPosition {
+  switch (value) {
+    case "bottom-right":
+    case "top-left":
+    case "top-right":
+      return value;
+    default:
+      return "bottom-left";
   }
 }
 

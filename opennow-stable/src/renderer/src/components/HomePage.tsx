@@ -143,6 +143,7 @@ export const HomePage = memo(function HomePage({
     onPlayGame,
     onSelectGame,
     onSelectGameVariant,
+    onOpenStore: onBuyGame ? (game, variantId) => onBuyGame(game, variantId) : undefined,
     onResumeGame,
     onTerminateGame,
     onShowGameInfo: setGameInfoGame,

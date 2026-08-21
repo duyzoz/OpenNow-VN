@@ -2,11 +2,16 @@ import type { CloudGsyncResolution } from "../cloudGsync";
 import type {
   AppLaunchMode,
   ColorQuality,
-  StreamTransitionDiagnostics,
+  NativeTransitionDiagnostics,
   StreamClientMode,
   StreamingFeatures,
   VideoCodec,
 } from "./stream";
+import type {
+  NativeStreamerBackendPreference,
+  NativeStreamerFeatureMode,
+  StreamTransportMode,
+} from "./nativeStreamer";
 import type { GameLanguage, KeyboardLayout } from "./keyboard";
 
 export type SessionConflictChoice = "resume" | "new" | "cancel";
@@ -26,14 +31,20 @@ export interface StreamSettings {
   enableL4S: boolean;
   /** Request Cloud G-Sync / Variable Refresh Rate on new sessions */
   enableCloudGsync: boolean;
-  /** Renderer-selected client path; WebRTC is the only supported stream transport. */
+  /** Renderer-selected client path; main uses this to apply native-only Cloud G-Sync gating. */
   clientMode?: StreamClientMode;
+  /** Selected native streamer backend; stub cannot support Cloud G-Sync presentation. */
+  nativeStreamerBackend?: NativeStreamerBackendPreference;
+  /** Native media transport; legacy NVST values normalize to WebRTC. */
+  transportMode?: StreamTransportMode;
+  /** Native-only override for Cloud G-Sync display detection. */
+  nativeCloudGsyncMode?: NativeStreamerFeatureMode;
   /** User's raw Cloud G-Sync preference before main-process capability resolution. */
   requestedCloudGsync?: boolean;
   /** Diagnostics from the main-process Cloud G-Sync resolver. */
   cloudGsyncResolution?: CloudGsyncResolution;
-  /** Hidden diagnostics for stream transition recovery and 240 FPS server-side stream changes. */
-  streamTransitionDiagnostics?: StreamTransitionDiagnostics;
+  /** Hidden diagnostics for native transition recovery and 240 FPS server-side stream changes. */
+  nativeTransitionDiagnostics?: NativeTransitionDiagnostics;
   /** Requested session app launch mode; "gamepadFriendly" asks NVIDIA to launch games big-picture style. */
   appLaunchMode?: AppLaunchMode;
 }
@@ -56,6 +67,7 @@ export interface SessionCreateRequest {
   existingSessionStrategy?: ExistingSessionStrategy;
   zone: string;
   settings: StreamSettings;
+  supportedCodecs?: readonly VideoCodec[];
   proxyUrl?: string;
 }
 
@@ -215,15 +227,17 @@ export interface SessionInfo {
   zone: string;
   streamingBaseUrl?: string;
   serverIp: string;
-  /** Optional server hostname/location exposed by some session responses. */
-  serverLocation?: string;
   signalingServer: string;
   signalingUrl: string;
+  /** CloudMatch-provided server location or zone hostname, when available. */
+  serverLocation?: string;
   gpuType?: string;
   /** Wire appLaunchMode the session runs with, kept session-stable for resumes */
   appLaunchMode?: number;
   /** Wire in-game settings persistence value the session was created with, kept session-stable for resumes */
   enablePersistingInGameSettings?: boolean;
+  /** Classic NVST RTSPS endpoints from CloudMatch usage=14 connections. */
+  rtspsEndpoints?: string[];
   iceServers: IceServer[];
   mediaConnectionInfo?: MediaConnectionInfo;
   negotiatedStreamProfile?: NegotiatedStreamProfile;

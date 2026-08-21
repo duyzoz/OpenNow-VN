@@ -11,12 +11,22 @@ import type {
   AuthSessionResult,
   LoginProvider,
   SavedAccount,
+  ConsolePinClearRequest,
+  ConsolePinMutationResult,
+  ConsolePinSetRequest,
+  ConsolePinStatus,
+  ConsolePinVerifyRequest,
+  ConsolePinVerifyResult,
 } from "./auth";
 import type {
   CatalogBrowseRequest,
   CatalogBrowseResult,
   DirectLaunchRequest,
   GameAccountConnectionsResult,
+  MainWindowCloseChoice,
+  MainWindowCloseChoiceRequest,
+  StreamWindowOpenRequest,
+  StreamWindowOpenResult,
   GameAccountOperationRequest,
   GameAccountOperationResult,
   GameInfo,
@@ -33,10 +43,6 @@ import type {
   ResolveLaunchIdRequest,
   ResolveStoreUrlRequest,
   StreamRegion,
-  StreamWindowOpenRequest,
-  StreamWindowOpenResult,
-  MainWindowCloseChoice,
-  MainWindowCloseChoiceRequest,
   SubscriptionFetchRequest,
 } from "./catalog";
 import type { MicrophonePermissionResult, Settings } from "./settings";
@@ -54,9 +60,15 @@ import type {
   IceCandidatePayload,
   KeyframeRequest,
   MainToRendererSignalingEvent,
+  NativeInputPacket,
+  NativeRenderSurfaceUpdate,
+  StreamShortcutInterceptionGate,
+  NativeStreamerShortcutAction,
+  NativeStreamerShortcutBindings,
   SendAnswerRequest,
   SignalingConnectRequest,
 } from "./signaling";
+import type { NativeStreamerStatus } from "./nativeStreamer";
 import type { SubscriptionInfo } from "./subscription";
 import type { ThankYouDataResult } from "./thankYou";
 import type { AppUpdaterState, ReleaseHighlightsPayload } from "./updater";
@@ -76,6 +88,17 @@ import type {
   ScreenshotSaveRequest,
 } from "./media";
 import type { PrintedWasteQueueData, PrintedWasteServerMapping } from "./printedWaste";
+import type { DesktopBugReportReceipt, DesktopBugReportRequest } from "../bugReport";
+
+export interface GpuBackendInfo {
+  gpuName: string | null;
+  vendorName: string | null;
+  driverVersion: string | null;
+  decodeAccelerated: boolean | null;
+  encodeAccelerated: boolean | null;
+  hardwareDecodeCodecs: string[];
+  hardwareEncodeCodecs: string[];
+}
 
 export interface OpenNowApi {
   getAuthSession(input?: AuthSessionRequest): Promise<AuthSessionResult>;
@@ -89,8 +112,12 @@ export interface OpenNowApi {
   logout(): Promise<void>;
   logoutAll(): Promise<void>;
   getSavedAccounts(): Promise<SavedAccount[]>;
-  switchAccount(userId: string): Promise<AuthSession>;
+  switchAccount(userId: string, pin?: string): Promise<AuthSession>;
   removeAccount(userId: string): Promise<void>;
+  getConsolePinStatus(userId: string): Promise<ConsolePinStatus>;
+  setConsolePin(input: ConsolePinSetRequest): Promise<ConsolePinMutationResult>;
+  clearConsolePin(input: ConsolePinClearRequest): Promise<ConsolePinMutationResult>;
+  verifyConsolePin(input: ConsolePinVerifyRequest): Promise<ConsolePinVerifyResult>;
   fetchSubscription(input: SubscriptionFetchRequest): Promise<SubscriptionInfo>;
   fetchPersistentStorageLocations(input?: PersistentStorageLocationsFetchRequest): Promise<PersistentStorageLocationsResult>;
   resetPersistentStorage(input?: PersistentStorageResetRequest): Promise<PersistentStorageResetResult>;
@@ -109,6 +136,12 @@ export interface OpenNowApi {
   markGameOwned(input: MarkGameOwnedRequest): Promise<MarkGameOwnedResult>;
   getPendingDirectLaunchRequest(): Promise<DirectLaunchRequest | null>;
   onDirectLaunchRequest(listener: (request: DirectLaunchRequest) => void): () => void;
+  /** Secondary cloud-client stream window retained by the Remake shell. */
+  openStreamWindow(input: StreamWindowOpenRequest): Promise<StreamWindowOpenResult>;
+  onStreamWindowClosed(listener: () => void): () => void;
+  /** In-app close prompt retained by the Remake shell. */
+  onRequestMainWindowCloseChoice(listener: (payload: MainWindowCloseChoiceRequest) => void): () => void;
+  respondMainWindowCloseChoice(choice: MainWindowCloseChoice): void;
   createSession(input: SessionCreateRequest): Promise<SessionInfo>;
   pollSession(input: SessionPollRequest): Promise<SessionInfo>;
   reportSessionAd(input: SessionAdReportRequest): Promise<SessionInfo>;
@@ -117,12 +150,18 @@ export interface OpenNowApi {
   getActiveSessions(token?: string, streamingBaseUrl?: string): Promise<ActiveSessionInfo[]>;
   /** Claim/resume an existing session */
   claimSession(input: SessionClaimRequest): Promise<SessionInfo>;
+  getNativeStreamerStatus(): Promise<NativeStreamerStatus>;
+  getNativeCloudGsyncCapabilities(): Promise<NativeCloudGsyncCapabilities>;
   /** Show dialog asking user how to handle session conflict */
   showSessionConflictDialog(): Promise<SessionConflictChoice>;
   connectSignaling(input: SignalingConnectRequest): Promise<void>;
   disconnectSignaling(): Promise<void>;
   sendAnswer(input: SendAnswerRequest): Promise<void>;
   sendIceCandidate(input: IceCandidatePayload): Promise<void>;
+  sendNativeInput(input: NativeInputPacket): void;
+  setNativeInputPaused(paused: boolean): void;
+  updateNativeRenderSurface(input: NativeRenderSurfaceUpdate): void;
+  updateNativeShortcuts(shortcuts: NativeStreamerShortcutBindings): void;
   requestKeyframe(input: KeyframeRequest): Promise<void>;
   onSignalingEvent(listener: (event: MainToRendererSignalingEvent) => void): () => void;
   /** Listen for F11 fullscreen toggle from main process */
@@ -139,14 +178,20 @@ export interface OpenNowApi {
   togglePointerLock(): Promise<void>;
   /** Notify main process that pointer lock state changed (active = true/false). */
   notifyPointerLockChange(active: boolean, suppressEscapeFullscreenGrace?: boolean): void;
+  /** Tell main whether an active native session owns keyboard input through RawInput. */
+  notifyNativeInputModeChange(active: boolean, rawInputOwnsEscape: boolean): void;
   /** Read plain text from the OS clipboard through Electron main process */
   readClipboardText(): Promise<string>;
   getSettings(): Promise<Settings>;
   setSetting<K extends keyof Settings>(key: K, value: Settings[K]): Promise<void>;
+  getGpuInfo(): Promise<GpuBackendInfo>;
   resetSettings(): Promise<Settings>;
+  selectNativeStreamerExecutable(): Promise<string | null>;
   getMicrophonePermission(): Promise<MicrophonePermissionResult>;
   /** Export logs in redacted format */
   exportLogs(format?: "text" | "json"): Promise<string>;
+  /** Submit an explicit, reviewed bug report through the main-process upload owner. */
+  submitBugReport(input: DesktopBugReportRequest): Promise<DesktopBugReportReceipt>;
   /** Ping all regions and return latency results */
   pingRegions(regions: StreamRegion[]): Promise<PingResult[]>;
 
@@ -167,6 +212,10 @@ export interface OpenNowApi {
 
   /** Listen for external Escape events forwarded by the main process */
   onExternalEscape(listener: () => void): () => void;
+
+  /** Listen for stream shortcuts captured before Chromium handles reserved combinations. */
+  onStreamShortcutAction(listener: (action: NativeStreamerShortcutAction) => void): () => void;
+  setStreamShortcutInterceptionGate(gate: StreamShortcutInterceptionGate): void;
 
   /** Open a trusted external URL in the OS default browser */
   openExternalUrl(url: string): Promise<void>;
@@ -228,12 +277,6 @@ export interface OpenNowApi {
 
   /** Mark the current version's highlights as acknowledged */
   ackReleaseHighlights(): Promise<void>;
-  // Secondary "cloud client" stream window (additive, v9).
-  openStreamWindow(input: StreamWindowOpenRequest): Promise<StreamWindowOpenResult>;
-  onStreamWindowClosed(listener: () => void): () => void;
-  // Custom in-app close prompt (replaces the native OS confirm dialog).
-  onRequestMainWindowCloseChoice(listener: (payload: MainWindowCloseChoiceRequest) => void): () => void;
-  respondMainWindowCloseChoice(choice: MainWindowCloseChoice): void;
 
   /** Subscribe to automatic release-highlights show events from main process */
   onReleaseHighlightsShow(listener: (payload: ReleaseHighlightsPayload) => void): () => void;

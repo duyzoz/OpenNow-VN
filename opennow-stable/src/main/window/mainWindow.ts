@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, app } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, nativeTheme } from "electron";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { IPC_CHANNELS } from "@shared/ipc";
@@ -13,9 +13,15 @@ import {
 } from "../escapeFullscreenGuard";
 import { captureMainException } from "../telemetry/posthog";
 import { isAppNavigationUrl, openExternalHttpUrl } from "./externalUrl";
+import { shouldReportRendererTermination } from "./rendererLifecycle";
+import type { StreamShortcutInterceptionGate } from "@shared/gfn";
+import { resolveStatsShortcutInterception } from "./streamShortcutInterception";
+import { StreamEscapeShortcutController } from "./streamEscapeShortcut";
+import { applyNativeAppTheme } from "./windowTheme";
 
 export interface CreateMainWindowDeps {
   mainDir: string;
+  windowTitle?: string;
   settingsManager: SettingsManager;
   getMainWindow(): BrowserWindow | null;
   setMainWindow(window: BrowserWindow | null): void;
@@ -27,18 +33,17 @@ export interface CreateMainWindowDeps {
   setPointerLockActive(active: boolean): void;
   getPointerLockEscapeCaptureUntilMs(): number;
   setPointerLockEscapeCaptureUntilMs(value: number): void;
-  /** Additive (v9): the secondary cloud-stream window, if one is open. */
-  getStreamWindow?(): BrowserWindow | null;
-  /** Whether the app is fully quitting (skip close-choice dialog). */
-  isQuittingFully(): boolean;
-  /** Mark the app as fully quitting. */
-  setQuittingFully(value: boolean): void;
-  quitApp?(): void;
+  getStreamInputActive(): boolean;
+  setStreamInputActive(active: boolean): void;
+  getNativeRawInputOwnsEscape(): boolean;
+  setNativeRawInputOwnsEscape(ownsEscape: boolean): void;
+  isAppShutdownRequested(): boolean;
 }
 
 export async function createMainWindow(
   deps: CreateMainWindowDeps,
 ): Promise<void> {
+  const windowTitle = deps.windowTitle;
   const preloadMjsPath = join(deps.mainDir, "../preload/index.mjs");
   const preloadJsPath = join(deps.mainDir, "../preload/index.js");
   const preloadPath = existsSync(preloadMjsPath)
@@ -46,6 +51,10 @@ export async function createMainWindow(
     : preloadJsPath;
 
   const settings = deps.settingsManager.getAll();
+  let streamShortcutInterceptionGate: StreamShortcutInterceptionGate = {
+    streamActive: false,
+    shortcutCaptureActive: false,
+  };
   let escapeHoldState: EscapeHoldCaptureState = { keyDownCaptured: false, holdFired: false };
   let escapeHoldTimer: NodeJS.Timeout | null = null;
   const clearEscapeHoldTimer = (): void => {
@@ -55,51 +64,70 @@ export async function createMainWindow(
     }
   };
 
-  // Console mode (big picture): mirror GeForce NOW's TV mode by launching
-  // fullscreen with the controller-oriented shell enabled.
-  if (settings.launchInConsoleMode && !settings.controllerMode) {
-    deps.settingsManager.set("controllerMode", true);
-  }
+  const escapeShortcut = new StreamEscapeShortcutController(globalShortcut, () => {
+    const mainWindow = deps.getMainWindow();
+    if (
+      !deps.getPointerLockActive()
+      || deps.settingsManager.get("allowEscapeToExitFullscreen")
+      || !mainWindow
+      || mainWindow.isDestroyed()
+      || !mainWindow.isFocused()
+    ) {
+      return;
+    }
+    mainWindow.webContents.send(IPC_CHANNELS.EXTERNAL_ESCAPE);
+  });
 
   // Direct-launch arguments always start fullscreen; the renderer applies the
   // console shell for the run without persisting the Controller Mode setting.
-  const startFullscreen =
-    settings.launchInConsoleMode ||
-    deps.getPendingDirectLaunchRequest() !== null;
+  const startFullscreen = deps.getPendingDirectLaunchRequest() !== null;
+  const windowBackgroundColor = applyNativeAppTheme(settings.appTheme, nativeTheme);
+  const linuxWindowIcon = process.platform === "linux"
+    ? app.isPackaged
+      ? join(process.resourcesPath, "app-icon.png")
+      : join(deps.mainDir, "../../../logo.png")
+    : undefined;
 
   const window = new BrowserWindow({
+    ...(windowTitle ? { title: windowTitle } : {}),
     width: settings.windowWidth || 1400,
     height: settings.windowHeight || 900,
     minWidth: 1024,
     minHeight: 680,
     ...(startFullscreen ? { fullscreen: true } : {}),
+    ...(linuxWindowIcon ? { icon: linuxWindowIcon } : {}),
     autoHideMenuBar: true,
-    backgroundColor: "#0f172a",
-    // PERF: don't paint an empty white frame before the renderer is ready.
-    // This removes the visible "flash + freeze" at startup on slow machines.
-    show: false,
+    backgroundColor: windowBackgroundColor,
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      // PERF: keep the compositor running at full rate; combined with the
-      // disable-renderer-backgrounding switch this stops the stream from
-      // stuttering when the window loses focus.
-      backgroundThrottling: false,
-      // PERF: spellcheck loads dictionaries and walks every text node.
-      // The client has no long-form text input, so it is pure overhead.
-      spellcheck: false,
     },
   });
-
-  // Show only once the first real frame is ready.
-  window.once("ready-to-show", () => {
-    if (!window.isDestroyed()) window.show();
-  });
+  const syncAutomaticWindowTheme = (): void => {
+    if (deps.settingsManager.get("appTheme") !== "auto" || window.isDestroyed()) return;
+    window.setBackgroundColor(applyNativeAppTheme("auto", nativeTheme));
+  };
+  nativeTheme.on("updated", syncAutomaticWindowTheme);
   deps.setMainWindow(window);
+  if (windowTitle) {
+    window.on("page-title-updated", (event) => {
+      event.preventDefault();
+      window.setTitle(windowTitle);
+    });
+  }
 
   window.webContents.on("render-process-gone", (_event, details) => {
+    if (
+      !shouldReportRendererTermination(
+        details.reason,
+        deps.isAppShutdownRequested(),
+      )
+    ) {
+      console.log("[Main] Renderer process exited during shutdown:", details);
+      return;
+    }
     console.error("[Main] Renderer process gone:", details);
     captureMainException(new Error(`Renderer process gone: ${details.reason}`), {
       reason: details.reason,
@@ -171,6 +199,10 @@ export async function createMainWindow(
     (_ev, active: boolean, suppressEscapeFullscreenGrace?: boolean) => {
       const pointerLockActive = Boolean(active);
       deps.setPointerLockActive(pointerLockActive);
+      escapeShortcut.setCaptureActive(
+        pointerLockActive
+        && !deps.settingsManager.get("allowEscapeToExitFullscreen"),
+      );
       deps.setPointerLockEscapeCaptureUntilMs(
         nextPointerLockEscapeCaptureUntilMs(
           pointerLockActive,
@@ -181,44 +213,71 @@ export async function createMainWindow(
     },
   );
 
+  const handleStreamShortcutInterceptionChange = (
+    event: Electron.IpcMainEvent,
+    gate: StreamShortcutInterceptionGate,
+  ): void => {
+    if (event.sender !== window.webContents) {
+      return;
+    }
+    streamShortcutInterceptionGate = {
+      streamActive: gate?.streamActive === true,
+      shortcutCaptureActive: gate?.shortcutCaptureActive === true,
+    };
+  };
+  ipcMain.on(
+    IPC_CHANNELS.STREAM_SHORTCUT_INTERCEPTION_CHANGE,
+    handleStreamShortcutInterceptionChange,
+  );
+
+  ipcMain.on(
+    IPC_CHANNELS.NATIVE_INPUT_MODE_CHANGE,
+    (_ev, active: boolean, rawInputOwnsEscape: boolean) => {
+      const streamInputActive = Boolean(active);
+      deps.setStreamInputActive(streamInputActive);
+      deps.setNativeRawInputOwnsEscape(
+        streamInputActive && Boolean(rawInputOwnsEscape),
+      );
+    },
+  );
+
   // Intercept Escape early to avoid Chromium exiting fullscreen before the
-  // renderer can forward the key to the remote session. Keep a short stream
-  // grace window after pointer lock drops so Chromium cannot release the cursor
-  // before the renderer forwards Escape to the remote session. Intentional
-  // releases clear this window through the suppress flag.
+  // renderer can forward the key to the remote session. Keep a short fullscreen
+  // grace window after pointer lock drops so rapid repeated Escape presses cannot
+  // win the race before the renderer re-locks the pointer.
   window.webContents.on("before-input-event", (event, input) => {
     try {
       const mainWindow = deps.getMainWindow();
-      const activeStreamWindow = (() => {
-        try {
-          const candidate = deps.getStreamWindow?.() ?? null;
-          return candidate && !candidate.isDestroyed() && candidate.isVisible()
-            ? candidate
-            : null;
-        } catch {
-          return null;
+      const statsShortcutDecision = resolveStatsShortcutInterception(
+        streamShortcutInterceptionGate,
+        input,
+        deps.settingsManager.get("shortcutToggleStats"),
+      );
+      if (statsShortcutDecision !== "ignore") {
+        event.preventDefault();
+        if (statsShortcutDecision === "dispatch") {
+          mainWindow?.webContents.send(
+            IPC_CHANNELS.STREAM_SHORTCUT_ACTION,
+            "toggleStats",
+          );
         }
-      })();
-      const mainWindowFullscreen = Boolean(
-        mainWindow && !mainWindow.isDestroyed() && mainWindow.isFullScreen(),
-      );
-      const streamWindowFullscreen = Boolean(
-        activeStreamWindow && activeStreamWindow.isFullScreen(),
-      );
+        return;
+      }
+
       const resolved = resolveEscapeHoldCaptureAction(
         input,
         {
           allowEscapeToExitFullscreen: Boolean(
             deps.settingsManager?.get("allowEscapeToExitFullscreen"),
           ),
-          streamInputActive:
-            Boolean(activeStreamWindow) ||
-            deps.getPointerLockActive() ||
-            deps.getRendererControlledFullscreen() ||
-            Date.now() <= deps.getPointerLockEscapeCaptureUntilMs(),
+          streamInputActive: deps.getStreamInputActive(),
           pointerLockActive: deps.getPointerLockActive(),
           rendererControlledFullscreen: deps.getRendererControlledFullscreen(),
-          windowFullscreen: mainWindowFullscreen || streamWindowFullscreen,
+          windowFullscreen: Boolean(
+            mainWindow &&
+              !mainWindow.isDestroyed() &&
+              mainWindow.isFullScreen(),
+          ),
           pointerLockEscapeCaptureUntilMs:
             deps.getPointerLockEscapeCaptureUntilMs(),
           nowMs: Date.now(),
@@ -234,18 +293,9 @@ export async function createMainWindow(
         clearEscapeHoldTimer();
         escapeHoldTimer = setTimeout(() => {
           escapeHoldTimer = null;
-          const activeWindow = (() => {
-            try {
-              const stream = deps.getStreamWindow?.() ?? null;
-              if (stream && !stream.isDestroyed() && stream.isVisible()) return stream;
-            } catch {}
-            return deps.getMainWindow();
-          })();
+          const activeWindow = deps.getMainWindow();
           if (!activeWindow || activeWindow.isDestroyed()) return;
-          if (
-            !activeWindow.isFullScreen() &&
-            !deps.getRendererControlledFullscreen()
-          ) return;
+          if (!activeWindow.isFullScreen() && !deps.getRendererControlledFullscreen()) return;
           escapeHoldState = markEscapeHoldFired(escapeHoldState);
           activeWindow.webContents.send(IPC_CHANNELS.EXIT_FULLSCREEN);
         }, ESCAPE_HOLD_TO_EXIT_FULLSCREEN_MS);
@@ -254,10 +304,12 @@ export async function createMainWindow(
 
       if (resolved.action === "tap") {
         clearEscapeHoldTimer();
-        console.log("[EscapeInput] Forwarding captured Escape tap to the stream session");
-        const targetWindow = activeStreamWindow ?? mainWindow;
-        if (targetWindow && !targetWindow.isDestroyed()) {
-          targetWindow.webContents.send(IPC_CHANNELS.EXTERNAL_ESCAPE);
+        // Windows internal native mode receives the same physical key through
+        // its persistent RawInput keyboard sink. Forward only when Electron is
+        // the input owner so the remote session sees exactly one Escape tap.
+        if (!deps.getNativeRawInputOwnsEscape()) {
+          console.log("[EscapeInput] Forwarding captured Escape tap to the stream session");
+          mainWindow?.webContents.send(IPC_CHANNELS.EXTERNAL_ESCAPE);
         }
       } else if (resolved.action === "hold-consumed-keyup") {
         clearEscapeHoldTimer();
@@ -272,88 +324,26 @@ export async function createMainWindow(
   } else {
     await window.loadFile(join(deps.mainDir, "../../dist/index.html"));
   }
+  window.on("blur", () => escapeShortcut.dispose());
   const pendingDirectLaunchRequest = deps.getPendingDirectLaunchRequest();
   if (pendingDirectLaunchRequest) {
     deps.emitDirectLaunchRequest(pendingDirectLaunchRequest);
   }
 
-  // Additive (v9): instead of the native OS confirm dialog, ask the
-  // renderer to show a custom in-app popup (styled like the rest of the
-  // app) and wait for the user's choice over IPC. This never runs unless
-  // the user actually clicks the window's close (X) button, and it never
-  // touches any other existing window behavior.
-  let pendingCloseChoiceListener: ((_event: Electron.IpcMainEvent, choice: "tray" | "quit" | "cancel") => void) | null = null;
-  const clearPendingCloseChoiceListener = (): void => {
-    if (pendingCloseChoiceListener) {
-      ipcMain.removeListener(IPC_CHANNELS.MAIN_WINDOW_CLOSE_CHOICE_RESPONSE, pendingCloseChoiceListener);
-      pendingCloseChoiceListener = null;
-    }
-  };
-
-  window.on("close", (event) => {
-    if (deps.isQuittingFully()) return;
-    if (pendingCloseChoiceListener) {
-      // A close prompt is already pending a response — don't stack another.
-      event.preventDefault();
-      return;
-    }
-
-    event.preventDefault();
-
-    let streamWindow: BrowserWindow | null = null;
-    try {
-      streamWindow = deps.getStreamWindow ? deps.getStreamWindow() : null;
-    } catch {
-      streamWindow = null;
-    }
-    const hasStreamWindow = Boolean(streamWindow && !streamWindow.isDestroyed());
-
-    let settled = false;
-    const fallbackTimer = setTimeout(() => {
-      // Safety net: if the renderer never responds (e.g. it is stuck or the
-      // popup failed to render), fall back to the least destructive choice
-      // (minimize to tray) instead of leaving the app unclosable.
-      if (settled) return;
-      settled = true;
-      clearPendingCloseChoiceListener();
-      if (!window.isDestroyed()) window.hide();
-    }, 10000);
-
-    pendingCloseChoiceListener = (_event, choice) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(fallbackTimer);
-      clearPendingCloseChoiceListener();
-      if (choice === "tray") {
-        if (!window.isDestroyed()) window.hide();
-      } else if (choice === "quit") {
-        deps.setQuittingFully(true);
-        if (deps.quitApp) { deps.quitApp(); } else { app.quit(); }
-      }
-      // choice === "cancel": do nothing, window stays open.
-    };
-    ipcMain.once(IPC_CHANNELS.MAIN_WINDOW_CLOSE_CHOICE_RESPONSE, pendingCloseChoiceListener);
-
-    try {
-      window.webContents.send(IPC_CHANNELS.MAIN_WINDOW_REQUEST_CLOSE_CHOICE, { hasStreamWindow });
-    } catch (error) {
-      console.warn("[Main] Failed to request close choice from renderer, minimizing to tray instead:", error);
-      if (!settled) {
-        settled = true;
-        clearTimeout(fallbackTimer);
-        clearPendingCloseChoiceListener();
-        if (!window.isDestroyed()) window.hide();
-      }
-    }
-  });
-
   window.on("closed", () => {
+    nativeTheme.off("updated", syncAutomaticWindowTheme);
+    ipcMain.off(
+      IPC_CHANNELS.STREAM_SHORTCUT_INTERCEPTION_CHANGE,
+      handleStreamShortcutInterceptionChange,
+    );
     clearEscapeHoldTimer();
-    clearPendingCloseChoiceListener();
+    escapeShortcut.dispose();
     escapeHoldState = { keyDownCaptured: false, holdFired: false };
     deps.setMainWindow(null);
     deps.setRendererControlledFullscreen(false);
     deps.setPointerLockActive(false);
     deps.setPointerLockEscapeCaptureUntilMs(0);
+    deps.setStreamInputActive(false);
+    deps.setNativeRawInputOwnsEscape(false);
   });
 }

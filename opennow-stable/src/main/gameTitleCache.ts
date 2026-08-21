@@ -1,6 +1,28 @@
-import { app } from "electron";
+import { createRequire } from "node:module";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+
+type ElectronAppLike = {
+  getPath(name: "userData"): string;
+};
+
+const require = createRequire(import.meta.url);
+let electronApp: ElectronAppLike | null | undefined;
+
+function getElectronApp(): ElectronAppLike | null {
+  if (electronApp !== undefined) {
+    return electronApp;
+  }
+
+  try {
+    const electron = require("electron") as { app?: ElectronAppLike };
+    electronApp = electron.app ?? null;
+  } catch {
+    electronApp = null;
+  }
+
+  return electronApp;
+}
 
 /**
  * Persistent appId -> { title, imageUrl } cache.
@@ -33,6 +55,10 @@ let cachePath: string | null = null;
 function getCachePath(): string | null {
   if (cachePath) return cachePath;
   try {
+    const app = getElectronApp();
+    if (!app) {
+      return null;
+    }
     cachePath = join(app.getPath("userData"), "game-title-cache.json");
     return cachePath;
   } catch {

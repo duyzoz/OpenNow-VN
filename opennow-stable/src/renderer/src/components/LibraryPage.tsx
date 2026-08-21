@@ -1,4 +1,4 @@
-import { Library, Search, Clock, Gamepad2, ArrowUpDown, Filter, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Library, Search, Gamepad2, ArrowUpDown, Filter, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { JSX } from "react";
 import { AnimatePresence, m } from "motion/react";
@@ -16,7 +16,6 @@ import {
   type LibraryFilterOption,
 } from "../lib/libraryFilters";
 import { useTranslation } from "../i18n";
-import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 import { controllerButton, readControllerGamepadButtons } from "../utils/controllerGamepad";
 import { pageTransition } from "./MotionProvider";
 import { GameInfoPanel } from "./GameInfoPanel";
@@ -124,6 +123,7 @@ export const LibraryPage = memo(function LibraryPage({
     onPlayGame,
     onSelectGame,
     onSelectGameVariant,
+    onOpenStore: onBuyGame ? (game, variantId) => onBuyGame(game, variantId) : undefined,
     onResumeGame,
     onTerminateGame,
     onShowGameInfo: setGameInfoGame,
@@ -652,9 +652,7 @@ export const LibraryPage = memo(function LibraryPage({
   }, [controllerMode, controllerSearchOpen, onNextControllerPage, onPreviousControllerPage, surfaceActive]);
 
   const libraryGridItems = useMemo(
-    () => current64LibraryGames.map((game) => {
-      const lastPlayedAt = playtimeData[game.id]?.lastPlayedAt ?? game.lastPlayed;
-      return (
+    () => current64LibraryGames.map((game) => (
       <div key={game.id} className="scroll-anim-wrapper">
         <GameCardListItem
           game={game}
@@ -663,16 +661,8 @@ export const LibraryPage = memo(function LibraryPage({
           surface="library"
           actionsRef={catalogActionsRef}
         />
-        <div
-          className={`library-last-played${lastPlayedAt ? "" : " library-last-played--empty"}`}
-          aria-hidden={lastPlayedAt ? undefined : true}
-        >
-          <Clock size={12} />
-          <span>{lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : "—"}</span>
-        </div>
       </div>
-      );
-    }),
+    )),
     [catalogActionsRef, current64LibraryGames, playtimeData, selectedGameId, selectedVariantByGameId],
   );
 

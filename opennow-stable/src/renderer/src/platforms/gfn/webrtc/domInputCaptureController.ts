@@ -30,6 +30,8 @@ interface DomInputCaptureDependencies {
   inputEncoder: InputEncoder;
   isInputReady: () => boolean;
   isInputBlocked: () => boolean;
+  isNativeInputActive: () => boolean;
+  isNativeElectronInputBridge: () => boolean;
   shouldAutoFullscreen: () => boolean;
   getCurrentResolution: () => string;
   getKeyboardLayout: () => KeyboardLayout | undefined;
@@ -1343,8 +1345,12 @@ export class DomInputCaptureController {
       lastAbsX = null;
       lastAbsY = null;
       this.releasePressedKeys("window blur");
-      // Pause forwarding while the WebRTC stream window is not focused.
-      this.dependencies.setWindowInputPaused(true);
+      // Pause forwarding while window is not focused (host overlay pause is separate).
+      // In native mode the renderer sink can be a separate no-activate window,
+      // so a focus transition is not enough reason to stop controller polling.
+      if (!this.dependencies.isNativeInputActive()) {
+        this.dependencies.setWindowInputPaused(true);
+      }
     };
 
     const onVisibilityChange = () => {
@@ -1397,8 +1403,12 @@ export class DomInputCaptureController {
     } else {
       window.addEventListener("mousemove", onMouseMove);
     }
-    const buttonTarget: HTMLElement | Document = pointerLockTarget;
-    const buttonCapture = false;
+    // Use document capture for buttons/wheel in native internal mode so clicks
+    // still reach us even if the native child HWND is topmost for a frame.
+    const buttonTarget: HTMLElement | Document = this.dependencies.isNativeElectronInputBridge()
+      ? document
+      : pointerLockTarget;
+    const buttonCapture = this.dependencies.isNativeElectronInputBridge();
     buttonTarget.addEventListener("mousedown", onMouseDown as EventListener, buttonCapture);
     buttonTarget.addEventListener("mouseup", onMouseUp as EventListener, buttonCapture);
     buttonTarget.addEventListener("wheel", onWheel as EventListener, {

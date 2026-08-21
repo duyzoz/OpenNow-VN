@@ -4125,6 +4125,32 @@ button.controller-hint {
   border-color: rgba(255, 255, 255, 0.14);
 }
 
+.game-card-access-time {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(7, 10, 14, 0.68);
+  color: rgba(245, 250, 255, 0.94);
+  font-size: 0.64rem;
+  font-weight: 650;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+}
+
+.game-card-access-time svg {
+  flex: 0 0 auto;
+  color: rgba(201, 236, 255, 0.96);
+}
+
 .game-card-title {
   margin: 0;
   font-size: 0.8rem;

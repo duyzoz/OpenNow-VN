@@ -3,6 +3,7 @@ import type {
   ActiveSessionInfo,
   DirectLaunchRequest,
   GameInfo,
+  NativeStreamerShortcutAction,
   PrintedWasteQueueData,
   SessionInfo,
 } from "@shared/gfn";
@@ -16,13 +17,20 @@ import type {
 import { loadRuntimeSnapshot, type RuntimeSnapshot } from "../../lib/runtimeSnapshot";
 import type { GfnWebRtcClient } from "../../platforms/gfn/webrtcClient";
 import type { SignalingRecoveryState } from "../../lib/streamSessionHelpers";
+import type { StatsOverlayMode } from "../../utils/streamStatsHud";
 
 export function useStreamRuntimeState() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("idle");
+  const [statsMode, setStatsMode] = useState<StatsOverlayMode>("off");
+  // Compatibility state retained for the Remake shell; upstream stream hooks
+  // still use statsMode internally, while App controls the visible HUD flag.
   const [showStatsOverlay, setShowStatsOverlay] = useState(false);
-  const [antiAfkEnabled, setAntiAfkEnabled] = useState(true);
+  const [launchStartedAtMs, setLaunchStartedAtMs] = useState<number | null>(null);
+  const [antiAfkEnabled, setAntiAfkEnabled] = useState(false);
   const [antiAfkAckNonce, setAntiAfkAckNonce] = useState(0);
+  const [nativeInputCaptureActive, setNativeInputCaptureActive] = useState(false);
+  const [nativeInputBridgeReady, setNativeInputBridgeReady] = useState(false);
   const [streamingGame, setStreamingGame] = useState<GameInfo | null>(null);
   const [streamingStore, setStreamingStore] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | undefined>();
@@ -35,7 +43,6 @@ export function useStreamRuntimeState() {
   const [queueModalGame, setQueueModalGame] = useState<GameInfo | null>(null);
   const [queueModalData, setQueueModalData] = useState<PrintedWasteQueueData | null>(null);
   const [sessionStartedAtMs, setSessionStartedAtMs] = useState<number | null>(null);
-  const [launchStartedAtMs, setLaunchStartedAtMs] = useState<number | null>(null);
   const [remoteStreamWarning, setRemoteStreamWarning] = useState<StreamWarningState | null>(null);
   const [localSessionTimerWarning, setLocalSessionTimerWarning] = useState<LocalSessionTimerWarningState | null>(null);
   const [streamVolume, setStreamVolume] = useState(1);
@@ -48,6 +55,8 @@ export function useStreamRuntimeState() {
   const clientRef = useRef<GfnWebRtcClient | null>(null);
   const previousFreeTierRemainingSecondsRef = useRef<number | null>(null);
   const navbarSessionActionInFlightRef = useRef<"resume" | "terminate" | null>(null);
+  const nativeStreamingRef = useRef(false);
+  const handleStreamShortcutActionRef = useRef<((action: NativeStreamerShortcutAction) => void) | null>(null);
   const streamingGameRef = useRef<GameInfo | null>(null);
   const isStreamingRef = useRef(false);
   const sessionRef = useRef<SessionInfo | null>(null);
@@ -60,6 +69,7 @@ export function useStreamRuntimeState() {
   const launchAbortRef = useRef(false);
   const discordStreamingActivitySessionRef = useRef<string | null>(null);
   const streamStatusRef = useRef<StreamStatus>("idle");
+  const nativeInputProtocolVersionRef = useRef<number | null>(null);
   const stableRecoveryResetTimerRef = useRef<number | null>(null);
   const remoteIceGraceTimerRef = useRef<number | null>(null);
   const remoteIceSeenForSessionRef = useRef<string | null>(null);
@@ -82,9 +92,13 @@ export function useStreamRuntimeState() {
   return {
     session, setSession,
     streamStatus, setStreamStatus,
+    statsMode, setStatsMode,
     showStatsOverlay, setShowStatsOverlay,
+    launchStartedAtMs, setLaunchStartedAtMs,
     antiAfkEnabled, setAntiAfkEnabled,
     antiAfkAckNonce, setAntiAfkAckNonce,
+    nativeInputCaptureActive, setNativeInputCaptureActive,
+    nativeInputBridgeReady, setNativeInputBridgeReady,
     streamingGame, setStreamingGame,
     streamingStore, setStreamingStore,
     queuePosition, setQueuePosition,
@@ -97,7 +111,6 @@ export function useStreamRuntimeState() {
     queueModalGame, setQueueModalGame,
     queueModalData, setQueueModalData,
     sessionStartedAtMs, setSessionStartedAtMs,
-    launchStartedAtMs, setLaunchStartedAtMs,
     remoteStreamWarning, setRemoteStreamWarning,
     localSessionTimerWarning, setLocalSessionTimerWarning,
     streamVolume, setStreamVolume,
@@ -109,6 +122,8 @@ export function useStreamRuntimeState() {
     clientRef,
     previousFreeTierRemainingSecondsRef,
     navbarSessionActionInFlightRef,
+    nativeStreamingRef,
+    handleStreamShortcutActionRef,
     streamingGameRef,
     isStreamingRef,
     sessionRef,
@@ -121,6 +136,7 @@ export function useStreamRuntimeState() {
     launchAbortRef,
     discordStreamingActivitySessionRef,
     streamStatusRef,
+    nativeInputProtocolVersionRef,
     stableRecoveryResetTimerRef,
     remoteIceGraceTimerRef,
     remoteIceSeenForSessionRef,

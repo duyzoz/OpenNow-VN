@@ -36,7 +36,9 @@ export function canUsePartiallyReliableInput(
 }
 
 interface InputChannelPolicyControllerDependencies {
+  isNativeInputActive: () => boolean;
   getPartiallyReliableChannel: () => RTCDataChannel | null;
+  sendNativeInput: (payload: Uint8Array, partiallyReliable: boolean) => void;
   sendReliable: (payload: Uint8Array) => void;
 }
 
@@ -55,6 +57,9 @@ export class InputChannelPolicyController {
   }
 
   isPartiallyReliableOpen(): boolean {
+    if (this.dependencies.isNativeInputActive()) {
+      return true;
+    }
     return this.dependencies.getPartiallyReliableChannel()?.readyState === "open";
   }
 
@@ -75,6 +80,11 @@ export class InputChannelPolicyController {
   }
 
   sendPartiallyReliable(payload: Uint8Array): void {
+    if (this.dependencies.isNativeInputActive()) {
+      this.dependencies.sendNativeInput(payload, true);
+      return;
+    }
+
     const channel = this.dependencies.getPartiallyReliableChannel();
     if (channel?.readyState === "open") {
       const view = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength

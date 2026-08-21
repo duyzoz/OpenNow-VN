@@ -1,4 +1,4 @@
-import { Heart, Search, X, Gamepad2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { Heart, Search, X, Gamepad2, ChevronLeft, ChevronRight } from "lucide-react";
 import { memo, useEffect, useMemo, useState, useRef, useCallback, useSyncExternalStore, type JSX } from "react";
 import type { GameInfo } from "@shared/gfn";
 import { useTranslation } from "../i18n";
@@ -6,7 +6,6 @@ import { GameCardListItem, useCatalogCardActionsRef } from "./GameCardListItem";
 import { GameInfoPanel } from "./GameInfoPanel";
 import { SearchSuggestions } from "./SearchSuggestions";
 import { getGameSearchSuggestions, type PlaytimeData } from "../lib/gameCatalog";
-import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
 import { MotionSpinner } from "./MotionSpinner";
 import { AnimatePresence } from "motion/react";
@@ -22,6 +21,7 @@ export interface FavoritesPageProps {
   /** True while the catalog is still being fetched. */
   isCatalogLoading?: boolean;
   onPlayGame: (game: GameInfo) => void;
+  onBuyGame?: (game: GameInfo, selectedVariantId?: string) => void;
   selectedGameId: string;
   onSelectGame: (id: string) => void;
   selectedVariantByGameId: Record<string, string>;
@@ -36,6 +36,7 @@ export const FavoritesPage = memo(function FavoritesPage({
   playtimeData = {},
   isCatalogLoading = false,
   onPlayGame,
+  onBuyGame,
   selectedGameId,
   onSelectGame,
   selectedVariantByGameId,
@@ -59,6 +60,7 @@ export const FavoritesPage = memo(function FavoritesPage({
     onPlayGame,
     onSelectGame,
     onSelectGameVariant,
+    onOpenStore: onBuyGame ? (game, variantId) => onBuyGame(game, variantId) : undefined,
     onResumeGame,
     onTerminateGame,
     onShowGameInfo: setInfoGame,
@@ -379,15 +381,6 @@ export const FavoritesPage = memo(function FavoritesPage({
                     surface="home"
                     actionsRef={catalogActionsRef}
                   />
-                  {(() => {
-                    const lastPlayedAt = playtimeData[game.id]?.lastPlayedAt ?? game.lastPlayed;
-                    return (
-                      <div className={`library-last-played${lastPlayedAt ? "" : " library-last-played--empty"}`} aria-hidden={lastPlayedAt ? undefined : true}>
-                        <Clock size={12} />
-                        <span>{lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : "—"}</span>
-                      </div>
-                    );
-                  })()}
                 </div>
               ))}
             </div>

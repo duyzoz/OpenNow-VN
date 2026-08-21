@@ -31,11 +31,7 @@ export interface DirectLaunchRequest {
   receivedAt: number;
 }
 
-/**
- * Additive (v9): request to open the secondary "cloud client" stream
- * window for a single game. Never required by any existing flow — the
- * main window continues to work exactly as before when this is unused.
- */
+/** Additive secondary stream window request retained by the Remake shell. */
 export interface StreamWindowOpenRequest {
   gameId: string;
   resume?: boolean;
@@ -43,12 +39,12 @@ export interface StreamWindowOpenRequest {
   streamingBaseUrl?: string;
 }
 
+/** Result returned when opening or focusing the secondary stream window. */
 export interface StreamWindowOpenResult {
   opened: boolean;
   focused: boolean;
 }
 
-/** Additive (v9): custom in-app replacement for the native OS close dialog. */
 export type MainWindowCloseChoice = "tray" | "quit" | "cancel";
 
 export interface MainWindowCloseChoiceRequest {

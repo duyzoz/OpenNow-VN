@@ -2,6 +2,9 @@ import type {
   AspectRatio,
   EntitledResolution,
   AppUpdaterState,
+  NativeStreamerStatus,
+  NativeVideoBackendCapability,
+  NativeVideoBackendPreference,
   VideoCodec,
   ColorQuality,
   VideoAccelerationPreference,
@@ -41,6 +44,16 @@ export const allColorQualityOptions: { value: ColorQuality; label: string; descr
 
 export const colorQualityOptions: { value: ColorQuality; label: string; description: string }[] = [...allColorQualityOptions];
 
+export const nativeVideoBackendOptions: { value: NativeVideoBackendPreference; label: string; description: string }[] = [
+  { value: "auto", label: "Auto", description: "Pick the default native path for the session" },
+  { value: "d3d12", label: "DirectX 12", description: "Use the D3D12 decoder and renderer" },
+  { value: "d3d11", label: "DirectX 11", description: "Use the D3D11 decoder and renderer" },
+  { value: "nvdec", label: "NVIDIA NVDEC", description: "Use NVIDIA's native Linux hardware decoders" },
+  { value: "vaapi", label: "VAAPI", description: "Use Linux VA-API hardware decoding" },
+  { value: "v4l2", label: "V4L2", description: "Use Linux V4L2 hardware decoding, including Raspberry Pi" },
+  { value: "vulkan", label: "Vulkan", description: "Use Vulkan presentation where supported; Windows internal mode uses a compatible D3D presentation path" },
+  { value: "software", label: "Software", description: "Decode on the CPU with libav" },
+];
 
 export const APP_LANGUAGE_LABELS: Record<string, string> = {
   en: "English",
@@ -55,7 +68,6 @@ export const APP_LANGUAGE_LABELS: Record<string, string> = {
   ko: "한국어",
   nl: "Nederlands",
   ro: "Română",
-  vi: "Tiếng Việt",
 };
 
 export const accentColorOptions = getAccentColorOptions();
@@ -64,6 +76,66 @@ export function getAppLanguageLabel(locale: string): string {
   return APP_LANGUAGE_LABELS[locale] ?? locale.toUpperCase();
 }
 
+export function formatNativeVideoBackendName(backend: string | undefined): string {
+  switch (backend) {
+    case "d3d12":
+      return "D3D12";
+    case "d3d11":
+      return "D3D11";
+    case "videotoolbox":
+      return "VideoToolbox";
+    case "nvdec":
+      return "NVIDIA NVDEC";
+    case "vaapi":
+      return "VAAPI";
+    case "v4l2":
+      return "V4L2";
+    case "vulkan":
+      return "Vulkan";
+    case "software":
+      return "Software";
+    default:
+      return backend ?? "Unknown";
+  }
+}
+
+export function formatNativeVideoCodec(codec: string): string {
+  switch (codec.toLowerCase()) {
+    case "h264":
+      return "H.264";
+    case "h265":
+      return "H.265";
+    case "av1":
+      return "AV1";
+    default:
+      return codec.toUpperCase();
+  }
+}
+
+export function getAvailableNativeCodecLabels(backend: NativeVideoBackendCapability | undefined): string[] {
+  return backend?.codecs
+    .filter((codec) => codec.available)
+    .map((codec) => formatNativeVideoCodec(codec.codec)) ?? [];
+}
+
+export function formatGstreamerRuntimeLabel(status: NativeStreamerStatus | null): string {
+  switch (status?.gstreamerRuntime.source) {
+    case "bundled":
+      return status.gstreamerAvailable ? "Bundled Runtime Used" : "Bundled Runtime Found";
+    case "system":
+      return "System Runtime";
+    case "missing":
+      return "Runtime Missing";
+    default:
+      return "Runtime Unknown";
+  }
+}
+
+export function getGstreamerRuntimeBadgeClass(status: NativeStreamerStatus | null): string {
+  if (status?.gstreamerRuntime.source === "bundled" && status.gstreamerAvailable) return "settings-inline-badge--codec-gpu";
+  if (status?.gstreamerRuntime.source === "system" && status.gstreamerAvailable) return "settings-inline-badge--codec-testing";
+  return "settings-inline-badge--updater-error";
+}
 
 /* ── Static fallbacks (used when MES API is unavailable) ─────────── */
 
@@ -122,7 +194,7 @@ const runtimePlatform = resolveRuntimePlatform(navigator.platform);
 const platformShortcutDefaults = createPlatformShortcutDefaults(runtimePlatform);
 
 export const isMac = runtimePlatform === "darwin";
-export const shortcutExamples = "Examples: F3, Ctrl+Shift+Q, Ctrl+Shift+K";
+export const shortcutExamples = "Examples: Ctrl+N, Ctrl+Shift+Q, Ctrl+Shift+K";
 export const shortcutDefaults = platformShortcutDefaults.bindings;
 
 /** Canonical shortcut for toggling the stream sidebar (must match StreamView key handler). */

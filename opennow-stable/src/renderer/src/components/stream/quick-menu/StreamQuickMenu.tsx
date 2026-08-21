@@ -1,8 +1,14 @@
 import { useRef } from "react";
 import type { Dispatch, JSX, RefObject, SetStateAction } from "react";
 import { AnimatePresence, m } from "motion/react";
-import { Gauge, Images, Keyboard, LogOut, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
-import type { MicrophoneMode, SubscriptionInfo, VideoShaderSettings } from "@shared/gfn";
+import { Bug, Gauge, Images, Keyboard, LogOut, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
+import type {
+  MicrophoneMode,
+  RecordingFps,
+  RecordingResolution,
+  SubscriptionInfo,
+  VideoShaderSettings,
+} from "@shared/gfn";
 import SideBar from "../../SideBar";
 import type { StreamDiagnosticsStore } from "../../../utils/streamDiagnosticsStore";
 import { useMicMeter } from "../../../hooks/useMicMeter";
@@ -25,13 +31,13 @@ interface StreamQuickMenuProps {
   activeTab: StreamMenuTab;
   setActiveTab: Dispatch<SetStateAction<StreamMenuTab>>;
   onEndSession: () => void;
+  onReportBug: () => void;
   gameTitle: string;
   platformName: string;
   PlatformIcon: (() => JSX.Element) | null;
   subscriptionInfo: SubscriptionInfo | null;
   sessionStartedAtMs: number | null;
   isStreaming: boolean;
-  antiAfkEnabled: boolean;
   sessionTimeRemainingText: string | null;
   isFullscreen: boolean;
   isPointerLocked: boolean;
@@ -46,6 +52,7 @@ interface StreamQuickMenuProps {
   onMouseSensitivityChange: (value: number) => void;
   mouseAcceleration: number;
   onMouseAccelerationChange: (value: number) => void;
+  gstreamerEnabled: boolean;
   videoShader: VideoShaderSettings;
   onVideoShaderChange: (value: VideoShaderSettings) => void;
   microphoneMode: MicrophoneMode;
@@ -59,6 +66,11 @@ interface StreamQuickMenuProps {
   screenshotGallery: ReturnType<typeof useScreenshotGallery>;
   streamRecorder: ReturnType<typeof useStreamRecorder>;
   recordingBitrateMbps: number | null;
+  recordingResolution: RecordingResolution;
+  recordingFps: RecordingFps;
+  onRecordingResolutionChange: (value: RecordingResolution) => void;
+  onRecordingFpsChange: (value: RecordingFps) => void;
+  onRecordingBitrateMbpsChange: (value: number | null) => void;
 }
 
 export function StreamQuickMenu({
@@ -68,13 +80,13 @@ export function StreamQuickMenu({
   activeTab,
   setActiveTab,
   onEndSession,
+  onReportBug,
   gameTitle,
   platformName,
   PlatformIcon,
   subscriptionInfo,
   sessionStartedAtMs,
   isStreaming,
-  antiAfkEnabled,
   sessionTimeRemainingText,
   isFullscreen,
   isPointerLocked,
@@ -89,6 +101,7 @@ export function StreamQuickMenu({
   onMouseSensitivityChange,
   mouseAcceleration,
   onMouseAccelerationChange,
+  gstreamerEnabled,
   videoShader,
   onVideoShaderChange,
   microphoneMode,
@@ -102,6 +115,11 @@ export function StreamQuickMenu({
   screenshotGallery,
   streamRecorder,
   recordingBitrateMbps,
+  recordingResolution,
+  recordingFps,
+  onRecordingResolutionChange,
+  onRecordingFpsChange,
+  onRecordingBitrateMbpsChange,
 }: StreamQuickMenuProps): JSX.Element {
   const micMeterRef = useRef<HTMLCanvasElement | null>(null);
   useMicMeter(micMeterRef, micTrack, open && microphoneMode !== "disabled");
@@ -132,29 +150,37 @@ export function StreamQuickMenu({
         {open && (
           <SideBar
             key="quick-menu-sidebar"
-            title="Menu nhanh"
+            title="Quick menu"
             className="sv-sidebar"
             elementRef={sidebarRef}
             onClose={onClose}
             footer={(
               <>
                 <div className="sidebar-controller-hints" aria-hidden="true">
-                  <span><kbd>A</kbd> Chọn</span>
-                  <span><kbd>B</kbd> Quay lại</span>
-                  <span><kbd>LB</kbd><kbd>RB</kbd> Trang</span>
+                  <span><kbd>A</kbd> Select</span>
+                  <span><kbd>B</kbd> Back</span>
+                  <span><kbd>LB</kbd><kbd>RB</kbd> Pages</span>
                 </div>
+                <button
+                  type="button"
+                  className="sidebar-report-bug-button"
+                  onClick={onReportBug}
+                >
+                  <Bug size={16} />
+                  <span>Report a stream bug</span>
+                </button>
                 <button
                   type="button"
                   className="sidebar-exit-session-button"
                   onClick={onEndSession}
                 >
                   <LogOut size={16} />
-                  <span>Kết thúc phiên</span>
+                  <span>End session</span>
                 </button>
               </>
             )}
           >
-            <div className="sidebar-tabs" role="tablist" aria-label="Các mục menu nhanh">
+            <div className="sidebar-tabs" role="tablist" aria-label="Quick menu pages">
               <button
                 type="button"
                 role="tab"
@@ -163,7 +189,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("session")}
               >
                 <Gauge size={16} />
-                <span>Phiên</span>
+                <span>Session</span>
               </button>
               <button
                 type="button"
@@ -173,7 +199,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("controls")}
               >
                 <SlidersHorizontal size={16} />
-                <span>Điều khiển</span>
+                <span>Controls</span>
               </button>
               <button
                 type="button"
@@ -183,7 +209,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("media")}
               >
                 <Images size={16} />
-                <span>Phương tiện</span>
+                <span>Media</span>
               </button>
               <button
                 type="button"
@@ -193,7 +219,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("shortcuts")}
               >
                 <Keyboard size={16} />
-                <span>Phím tắt</span>
+                <span>Keys</span>
               </button>
             </div>
 
@@ -205,7 +231,6 @@ export function StreamQuickMenu({
                 subscriptionInfo={subscriptionInfo}
                 sessionStartedAtMs={sessionStartedAtMs}
                 isStreaming={isStreaming}
-                antiAfkEnabled={antiAfkEnabled}
                 sessionTimeRemainingText={sessionTimeRemainingText}
                 isFullscreen={isFullscreen}
                 isPointerLocked={isPointerLocked}
@@ -228,6 +253,7 @@ export function StreamQuickMenu({
                 onMouseSensitivityChange={onMouseSensitivityChange}
                 mouseAcceleration={mouseAcceleration}
                 onMouseAccelerationChange={onMouseAccelerationChange}
+                gstreamerEnabled={gstreamerEnabled}
                 videoShader={videoShader}
                 onVideoShaderChange={onVideoShaderChange}
                 microphoneMode={microphoneMode}
@@ -256,7 +282,13 @@ export function StreamQuickMenu({
                 recordingError={streamRecorder.recordingError}
                 recordingApiAvailable={streamRecorder.recordingApiAvailable}
                 usedMimeType={streamRecorder.usedMimeType}
+                recordingStatus={streamRecorder.recordingStatus}
                 recordingBitrateMbps={recordingBitrateMbps}
+                recordingResolution={recordingResolution}
+                recordingFps={recordingFps}
+                onRecordingResolutionChange={onRecordingResolutionChange}
+                onRecordingFpsChange={onRecordingFpsChange}
+                onRecordingBitrateMbpsChange={onRecordingBitrateMbpsChange}
                 recCarouselRef={streamRecorder.recCarouselRef}
                 onToggleRecording={() => { void streamRecorder.toggleRecording(); }}
                 onDeleteRecording={(id) => { void streamRecorder.deleteRecording(id); }}
@@ -280,21 +312,21 @@ export function StreamQuickMenu({
       </AnimatePresence>
 
       {screenshotGallery.selectedScreenshot && (
-        <div className="sv-shot-modal" role="dialog" aria-modal="true" aria-label="Xem trước ảnh chụp">
+        <div className="sv-shot-modal" role="dialog" aria-modal="true" aria-label="Screenshot preview">
           <button
             type="button"
             className="sv-shot-modal-backdrop"
             onClick={() => screenshotGallery.setSelectedScreenshotId(null)}
-            aria-label="Đóng xem trước ảnh"
+            aria-label="Close screenshot preview"
           />
           <div className="sv-shot-modal-card">
             <div className="sv-shot-modal-head">
-              <h4>Ảnh chụp</h4>
+              <h4>Screenshot</h4>
               <button
                 type="button"
                 className="sv-shot-modal-close"
                 onClick={() => screenshotGallery.setSelectedScreenshotId(null)}
-                aria-label="Đóng xem trước ảnh"
+                aria-label="Close screenshot preview"
               >
                 <X size={16} />
               </button>
@@ -311,7 +343,7 @@ export function StreamQuickMenu({
                 onClick={() => { void screenshotGallery.saveSelectedScreenshotAs(); }}
               >
                 <Save size={14} />
-                <span>Lưu</span>
+                <span>Save</span>
               </button>
               <button
                 type="button"
@@ -319,7 +351,7 @@ export function StreamQuickMenu({
                 onClick={() => { void screenshotGallery.deleteSelectedScreenshot(); }}
               >
                 <Trash2 size={14} />
-                <span>Xóa</span>
+                <span>Delete</span>
               </button>
             </div>
           </div>

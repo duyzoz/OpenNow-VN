@@ -1,15 +1,15 @@
 export type VideoCodec = "H264" | "H265" | "AV1";
-/** Codec fallback preference used by the upstream WebRTC negotiation layer. */
+export type CodecPreference = "auto" | VideoCodec;
 export type FallbackCodecPreference = "auto" | VideoCodec;
 export type VideoAccelerationPreference = "auto" | "hardware" | "software";
-export type StreamClientMode = "web";
+export type StreamClientMode = "web" | "native";
 /**
  * How the server-side session should present launched games.
  * Mirrors the official client's AppLaunchMode: TV/console clients request
  * "gamepadFriendly" so launchers (e.g. Steam) start in big picture mode.
  */
 export type AppLaunchMode = "default" | "gamepadFriendly" | "touchFriendly";
-export type StreamQueueMode = "auto" | "fixed" | "adaptive" | "vrr";
+export type NativeQueueMode = "auto" | "fixed" | "adaptive" | "vrr";
 
 /** Color quality (bit depth + chroma subsampling), matching Rust ColorQuality enum */
 export type ColorQuality = "8bit_420" | "8bit_444" | "10bit_420" | "10bit_444";
@@ -31,19 +31,37 @@ export function colorQualityRequiresHevc(cq: ColorQuality): boolean {
 
 export const USER_FACING_VIDEO_CODEC_OPTIONS: readonly VideoCodec[] = ["H264", "H265", "AV1"];
 export const USER_FACING_COLOR_QUALITY_OPTIONS: readonly ColorQuality[] = ["8bit_420", "8bit_444", "10bit_420", "10bit_444"];
+export const CODEC_PREFERENCE_OPTIONS: readonly CodecPreference[] = ["auto", "AV1", "H264", "H265"];
+export const FALLBACK_CODEC_PREFERENCE_OPTIONS: readonly FallbackCodecPreference[] = [
+  "auto",
+  "H264",
+  "H265",
+  "AV1",
+];
+export const AUTO_CODEC_PREFERENCE_ORDER: readonly VideoCodec[] = ["AV1", "H264", "H265"];
 
 export function isSupportedUserFacingCodec(codec: VideoCodec): boolean {
   return USER_FACING_VIDEO_CODEC_OPTIONS.includes(codec);
 }
 
-export function normalizeStreamPreferences(codec: VideoCodec, colorQuality: ColorQuality): {
-  codec: VideoCodec;
+export function normalizeCodecPreference(raw: unknown): CodecPreference {
+  return raw === "auto" || isSupportedUserFacingCodec(raw as VideoCodec)
+    ? (raw as CodecPreference)
+    : "auto";
+}
+
+export function normalizeFallbackCodecPreference(raw: unknown): FallbackCodecPreference {
+  return raw === "auto" || isSupportedUserFacingCodec(raw as VideoCodec)
+    ? (raw as FallbackCodecPreference)
+    : "auto";
+}
+
+export function normalizeStreamPreferences(codec: CodecPreference, colorQuality: ColorQuality): {
+  codec: CodecPreference;
   colorQuality: ColorQuality;
   migrated: boolean;
 } {
-  const normalizedCodec = isSupportedUserFacingCodec(codec)
-    ? codec
-    : USER_FACING_VIDEO_CODEC_OPTIONS[0];
+  const normalizedCodec = normalizeCodecPreference(codec);
   const normalizedColorQuality = USER_FACING_COLOR_QUALITY_OPTIONS.includes(colorQuality)
     ? colorQuality
     : USER_FACING_COLOR_QUALITY_OPTIONS[0];
@@ -70,8 +88,8 @@ export interface StreamingFeatures {
   trueHdr?: boolean;
 }
 
-export interface StreamTransitionDiagnostics {
+export interface NativeTransitionDiagnostics {
   disableDynamicSplitEncodeUpdates?: boolean;
-  forceQueueMode?: StreamQueueMode;
+  forceQueueMode?: NativeQueueMode;
   disableTransitionFlushEscalation?: boolean;
 }

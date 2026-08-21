@@ -65,6 +65,7 @@ export function MicrophoneIndicator({
 }
 
 export function AntiAfkIndicator({
+  diagnosticsStore,
   antiAfkEnabled,
   showAntiAfkIndicator,
   isConnecting,
@@ -74,17 +75,20 @@ export function AntiAfkIndicator({
   showAntiAfkIndicator: boolean;
   isConnecting: boolean;
 }): JSX.Element | null {
+  const hasGamepad = useStreamDiagnosticsSelector(
+    diagnosticsStore,
+    (stats) => stats.connectedGamepads > 0,
+  );
+
   if (!antiAfkEnabled || !showAntiAfkIndicator || isConnecting) {
     return null;
   }
 
   return (
-    <span
-      className="sv-afk-dot"
-      role="status"
-      aria-label="Anti-AFK đang bật"
-      title="Anti-AFK đang bật"
-    />
+    <div className={`sv-afk${hasGamepad ? " sv-afk--stacked" : ""}`} title="Anti-AFK is enabled">
+      <span className="sv-afk-dot" />
+      <span className="sv-afk-label">ANTI-AFK ON</span>
+    </div>
   );
 }
 
