@@ -26,7 +26,7 @@ import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 import { getControllerHeroBackgroundCandidates, getPlayerSummary } from "../lib/controllerCatalogUi";
 import { getStoreOptions } from "../lib/gameCardStores";
 import { getRequiredPaidMembershipTier } from "../lib/premiumMembership";
-import { getGameBoxArtUrl } from "../lib/gameArtwork";
+import { getGameArtworkInitials, getGameBoxArtUrl } from "../lib/gameArtwork";
 import { getStoreDisplayName, getStoreIconComponent } from "./GameCard";
 
 interface GameInfoPanelProps {
@@ -41,6 +41,13 @@ interface GameInfoPanelProps {
 
 const descCache = new Map<string, string>();
 const FALLBACK_DESCRIPTION = "__GAMEINFO_FALLBACK__";
+
+function getCatalogDescription(game: GameInfo): string {
+  return game.description
+    || game.longDescription
+    || game.featureLabels?.join(" / ")
+    || FALLBACK_DESCRIPTION;
+}
 
 async function fetchDescription(game: GameInfo): Promise<string> {
   if (descCache.has(game.id)) return descCache.get(game.id)!;
@@ -87,6 +94,7 @@ export function GameInfoPanel({
   const [desc, setDesc] = useState<string | null>(null);
   const [heroIndex, setHeroIndex] = useState(0);
   const [imgErr, setImgErr] = useState(false);
+  const [coverErr, setCoverErr] = useState(false);
   const [fav, setFav] = useState(false);
   const [favToast, setFavToast] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined);
@@ -109,6 +117,8 @@ export function GameInfoPanel({
     setDesc(null);
     setHeroIndex(0);
     setImgErr(false);
+    setCoverErr(false);
+    setDesc(getCatalogDescription(game));
     setFav(isFavorite(game.id));
     setSelectedVariantId(undefined);
     setDescriptionExpanded(false);
@@ -151,12 +161,13 @@ export function GameInfoPanel({
 
   const heroUrl = heroCandidates[heroIndex] ?? (!imgErr ? game.heroImageUrl ?? game.imageUrl : undefined);
   const coverUrl = getGameBoxArtUrl(game);
+  const coverInitials = getGameArtworkInitials(game.title);
   const stats = getPlaytimeStat(game.id);
   const lastPlayedLabel = stats.lastPlayedAt ? formatCatalogAccessTime(stats.lastPlayedAt) : null;
   const hasStats = stats.sessionCount > 0 || stats.totalSeconds > 0;
-  const description = desc === FALLBACK_DESCRIPTION
+  const description = desc === FALLBACK_DESCRIPTION || !desc
     ? t("gameInfo.fallbackDesc")
-    : (desc ?? t("gameInfo.loadingDesc"));
+    : desc;
   const playerSummary = getPlayerSummary(game)
     ?.replace(/\bLocal\b/g, "Cục bộ")
     .replace(/\bOnline\b/g, "Trực tuyến");
@@ -227,11 +238,21 @@ export function GameInfoPanel({
         </header>
 
         <div className="game-info-content">
-          {coverUrl && (
-            <div className="game-info-cover">
-              <img src={coverUrl} alt="" className="game-info-cover-img" />
-            </div>
-          )}
+          <div className={`game-info-cover${coverErr ? " is-fallback" : ""}`}>
+            {coverUrl && !coverErr ? (
+              <img
+                src={coverUrl}
+                alt={`${game.title} logo`}
+                className="game-info-cover-img"
+                loading="eager"
+                decoding="sync"
+                fetchPriority="high"
+                onError={() => setCoverErr(true)}
+              />
+            ) : (
+              <span className="game-info-cover-initials" aria-hidden="true">{coverInitials}</span>
+            )}
+          </div>
           <div className="game-info-meta">
             <h2 className="game-info-title">{game.title}</h2>
 

@@ -13903,3 +13903,64 @@ button.game-card-store-chip.owned.active:hover {
     border-radius: 14px;
   }
 }
+
+/* Verified square logo artwork: keep official wordmarks crisp without using a landscape poster as a fake logo. */
+.game-info-cover,
+.sload-cover {
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+}
+
+.game-info-cover {
+  aspect-ratio: 1;
+  min-height: 0;
+}
+
+.game-info-cover-img,
+.sload-cover-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  object-position: center;
+  image-rendering: auto;
+  backface-visibility: hidden;
+}
+
+.game-info-cover-initials,
+.sload-cover-initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 68%;
+  height: 68%;
+  border-radius: 24%;
+  background: linear-gradient(135deg, #2d7dff, #7b61ff);
+  color: #ffffff;
+  font-size: clamp(1rem, 2vw, 1.65rem);
+  font-weight: 850;
+  letter-spacing: -0.04em;
+  box-shadow: 0 10px 24px rgba(52, 86, 190, 0.24);
+}
+
+.game-info-cover.is-fallback {
+  background: linear-gradient(145deg, #f7f9ff, #e8edfa);
+}
+
+.sload-cover-empty {
+  background: #ffffff;
+}
+
+.sload-cover-initials {
+  width: 70%;
+  height: 70%;
+  font-size: clamp(0.95rem, 2.4vw, 1.35rem);
+}
+
+@media (prefers-color-scheme: dark) {
+  .game-info-cover.is-fallback,
+  .sload-cover-empty {
+    background: linear-gradient(145deg, #f4f6fc, #dfe5f4);
+  }
+}

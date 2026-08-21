@@ -15,6 +15,7 @@ import { QueueAdPreview, type QueueAdPlaybackEvent, type QueueAdPreviewHandle } 
 import { LazyShaderAtmosphere } from "./LazyShaderAtmosphere";
 import { useTranslation } from "../i18n";
 import { getStatusPulseMotion } from "./MotionProvider";
+import { getGameArtworkInitials } from "../lib/gameArtwork";
 
 type TranslateFunction = typeof import("../i18n").t;
 
@@ -153,7 +154,8 @@ export function StreamLoading({
   const effectiveStartedAt = launchStartedAtMs ?? mountedAt;
   const statusMessage = getStatusMessage(t, status, queuePosition, adState, hasError);
   const platformName = platformStore ? getStoreDisplayName(platformStore) : "";
-  const squareArtwork = gameLogo || gameCover;
+  const squareArtwork = gameLogo;
+  const artworkInitials = getGameArtworkInitials(gameTitle);
   const PlatformIcon = platformStore ? getStoreIconComponent(platformStore) : null;
   const adSummary = getAdSummary(t, adState);
   const cachedAdMediaUrl = activeAdMediaUrl ?? getPreferredSessionAdMediaUrl(activeAd);
@@ -221,7 +223,17 @@ export function StreamLoading({
       }}
     >
       <div className="sload-backdrop" />
-      {gameCover && <img className="sload-backdrop-art" src={gameCover} alt="" aria-hidden="true" draggable={false} />}
+      {gameCover && (
+        <img
+          className="sload-backdrop-art"
+          src={gameCover}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          loading="eager"
+          decoding="async"
+        />
+      )}
       <div className="sload-backdrop-mosaic" aria-hidden="true" />
       {!hasError && <LazyShaderAtmosphere variant={status === "queue" ? "queue" : "connecting"} />}
       <div className="sload-backdrop-wash" />
@@ -230,9 +242,18 @@ export function StreamLoading({
         <div className="sload-game">
           <div className="sload-cover">
             {squareArtwork ? (
-              <img src={squareArtwork} alt="" className="sload-cover-img" />
+              <img
+                src={squareArtwork}
+                alt={`${gameTitle} logo`}
+                className="sload-cover-img"
+                loading="eager"
+                decoding="sync"
+                fetchPriority="high"
+              />
             ) : (
-              <div className="sload-cover-empty"><Monitor size={24} /></div>
+              <div className="sload-cover-empty" aria-label={`${gameTitle} logo`}>
+                <span className="sload-cover-initials">{artworkInitials}</span>
+              </div>
             )}
           </div>
           <div className="sload-game-meta">
