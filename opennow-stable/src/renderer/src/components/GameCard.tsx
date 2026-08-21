@@ -1,4 +1,4 @@
-import { Clock, Heart, Monitor, Play, PlayCircle, Square } from "lucide-react";
+import { Clock, Heart, Info, Monitor, Play, PlayCircle, Square } from "lucide-react";
 import { getPlaytimeStat } from "../lib/playtimeStats";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
@@ -280,17 +280,57 @@ export const GameCard = memo(function GameCard({
 
         <div className="game-card-overlay">
           <div className="game-card-gradient" />
-          {onToggleFavorite && (
+          <div className="game-card-corner-actions">
+            {onToggleFavorite && (
+              <button
+                className={`game-card-fav-btn${isFav ? " active" : ""}`}
+                onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+                tabIndex={-1}
+                title={isFav ? t("gameCard.favoriteRemove") : t("gameCard.favoriteAdd")}
+                aria-label={isFav ? t("gameCard.favoriteRemove") : t("gameCard.favoriteAdd")}
+              >
+                <Heart size={15} fill={isFav ? "currentColor" : "none"} />
+              </button>
+            )}
+            {isActiveGame ? (
+              <button
+                className="game-card-corner-play-button game-card-corner-play-button--active"
+                onClick={(e) => { e.stopPropagation(); onResume?.(); }}
+                tabIndex={-1}
+                title={t("gameCard.resume")}
+                aria-label={t("gameCard.resume")}
+              >
+                <PlayCircle size={19} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                className={`game-card-corner-play-button${isLaunching ? " launching" : ""}`}
+                onClick={handlePlayClick}
+                aria-label={t("gameCard.playGame", { title: game.title })}
+                title={t("gameCard.playGame", { title: game.title })}
+                tabIndex={-1}
+              >
+                {isLaunching ? (
+                  <span className="game-card-play-spinner game-card-play-spinner--small" />
+                ) : (
+                  <Play size={18} fill="currentColor" />
+                )}
+              </button>
+            )}
+          </div>
+          {onShowInfo && (
             <button
-              className={`game-card-fav-btn${isFav ? " active" : ""}`}
-              onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+              type="button"
+              className="game-card-details-button"
+              onClick={(e) => { e.stopPropagation(); onShowInfo(); }}
               tabIndex={-1}
-              title={isFav ? t("gameCard.favoriteRemove") : t("gameCard.favoriteAdd")}
+              aria-label={t("gameCard.viewDetailsFor", { title: game.title })}
             >
-              <Heart size={14} fill={isFav ? "currentColor" : "none"} />
+              <Info size={14} aria-hidden="true" />
+              <span>{t("gameCard.viewDetails")}</span>
             </button>
           )}
-          {isActiveGame ? (
+          {isActiveGame && (
             <div className="game-card-active-actions">
               <button
                 className="game-card-resume-btn"
@@ -307,19 +347,6 @@ export const GameCard = memo(function GameCard({
                 <Square size={12} /> {t("gameCard.quit")}
               </button>
             </div>
-          ) : (
-            <button
-              className={`game-card-play-button${isLaunching ? " launching" : ""}`}
-              onClick={handlePlayClick}
-              aria-label={t("gameCard.playGame", { title: game.title })}
-              tabIndex={-1}
-            >
-              {isLaunching ? (
-                <span className="game-card-play-spinner" />
-              ) : (
-                <Play size={24} fill="currentColor" />
-              )}
-            </button>
           )}
         </div>
 

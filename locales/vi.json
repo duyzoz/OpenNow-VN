@@ -266,6 +266,8 @@
   "gameCard": {
     "selectGame": "Chọn {{title}}",
     "playGame": "Chơi {{title}}",
+    "viewDetails": "Chi tiết game",
+    "viewDetailsFor": "Xem chi tiết {{title}}",
     "store": "Cửa hàng {{store}}",
     "owned": "Đã sở hữu",
     "available": "Có sẵn",
@@ -1239,7 +1241,19 @@
     "addToFavorites": "Thêm vào yêu thích",
     "removeFromFavorites": "Xóa khỏi yêu thích",
     "favoriteAdded": "Đã thêm vào yêu thích ❤️",
-    "favoriteRemoved": "Đã xóa khỏi yêu thích"
+    "favoriteRemoved": "Đã xóa khỏi yêu thích",
+    "showMore": "Xem thêm",
+    "showLess": "Thu gọn"
+  },
+  "gameDetails": {
+    "eyebrow": "CHI TIẾT GAME",
+    "viewDetailsFor": "Chi tiết {{title}}",
+    "details": "Thông tin game",
+    "premiumRequired": "Cần tài khoản GFN Premium",
+    "freeTierUnavailable": "Game này không chơi được ở gói Free. Cần gói {{tier}} hoặc cao hơn trên GeForce NOW.",
+    "notOwned": "Chưa sở hữu",
+    "playOn": "Chơi trên {{store}}",
+    "storeOption": "{{store}}, {{ownership}}"
   },
   "sort": {
     "relevance": "Liên quan",
