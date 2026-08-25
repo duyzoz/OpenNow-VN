@@ -9,7 +9,6 @@ import { getGameSearchSuggestions, type PlaytimeData } from "../lib/gameCatalog"
 import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
 import { MotionSpinner } from "./MotionSpinner";
 import { AnimatePresence } from "motion/react";
-import { useCatalogScrollReveal } from "../hooks/useCatalogScrollReveal";
 import {
   getFavoritesSnapshot,
   subscribeToFavorites,
@@ -134,7 +133,6 @@ export const FavoritesPage = memo(function FavoritesPage({
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const isPageLoadingRef = useRef(false);
-  const catalogGridRef = useRef<HTMLDivElement | null>(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(visibleGames.length / PAGE_SIZE)),
@@ -187,7 +185,6 @@ export const FavoritesPage = memo(function FavoritesPage({
     [visibleGames, currentPage]
   );
 
-  useCatalogScrollReveal(catalogGridRef, current64FavoriteGames);
 
   const activeInfoGame = infoGame
     ? {
@@ -332,13 +329,9 @@ export const FavoritesPage = memo(function FavoritesPage({
       ) : (
         <div className="favorites-grid-area">
           <div style={{ position: "relative", width: "100%" }}>
-            <div ref={catalogGridRef} className="game-grid">
-              {current64FavoriteGames.map((game, index) => (
-                <div
-                  key={`${game.id}-p${currentPage}`}
-                  className="scroll-anim-wrapper card-batch-anim"
-                  style={{ "--card-i": index } as React.CSSProperties}
-                >
+            <div className="game-grid">
+              {current64FavoriteGames.map((game) => (
+                <div key={`${game.id}-p${currentPage}`}>
                   <GameCardListItem
                     game={game}
                     selectedVariantId={selectedVariantByGameId[game.id]}

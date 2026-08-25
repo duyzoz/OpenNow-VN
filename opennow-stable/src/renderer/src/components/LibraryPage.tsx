@@ -27,7 +27,6 @@ import { SelectDropdown } from "./ui/SelectDropdown";
 import { LibraryControllerView } from "./library/LibraryControllerView";
 import { MotionSpinner } from "./MotionSpinner";
 import { formatSortLabel } from "../utils/sortLabelFormat";
-import { useCatalogScrollReveal } from "../hooks/useCatalogScrollReveal";
 
 const CONTROLLER_HERO_ROTATION_MS = 8000;
 const CONTROLLER_MOVE_REPEAT_MS = 140;
@@ -224,7 +223,6 @@ export const LibraryPage = memo(function LibraryPage({
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const isPageLoadingRef = useRef(false);
-  const catalogGridRef = useRef<HTMLDivElement | null>(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(visibleLibraryGames.length / PAGE_SIZE)),
@@ -276,8 +274,6 @@ export const LibraryPage = memo(function LibraryPage({
     () => visibleLibraryGames.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
     [visibleLibraryGames, currentPage]
   );
-
-  useCatalogScrollReveal(catalogGridRef, current64LibraryGames);
 
   const toggleLibraryFilter = (filterId: string): void => {
     setSelectedLibraryFilterIds((previous) => (
@@ -618,7 +614,7 @@ export const LibraryPage = memo(function LibraryPage({
 
   const libraryGridItems = useMemo(
     () => current64LibraryGames.map((game) => (
-      <div key={game.id} className="scroll-anim-wrapper">
+      <div key={game.id}>
         <GameCardListItem
           game={game}
           isSelected={game.id === selectedGameId}
@@ -852,7 +848,7 @@ export const LibraryPage = memo(function LibraryPage({
           </div>
         ) : (
           <div style={{ position: "relative", width: "100%" }}>
-            <div ref={catalogGridRef} className="game-grid">
+            <div className="game-grid">
               {libraryGridItems}
             </div>
 

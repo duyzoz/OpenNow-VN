@@ -15,7 +15,6 @@ import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame 
 import { SelectDropdown } from "./ui/SelectDropdown";
 import { MotionSpinner } from "./MotionSpinner";
 import { formatSortLabel } from "../utils/sortLabelFormat";
-import { useCatalogScrollReveal } from "../hooks/useCatalogScrollReveal";
 
 export interface HomePageProps {
   games: GameInfo[];
@@ -156,7 +155,6 @@ export const HomePage = memo(function HomePage({
   const [isPageLoading, setIsPageLoading] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const isPageLoadingRef = useRef(false);
-  const catalogGridRef = useRef<HTMLDivElement | null>(null);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(games.length / PAGE_SIZE)),
@@ -216,12 +214,8 @@ export const HomePage = memo(function HomePage({
   );
 
   const gameGridItems = useMemo(
-    () => current64Games.map((game, index) => (
-      <div
-        key={`${game.id}-p${currentPage}`}
-        className="scroll-anim-wrapper card-batch-anim"
-        style={{ "--card-i": index } as React.CSSProperties}
-      >
+    () => current64Games.map((game) => (
+      <div key={`${game.id}-p${currentPage}`}>
         <GameCardListItem
           game={game}
           isSelected={game.id === selectedGameId}
@@ -235,7 +229,6 @@ export const HomePage = memo(function HomePage({
   );
 
 
-  useCatalogScrollReveal(catalogGridRef, current64Games);
   const hasGames = games.length > 0;
   const showInitialLoading = isLoading && !hasGames;
   const visibleFilterGroups = filterGroups.filter((group) => ["digital_store", "genre", "subscriptions"].includes(group.id));
@@ -398,7 +391,7 @@ export const HomePage = memo(function HomePage({
             </div>
           ) : (
             <div style={{ position: "relative", width: "100%" }}>
-              <div ref={catalogGridRef} className="game-grid">
+              <div className="game-grid">
                 {gameGridItems}
               </div>
 

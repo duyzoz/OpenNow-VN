@@ -8,13 +8,14 @@ import {
   Gamepad2,
   Heart,
   LockKeyhole,
-  Pause,
   PlayCircle,
+  Square,
   X,
 } from "lucide-react";
 import { useTranslation } from "../i18n";
-import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from "react";
 import type { GameInfo } from "@shared/gfn/catalog";
+import { m } from "motion/react";
 import { isFavorite, toggleFavorite } from "../lib/gamePreferences";
 import {
   formatDuration,
@@ -103,6 +104,8 @@ export function GameInfoPanel({
   const [favToast, setFavToast] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
   const heroCandidates = useMemo(
     () => (game ? getControllerHeroBackgroundCandidates(game) : []),
     [game],
@@ -120,6 +123,7 @@ export function GameInfoPanel({
     // renderer-only and does not touch launch, WebRTC or Native Stream code.
     preloadGameHeroArt(game);
     preloadArtworkUrl(getGameBoxArtUrl(game));
+    heroCandidates.forEach((candidate) => preloadArtworkUrl(candidate));
     setDesc(null);
     setHeroIndex(0);
     setImgErr(false);
@@ -196,8 +200,13 @@ export function GameInfoPanel({
   return (
     <div className="game-info-backdrop" onClick={handleBackdrop}>
       {favToast && <div className="game-info-toast">{favToast}</div>}
-      <div
+      <m.div
+        ref={panelRef}
         className="game-info-panel"
+        initial={{ opacity: 0, y: 20, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 10, scale: 0.97 }}
+        transition={{ duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] }}
         role="dialog"
         aria-modal="true"
         aria-label={t("gameDetails.viewDetailsFor", { title: game.title })}
@@ -247,8 +256,8 @@ export function GameInfoPanel({
                 alt={`${game.title} — ảnh đại diện game`}
                 className="game-info-cover-img"
                 loading="eager"
-                decoding="async"
-                fetchPriority="auto"
+                decoding="sync"
+                fetchPriority="high"
                 onError={() => setCoverErr(true)}
               />
             ) : (
@@ -344,23 +353,11 @@ export function GameInfoPanel({
             <div className="game-info-actions">
               {isActiveGame ? (
                 <>
-                  <button
-                    type="button"
-                    className="game-info-btn game-info-btn--resume"
-                    onClick={onResume}
-                    title={t("gameInfo.resumeStream")}
-                    aria-label={t("gameInfo.resumeStream")}
-                  >
-                    <PlayCircle size={15} fill="currentColor" aria-hidden="true" />
+                  <button className="game-info-btn game-info-btn--resume" onClick={onResume}>
+                    <PlayCircle size={15} /> {t("gameInfo.resumeStream")}
                   </button>
-                  <button
-                    type="button"
-                    className="game-info-btn game-info-btn--quit"
-                    onClick={onTerminate}
-                    title={t("gameInfo.endStream")}
-                    aria-label={t("gameInfo.endStream")}
-                  >
-                    <Pause size={13} fill="currentColor" aria-hidden="true" />
+                  <button className="game-info-btn game-info-btn--quit" onClick={onTerminate}>
+                    <Square size={13} /> {t("gameInfo.endStream")}
                   </button>
                 </>
               ) : (
@@ -385,7 +382,7 @@ export function GameInfoPanel({
           </div>
         </div>
         </div>
-      </div>
+      </m.div>
     </div>
   );
 }
