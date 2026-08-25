@@ -52,12 +52,18 @@ const CATALOG_KEY_ART_KEYS = [
   "KEY_IMAGE",
 ] as const;
 
+const CATALOG_HERO_ART_KEYS = [
+  "MARQUEE_HERO_IMAGE",
+  "FEATURE_IMAGE",
+  "HERO_IMAGE",
+  "TV_BANNER",
+] as const;
+
 const CATALOG_ICON_KEYS = [
   "GAME_ICON",
   "ICON",
   "APP_ICON",
 ] as const;
-
 
 function firstUsableUrl(values: unknown): string | undefined {
   if (!Array.isArray(values)) return undefined;
@@ -101,18 +107,32 @@ export function getGameArtworkSource(
 /** A lightweight no-image fallback; it is never a catalog poster masquerading as a logo. */
 const preloadedArtworkUrls = new Set<string>();
 
-/** Preload the exact per-game artwork while the pointer is over a card. */
-export function preloadGameBoxArt(
-  game: Pick<GameInfo, "id" | "title" | "shortName" | "imageUrlsByType">,
-): string | undefined {
-  const url = getGameBoxArtUrl(game);
-  if (!url || typeof Image === "undefined" || preloadedArtworkUrls.has(url)) return url;
+/** Preload one exact catalog/local artwork URL without blocking the renderer. */
+export function preloadArtworkUrl(url: string | undefined): string | undefined {
+  const normalizedUrl = url?.trim();
+  if (!normalizedUrl || typeof Image === "undefined" || preloadedArtworkUrls.has(normalizedUrl)) {
+    return normalizedUrl || undefined;
+  }
   const image = new Image();
   image.decoding = "async";
   image.fetchPriority = "high";
-  image.src = url;
-  preloadedArtworkUrls.add(url);
-  return url;
+  image.src = normalizedUrl;
+  preloadedArtworkUrls.add(normalizedUrl);
+  return normalizedUrl;
+}
+
+/** Preload the exact per-game square artwork while the pointer is over a card. */
+export function preloadGameBoxArt(
+  game: Pick<GameInfo, "id" | "title" | "shortName" | "imageUrlsByType">,
+): string | undefined {
+  return preloadArtworkUrl(getGameBoxArtUrl(game));
+}
+
+/** Preload the exact landscape hero artwork used by the detail/queue views. */
+export function preloadGameHeroArt(
+  game: Pick<GameInfo, "heroImageUrl" | "screenshotUrl" | "screenshotUrls" | "imageUrl" | "imageUrlsByType">,
+): string | undefined {
+  return preloadArtworkUrl(getGameHeroArtUrl(game));
 }
 
 export function getGameArtworkInitials(title: string): string {
@@ -124,9 +144,11 @@ export function getGameArtworkInitials(title: string): string {
 
 /** Preserve a landscape hero for backdrops while keeping square art separate. */
 export function getGameHeroArtUrl(
-  game: Pick<GameInfo, "heroImageUrl" | "screenshotUrl" | "screenshotUrls" | "imageUrl">,
+  game: Pick<GameInfo, "heroImageUrl" | "screenshotUrl" | "screenshotUrls" | "imageUrl" | "imageUrlsByType">,
 ): string | undefined {
   return game.heroImageUrl?.trim()
+    || findCatalogUrl(game, CATALOG_HERO_ART_KEYS)
+    || findCatalogUrl(game, CATALOG_KEY_ART_KEYS)
     || game.screenshotUrls?.find((value) => value.trim().length > 0)
     || game.screenshotUrl?.trim()
     || game.imageUrl?.trim()

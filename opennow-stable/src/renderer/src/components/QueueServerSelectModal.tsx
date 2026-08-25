@@ -94,7 +94,9 @@ const REGION_META: Record<string, { label: string; flag: string }> = {
   MY:   { label: "Malaysia",       flag: "🇲🇾" },
 };
 const REGION_ORDER = ["US", "CA", "EU", "JP", "KR", "THAI", "MY"];
-const QUEUE_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
+// Queue position/ETA is transient; refresh while this modal is open so the user
+// does not wait minutes for a stale position. This is selector-only traffic.
+const QUEUE_REFRESH_INTERVAL_MS = 30 * 1000;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -725,7 +727,7 @@ function RecommendCard({ t, label, sublabel, zone, selected, accent, pinging, di
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
             {regionMeta?.flag} {getRegionLabel(zone.pwRegion, t)} · {zone.zoneId}
           </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none" }}>
             {zone.pingMs !== null && <Chip color={getPingColor(zone.pingMs)}>{zone.pingMs}ms</Chip>}
             <Chip color={getQueueColor(zone.queuePosition)}>{t("serverSelection.queue", { count: zone.queuePosition })}</Chip>
             {zone.etaMs !== undefined && <Chip color="#6b7280">{formatWait(zone.etaMs, t)}</Chip>}
@@ -775,17 +777,22 @@ function ZoneRow({ t, zone, isAuto, isClosest, isPinging, selected, onClick }: Z
         justifyContent: "space-between",
         gap: 10,
         width: "100%",
+        minWidth: 0,
         transition: "border-color 0.1s, background 0.1s",
       }}
     >
       {/* Left */}
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, overflow: "hidden" }}>
         <span style={{
           fontSize: 12,
           fontWeight: 600,
           color: selected ? "var(--accent)" : "var(--ink-soft)",
           fontFamily: "'Roboto Mono', 'Courier New', monospace",
           letterSpacing: "0.02em",
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
         }}>
           {zone.zoneId}
         </span>
@@ -821,22 +828,22 @@ function ZoneRow({ t, zone, isAuto, isClosest, isPinging, selected, onClick }: Z
       </div>
 
       {/* Right */}
-      <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, whiteSpace: "nowrap" }}>
         {isPinging ? (
-          <span style={{ fontSize: 11, color: "var(--ink-dim)", fontStyle: "italic" }}>{t("serverSelection.pinging")}</span>
+          <span style={{ fontSize: 11, color: "var(--ink-dim)", fontStyle: "italic", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.42)" }}>{t("serverSelection.pinging")}</span>
         ) : zone.pingMs !== null ? (
-          <span style={{ fontSize: 12, color: getPingColor(zone.pingMs), fontWeight: 600, minWidth: 46, textAlign: "right" }}>
+          <span style={{ fontSize: 12, color: getPingColor(zone.pingMs), fontWeight: 700, minWidth: 46, textAlign: "right", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.48)" }}>
             {zone.pingMs}ms
           </span>
         ) : null}
         <span
           title={getQueueLabel(zone.queuePosition, t)}
-          style={{ fontSize: 12, color: getQueueColor(zone.queuePosition), fontWeight: 700, minWidth: 32, textAlign: "right" }}
+          style={{ fontSize: 12, color: getQueueColor(zone.queuePosition), fontWeight: 700, minWidth: 32, textAlign: "right", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.48)" }}
         >
           {t("serverSelection.queue", { count: zone.queuePosition })}
         </span>
         {zone.etaMs !== undefined && (
-          <span style={{ fontSize: 11, color: "var(--ink-muted)", minWidth: 44, textAlign: "right" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-muted)", minWidth: 44, textAlign: "right", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.48)" }}>
             {formatWait(zone.etaMs, t)}
           </span>
         )}
@@ -856,6 +863,9 @@ function Chip({ color, children }: { color: string; children: React.ReactNode })
       background: `${color}1a`,
       borderRadius: 4,
       padding: "2px 7px",
+      whiteSpace: "nowrap",
+      flexShrink: 0,
+      textShadow: "0 1px 2px rgba(0,0,0,0.44)",
     }}>
       {children}
     </span>

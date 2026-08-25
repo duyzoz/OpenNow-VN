@@ -2,14 +2,13 @@ import { Clock, Heart, Info, Monitor, Play, PlayCircle, Square } from "lucide-re
 import { getPlaytimeStat } from "../lib/playtimeStats";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
-import { m } from "motion/react";
 import { normalizeGameStore } from "@shared/gfn";
 import type { GameInfo } from "@shared/gfn";
 import { getActiveGameAvailabilityBadge } from "../lib/gameCardStatus";
 import { getStoreOptions as getGameCardStoreOptions } from "../lib/gameCardStores";
 import { useTranslation } from "../i18n";
 import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
-import { preloadGameBoxArt } from "../lib/gameArtwork";
+import { preloadGameBoxArt, preloadGameHeroArt } from "../lib/gameArtwork";
 
 interface GameCardProps {
   game: GameInfo;
@@ -240,16 +239,22 @@ export const GameCard = memo(function GameCard({
     onOpenStore?.(variantId);
   };
 
+  const warmGameArtwork = useCallback((): void => {
+    preloadGameBoxArt(game);
+    preloadGameHeroArt(game);
+  }, [game]);
+
   const handleShowInfo = (event: React.MouseEvent): void => {
     event.stopPropagation();
-    preloadGameBoxArt(game);
+    warmGameArtwork();
     onShowInfo?.();
   };
 
   return (
     <div
       className={`game-card ${isSelected ? "selected" : ""}`}
-      onPointerEnter={() => { preloadGameBoxArt(game); }}
+      onPointerEnter={warmGameArtwork}
+      onFocus={warmGameArtwork}
       onClick={onSelect}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) {

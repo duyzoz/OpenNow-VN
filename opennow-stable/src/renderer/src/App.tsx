@@ -104,7 +104,6 @@ import { FeedbackModal } from "./components/FeedbackModal";
 import { ModalSurface } from "./components/ui/ModalSurface";
 import { overlayMotion, pageTransition, streamRevealTransition } from "./components/MotionProvider";
 import { LazyShaderAtmosphere } from "./components/LazyShaderAtmosphere";
-import { PerfModePrompt } from "./components/PerfModePrompt";
 import { syncRendererTelemetry } from "./telemetry/posthog";
 // Additive (v9+): cloud client dedicated components
 
@@ -2922,9 +2921,8 @@ export function App(): JSX.Element {
           onOpenFeedback={() => setFeedbackOpen(true)}
         />
       </SettingsModalHost>
-      {/* First-run "weak PC / strong PC" profile picker. Renders nothing after
-          the user has answered once, and costs zero paint work in the meantime. */}
-      <PerfModePrompt />
+      {/* The legacy weak/strong PC picker is intentionally removed. The UI keeps
+          the full visual effect budget; stream components remain unchanged. */}
       {logoutConfirmModal}
       {removeAccountConfirmModal}
       {queueModalGame && streamStatus === "idle" && (

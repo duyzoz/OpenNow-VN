@@ -26,7 +26,12 @@ import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 import { getControllerHeroBackgroundCandidates, getPlayerSummary } from "../lib/controllerCatalogUi";
 import { getStoreOptions } from "../lib/gameCardStores";
 import { getRequiredPaidMembershipTier } from "../lib/premiumMembership";
-import { getGameArtworkInitials, getGameBoxArtUrl } from "../lib/gameArtwork";
+import {
+  getGameArtworkInitials,
+  getGameBoxArtUrl,
+  preloadArtworkUrl,
+  preloadGameHeroArt,
+} from "../lib/gameArtwork";
 import { getStoreDisplayName, getStoreIconComponent } from "./GameCard";
 
 interface GameInfoPanelProps {
@@ -114,6 +119,11 @@ export function GameInfoPanel({
 
   useEffect(() => {
     if (!game) return;
+    // Warm the exact per-game assets before the dialog paints. This is
+    // renderer-only and does not touch launch, WebRTC or Native Stream code.
+    preloadGameHeroArt(game);
+    preloadArtworkUrl(getGameBoxArtUrl(game));
+    heroCandidates.forEach((candidate) => preloadArtworkUrl(candidate));
     setDesc(null);
     setHeroIndex(0);
     setImgErr(false);
@@ -201,6 +211,7 @@ export function GameInfoPanel({
         aria-modal="true"
         aria-label={t("gameDetails.viewDetailsFor", { title: game.title })}
       >
+        <div className="game-info-scroll">
         <header className="game-info-hero">
           {heroUrl && !imgErr ? (
             <img
@@ -369,6 +380,7 @@ export function GameInfoPanel({
               )}
             </div>
           </div>
+        </div>
         </div>
       </m.div>
     </div>

@@ -1,10 +1,14 @@
 import * as net from "node:net";
 import type { PingResult, StreamRegion } from "@shared/gfn";
 
+const PING_TIMEOUT_MS = 1800;
+const PING_SAMPLE_COUNT = 3;
+const PING_SAMPLE_GAP_MS = 40;
+
 export async function tcpPing(
   hostname: string,
   port: number,
-  timeoutMs: number = 3000,
+  timeoutMs: number = PING_TIMEOUT_MS,
 ): Promise<number | null> {
   return new Promise((resolve) => {
     const startTime = Date.now();
@@ -41,29 +45,26 @@ export async function pingRegions(regions: StreamRegion[]): Promise<PingResult[]
 
       const validPings: number[] = [];
 
-      // Warm-up ping (result discarded) to prime the TCP path before measuring.
-      // The first cold-start connect includes DNS resolution and TCP SYN overhead
-      // which inflates subsequent measurements if not accounted for.
-      await tcpPing(hostname, port, 3000);
-
-      // Run 3 measured ping tests with a brief delay between each to allow
-      // the previous socket to fully close before opening the next connection.
-      for (let i = 0; i < 3; i++) {
+      // Measure three real TCP connection samples without a discarded warm-up.
+      // All regions are already measured in parallel by Promise.all below; keeping
+      // samples sequential per region avoids opening competing sockets to one host.
+      for (let i = 0; i < PING_SAMPLE_COUNT; i++) {
         if (i > 0) {
-          await new Promise<void>((resolve) => setTimeout(resolve, 100));
+          await new Promise<void>((resolve) => setTimeout(resolve, PING_SAMPLE_GAP_MS));
         }
-        const pingMs = await tcpPing(hostname, port, 3000);
-        if (pingMs !== null) {
-          validPings.push(pingMs);
-        }
+        const pingMs = await tcpPing(hostname, port, PING_TIMEOUT_MS);
+        if (pingMs !== null) validPings.push(pingMs);
       }
 
-      // Calculate average of successful pings
+      // The median is more stable than an average when one sample is delayed by
+      // DNS/OS scheduling or a transient network spike.
       if (validPings.length > 0) {
-        const avgPing = Math.round(
-          validPings.reduce((a, b) => a + b, 0) / validPings.length,
-        );
-        return { url: region.url, pingMs: avgPing };
+        const orderedPings = [...validPings].sort((a, b) => a - b);
+        const middle = Math.floor(orderedPings.length / 2);
+        const medianPing = orderedPings.length % 2 === 1
+          ? orderedPings[middle]
+          : Math.round((orderedPings[middle - 1] + orderedPings[middle]) / 2);
+        return { url: region.url, pingMs: medianPing };
       } else {
         return {
           url: region.url,
