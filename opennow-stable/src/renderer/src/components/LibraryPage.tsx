@@ -275,43 +275,26 @@ export const LibraryPage = memo(function LibraryPage({
     [visibleLibraryGames, currentPage]
   );
 
+  // Keep scroll reveal cheap: update one state attribute at threshold crossings;
+  // CSS handles only a small opacity/translate transition without blur or 3D.
   useEffect(() => {
     const cards = document.querySelectorAll(".library-grid-area .scroll-anim-wrapper");
     if (cards.length === 0) return undefined;
 
-    let rafId: number | null = null;
-
     const observer = new IntersectionObserver(
       (entries) => {
-        if (rafId !== null) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          entries.forEach((entry) => {
-            const ratio = entry.intersectionRatio;
-            const el = entry.target as HTMLElement;
-            if (ratio >= 0.65) {
-              el.style.filter = "blur(0px)";
-              el.style.opacity = "1";
-              el.style.transform = "perspective(1000px) rotateX(0deg) scale(1) translateY(0)";
-            } else if (ratio >= 0.35) {
-              el.style.filter = "blur(5px)";
-              el.style.opacity = "0.78";
-              el.style.transform = "perspective(1000px) rotateX(10deg) scale(0.96) translateY(4px)";
-            } else {
-              el.style.filter = "blur(14px)";
-              el.style.opacity = "0.32";
-              el.style.transform = "perspective(1000px) rotateX(22deg) scale(0.88) translateY(14px)";
-            }
-          });
+        entries.forEach((entry) => {
+          const ratio = entry.intersectionRatio;
+          const el = entry.target as HTMLElement;
+          const state = ratio >= 0.65 ? "full" : ratio >= 0.35 ? "near" : "far";
+          if (el.dataset.scrollState !== state) el.dataset.scrollState = state;
         });
       },
-      { threshold: [0, 0.2, 0.4, 0.65, 0.85, 1.0] }
+      { threshold: [0, 0.35, 0.65, 1.0] }
     );
 
-    cards.forEach((c) => observer.observe(c));
-    return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      observer.disconnect();
-    };
+    cards.forEach((card) => observer.observe(card));
+    return () => observer.disconnect();
   }, [current64LibraryGames]);
 
   const toggleLibraryFilter = (filterId: string): void => {
