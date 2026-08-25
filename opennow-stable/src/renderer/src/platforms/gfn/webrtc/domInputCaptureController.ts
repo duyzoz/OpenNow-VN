@@ -206,6 +206,12 @@ export class DomInputCaptureController {
   }
 
   setAdaptiveFlushInterval(intervalMs: number, active: boolean): void {
+    // Stats are sampled once per second. Avoid rewriting the same state on
+    // every sample; this is intentionally idempotent and does not alter the
+    // upstream flush interval or input-channel policy.
+    if (this.mouseFlushIntervalMs === intervalMs && this.mouseAdaptiveFlushActive === active) {
+      return;
+    }
     this.mouseFlushIntervalMs = intervalMs;
     this.mouseAdaptiveFlushActive = active;
   }
