@@ -314,11 +314,15 @@ test("video track replacement leaves exactly one active frame callback", () => {
       callbacks.delete(id);
     };
 
-    controller.attachTrack(videoTrack("old"));
+    const oldTrack = videoTrack("old");
+    const currentTrack = videoTrack("current");
+    controller.attachTrack(oldTrack);
+    assert.equal(controller.getVideoTrack(), oldTrack);
     const staleCallback = callbacks.get(1);
     assert.ok(staleCallback);
 
-    controller.attachTrack(videoTrack("current"));
+    controller.attachTrack(currentTrack);
+    assert.equal(controller.getVideoTrack(), currentTrack);
     assert.deepEqual(cancelled, [1]);
     assert.deepEqual([...callbacks.keys()], [2]);
 
@@ -334,6 +338,7 @@ test("video track replacement leaves exactly one active frame callback", () => {
     assert.deepEqual([...callbacks.keys()], [3]);
 
     controller.clearTracks();
+    assert.equal(controller.getVideoTrack(), null);
     assert.deepEqual(cancelled, [1, 3]);
   } finally {
     if (windowDescriptor) {

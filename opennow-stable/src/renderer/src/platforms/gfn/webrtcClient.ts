@@ -336,7 +336,7 @@ export class GfnWebRtcClient {
     totalDecodeTime: number;
     atMs: number;
   } | null = null;
-  private renderFpsCounter = { frames: 0, lastUpdate: 0, fps: 0 };
+  private renderFpsCounter = { frames: 0, lastUpdate: 0, fps: 0, started: false };
   private lastEmittedDiagnostics: StreamDiagnostics | null = null;
   private statsChannelVersionLogged = false;
 
@@ -812,6 +812,7 @@ export class GfnWebRtcClient {
 
   private resetDiagnostics(): void {
     this.lastStatsSample = null;
+    this.renderFpsCounter = { frames: 0, lastUpdate: 0, fps: 0, started: false };
     this.lastEmittedDiagnostics = null;
     this.currentCodec = "";
     this.currentResolution = "";
@@ -984,6 +985,13 @@ export class GfnWebRtcClient {
 
   private updateRenderFps(): void {
     const now = performance.now();
+    if (!this.renderFpsCounter.started) {
+      // Do not divide the first sample by time since page navigation. That
+      // produces a misleading first-session FPS value and can contaminate the
+      // first diagnostics snapshot after reconnect.
+      this.renderFpsCounter.started = true;
+      this.renderFpsCounter.lastUpdate = now;
+    }
     this.renderFpsCounter.frames++;
 
     // Update FPS every 500ms
@@ -1223,12 +1231,14 @@ export class GfnWebRtcClient {
     this.diagnostics.mouseFlushIntervalMs = mouseDiagnostics.flushIntervalMs;
     this.diagnostics.mousePacketsPerSecond = mouseDiagnostics.packetsPerSecond;
     this.diagnostics.mouseResidualMagnitude = mouseDiagnostics.residualMagnitude;
+    let mouseAdaptiveFlushActive = mouseDiagnostics.adaptiveFlushActive;
 
     // Intentional adaptive coalesce: only when mouse moves ride the reliable
     // channel (PR mouse keeps the fixed 4/8/16 ms official interval). Skip while
     // pointerrawupdate forced immediate flush (interval 0).
     if (mouseDiagnostics.flushIntervalMs <= 0 || mouseDiagnostics.flushBaseIntervalMs <= 0) {
       this.domInputController.setAdaptiveFlushInterval(mouseDiagnostics.flushIntervalMs, false);
+      mouseAdaptiveFlushActive = false;
     } else if (this.canSendInputTypePartiallyReliable(INPUT_MOUSE_REL)) {
       // Official GFN keeps a fixed coalesce interval for PR mouse.
       this.domInputController.setAdaptiveFlushInterval(
@@ -1236,6 +1246,7 @@ export class GfnWebRtcClient {
         false,
       );
       this.diagnostics.mouseFlushIntervalMs = mouseDiagnostics.flushBaseIntervalMs;
+      mouseAdaptiveFlushActive = false;
     } else {
       const nextInterval = chooseAdaptiveMouseFlushInterval({
         baseIntervalMs: mouseDiagnostics.flushBaseIntervalMs,
@@ -1250,9 +1261,9 @@ export class GfnWebRtcClient {
       const adaptive = nextInterval !== mouseDiagnostics.flushBaseIntervalMs;
       this.domInputController.setAdaptiveFlushInterval(nextInterval, adaptive);
       this.diagnostics.mouseFlushIntervalMs = nextInterval;
+      mouseAdaptiveFlushActive = adaptive;
     }
-    this.diagnostics.mouseAdaptiveFlushActive =
-      this.domInputController.getMouseDiagnostics().adaptiveFlushActive;
+    this.diagnostics.mouseAdaptiveFlushActive = mouseAdaptiveFlushActive;
 
     const lagClassification = classifyStreamLagReason({
       nativeInputActive: this.nativeInputActive,
