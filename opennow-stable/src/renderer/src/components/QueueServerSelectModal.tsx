@@ -5,6 +5,7 @@ import type { GameInfo, PrintedWasteQueueData, PrintedWasteZone } from "@shared/
 import { buildGfnZoneStreamingBaseUrl, isStandardGfnZone } from "@shared/gfn";
 import {
   loadStoredPrintedWastePingSnapshot,
+  MAX_VALID_PING_MS,
   PING_CACHE_MAX_AGE_MS,
   saveStoredPrintedWastePingResults,
 } from "../utils/pingResultsStorage";
@@ -56,8 +57,18 @@ function getRegionLabel(region: string, t: Translate): string {
     : t(`serverSelection.region.${region}`);
 }
 
+function normalizePingMs(ms: number | null | undefined): number | null {
+  return ms !== null
+    && ms !== undefined
+    && Number.isFinite(ms)
+    && ms >= 0
+    && ms <= MAX_VALID_PING_MS
+    ? Math.round(ms)
+    : null;
+}
+
 function getPingColor(ms: number | null): string {
-  if (ms === null) return "#6b7280";
+  if (ms === null || !Number.isFinite(ms) || ms < 0 || ms > MAX_VALID_PING_MS) return "#94a3b8";
   if (ms < 200) return "#22c55e";
   if (ms <= 300) return "#f59e0b";
   return "#ef4444";
@@ -301,7 +312,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
         const results = await window.openNow.pingRegions(regionsToTest);
         if (cancelled) return;
         const map = new Map(seedMap);
-        for (const r of results) map.set(r.url, r.pingMs);
+        for (const r of results) map.set(r.url, normalizePingMs(r.pingMs));
         setZonePings(map);
         setPingCacheSavedAtMs(saveStoredPrintedWastePingResults(map));
       } catch {
@@ -444,8 +455,9 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
       role="dialog"
       aria-modal="true"
       aria-labelledby="queue-server-select-title"
+      className="queue-server-select-modal"
     >
-      <div style={cardStyle}>
+      <div style={cardStyle} className="queue-server-select-card">
 
         {/* Header */}
         <div style={{ padding: "20px 24px 0", flexShrink: 0 }}>
@@ -799,7 +811,7 @@ function ZoneRow({ t, zone, isAuto, isClosest, isPinging, selected, onClick }: Z
           fontSize: 12,
           fontWeight: 600,
           color: selected ? "var(--accent)" : "var(--ink-soft)",
-          fontFamily: "'Roboto Mono', 'Courier New', monospace",
+          fontFamily: "inherit",
           letterSpacing: "0.02em",
           minWidth: 0,
           overflow: "hidden",
@@ -842,20 +854,24 @@ function ZoneRow({ t, zone, isAuto, isClosest, isPinging, selected, onClick }: Z
       {/* Right */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, whiteSpace: "nowrap" }}>
         {isPinging ? (
-          <span style={{ fontSize: 11, color: "var(--ink-dim)", fontStyle: "italic", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.42)" }}>{t("serverSelection.pinging")}</span>
+          <span style={{ fontSize: 11, color: "var(--ink-muted)", fontStyle: "normal", whiteSpace: "nowrap" }}>{t("serverSelection.pinging")}</span>
         ) : zone.pingMs !== null ? (
-          <span style={{ fontSize: 12, color: getPingColor(zone.pingMs), fontWeight: 700, minWidth: 46, textAlign: "right", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.48)" }}>
+          <span style={{ fontSize: 12, color: getPingColor(zone.pingMs), fontWeight: 700, minWidth: 46, textAlign: "right", whiteSpace: "nowrap" }}>
             {zone.pingMs}ms
           </span>
-        ) : null}
+        ) : (
+          <span style={{ fontSize: 11, color: "var(--ink-muted)", minWidth: 46, textAlign: "right", whiteSpace: "nowrap" }}>
+            {t("serverSelection.pingUnavailable")}
+          </span>
+        )}
         <span
           title={getQueueLabel(zone.queuePosition, t)}
-          style={{ fontSize: 12, color: getQueueColor(zone.queuePosition), fontWeight: 700, minWidth: 32, textAlign: "right", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.48)" }}
+          style={{ fontSize: 12, color: getQueueColor(zone.queuePosition), fontWeight: 700, minWidth: 32, textAlign: "right", whiteSpace: "nowrap" }}
         >
           {t("serverSelection.queue", { count: zone.queuePosition })}
         </span>
         {zone.etaMs !== undefined && (
-          <span style={{ fontSize: 11, color: "var(--ink-muted)", minWidth: 44, textAlign: "right", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.48)" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-muted)", minWidth: 44, textAlign: "right", whiteSpace: "nowrap" }}>
             {formatWait(zone.etaMs, t)}
           </span>
         )}
@@ -877,7 +893,6 @@ function Chip({ color, children }: { color: string; children: React.ReactNode })
       padding: "2px 7px",
       whiteSpace: "nowrap",
       flexShrink: 0,
-      textShadow: "0 1px 2px rgba(0,0,0,0.44)",
     }}>
       {children}
     </span>
@@ -934,8 +949,8 @@ const overlayStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   background: "rgba(4, 6, 10, 0.78)",
-  backdropFilter: "blur(8px)",
-  WebkitBackdropFilter: "blur(8px)",
+  backdropFilter: "none",
+  WebkitBackdropFilter: "none",
 };
 
 const cardStyle: React.CSSProperties = {

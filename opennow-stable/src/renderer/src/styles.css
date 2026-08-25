@@ -14662,3 +14662,93 @@ button.game-card-store-chip.owned.active:hover {
 [data-theme="dark"] .favorites-grid-area {
   background: var(--bg-a) !important;
 }
+
+
+/* ======================================================
+   WEAK-PC POLISH — pale Play hover + static scroll surfaces
+   ====================================================== */
+.game-card {
+  contain: layout style;
+}
+
+.game-card-corner-play-button,
+.game-card-corner-play-button--active {
+  background: #86efac !important;
+  border-color: #4ade80 !important;
+  color: #166534 !important;
+  box-shadow: 0 3px 10px rgba(34, 197, 94, 0.18) !important;
+  transition: opacity 120ms ease, transform 120ms ease, background-color 120ms ease !important;
+}
+
+.game-card-corner-play-button:hover,
+.game-card-corner-play-button:focus-visible,
+.game-card-corner-play-button--active:hover,
+.game-card-corner-play-button--active:focus-visible,
+.game-card .game-card-corner-play-button:hover,
+.game-card .game-card-corner-play-button--active:hover {
+  background: #bbf7d0 !important;
+  border-color: #4ade80 !important;
+  color: #14532d !important;
+  transform: translateY(-1px) scale(1.04) !important;
+  box-shadow: 0 4px 11px rgba(34, 197, 94, 0.22) !important;
+}
+
+.game-card-corner-play-button--active,
+.game-card:hover .game-card-corner-play-button--active {
+  background: #86efac !important;
+  color: #166534 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card-corner-play-button,
+  .game-card-corner-play-button--active,
+  .game-card-corner-play-button:hover,
+  .game-card-corner-play-button--active:hover {
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Settings keeps its existing layout and controls, but avoids compositor work
+   while the long settings pane is scrolled on low-power machines. */
+.settings-content,
+.settings-sidebar {
+  contain: layout style;
+  scroll-behavior: auto !important;
+}
+
+.settings-content *,
+.settings-sidebar * {
+  animation: none !important;
+  transition-property: color, background-color, border-color !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  will-change: auto !important;
+}
+
+/* Select Server uses one readable application font and no black text aura. */
+.queue-server-select-modal,
+.queue-server-select-card,
+.queue-server-select-modal button,
+.queue-server-select-modal select,
+.queue-server-select-modal span,
+.queue-server-select-modal p,
+.queue-server-select-modal h2 {
+  font-family: inherit !important;
+  text-shadow: none !important;
+}
+
+.queue-server-select-modal {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.queue-server-select-card {
+  contain: layout style;
+}
+
+.queue-server-select-modal button,
+.queue-server-select-modal select {
+  -webkit-font-smoothing: antialiased;
+}

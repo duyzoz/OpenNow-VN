@@ -2,6 +2,17 @@ const REGION_PING_RESULTS_STORAGE_KEY = "opennow.ping-results.v1";
 const PRINTEDWASTE_PING_RESULTS_STORAGE_KEY = "opennow.printedwaste-pings.v1";
 
 export const PING_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+// The main-process probe times out at 1800 ms; anything above this is not a
+// usable latency sample and must be treated as unavailable instead of "poor".
+export const MAX_VALID_PING_MS = 1800;
+
+function normalizeCachedPingMs(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > MAX_VALID_PING_MS) {
+    return undefined;
+  }
+  return Math.round(value);
+}
 
 interface PingCacheEntry {
   url: string;
@@ -33,8 +44,9 @@ function loadPingSnapshot(storageKey: string, fallback: PingCacheSnapshot): Ping
 
     const results = new Map<string, number | null>();
     for (const entry of entries) {
-      if (entry && typeof entry.url === "string" && (entry.pingMs === null || typeof entry.pingMs === "number")) {
-        results.set(entry.url, entry.pingMs);
+      if (entry && typeof entry.url === "string") {
+        const pingMs = normalizeCachedPingMs(entry.pingMs);
+        if (pingMs !== undefined) results.set(entry.url, pingMs);
       }
     }
     const savedAtMs = !Array.isArray(parsed) && typeof parsed === "object" && parsed !== null &&
@@ -52,7 +64,8 @@ function savePingResults(storageKey: string, results: Map<string, number | null>
   try {
     const entries: PingCacheEntry[] = [];
     results.forEach((pingMs, url) => {
-      entries.push({ url, pingMs });
+      const normalizedPingMs = normalizeCachedPingMs(pingMs);
+      if (normalizedPingMs !== undefined) entries.push({ url, pingMs: normalizedPingMs });
     });
     const payload: PingCacheEnvelope = { version: 2, savedAtMs, entries };
     window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
