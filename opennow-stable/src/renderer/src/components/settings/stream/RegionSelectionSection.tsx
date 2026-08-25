@@ -134,7 +134,7 @@ export function RegionSelectionSection({
                           selection.regionSearchInputRef.current?.focus({ preventScroll: true });
                         }}
                         type="button"
-                        aria-label="Clear region search"
+                        aria-label={t("settings.region.clearSearch")}
                       >
                         <X size={12} aria-hidden="true" />
                       </button>
@@ -151,7 +151,7 @@ export function RegionSelectionSection({
                     aria-label={t("settings.region.refreshPing")}
                   >
                     {selection.isPinging ? (
-                      <MotionSpinner size={14} label="Testing regions" />
+                      <MotionSpinner size={14} label={t("settings.region.testing")} />
                     ) : (
                       <Wifi size={14} />
                     )}

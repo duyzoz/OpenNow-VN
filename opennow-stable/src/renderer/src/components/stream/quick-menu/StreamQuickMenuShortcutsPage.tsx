@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ClipboardEvent, JSX, KeyboardEvent } from "react";
 import { normalizeShortcut, shortcutFromKeyboardEvent } from "../../../shortcuts";
 import { getShortcutConflictError } from "../streamRuntimeHelpers";
+import { useTranslation } from "../../../i18n";
 
 export interface StreamShortcutBindings {
   toggleStats: string;
@@ -27,6 +28,13 @@ export function useStreamQuickMenuShortcuts({
   onScreenshotShortcutChange,
   onRecordingShortcutChange,
 }: UseStreamQuickMenuShortcutsOptions) {
+  const { t } = useTranslation();
+  const localizeShortcutError = useCallback((error: string | null): string | null => {
+    if (error === "Shortcut cannot be empty.") return t("stream.errors.shortcutEmpty");
+    if (error === "Invalid shortcut format.") return t("stream.errors.shortcutInvalid");
+    if (error === "Shortcut conflicts with an existing binding.") return t("stream.errors.shortcutConflict");
+    return error;
+  }, [t]);
   const [screenshotShortcutInput, setScreenshotShortcutInput] = useState(shortcuts.screenshot);
   const [screenshotShortcutError, setScreenshotShortcutError] = useState<string | null>(null);
   const [recordingShortcutInput, setRecordingShortcutInput] = useState(shortcuts.recording);
@@ -43,7 +51,7 @@ export function useStreamQuickMenuShortcuts({
   }, [shortcuts.recording]);
 
   const getScreenshotShortcutError = useCallback((rawValue: string): string | null => {
-    return getShortcutConflictError(rawValue, [
+    return localizeShortcutError(getShortcutConflictError(rawValue, [
       shortcuts.toggleStats,
       shortcuts.togglePointerLock,
       shortcuts.stopStream,
@@ -51,7 +59,7 @@ export function useStreamQuickMenuShortcuts({
       shortcuts.toggleMicrophone,
       shortcuts.recording,
       ...(isMacClient ? ["Meta+G"] : ["Ctrl+G", "Ctrl+Shift+G"]),
-    ]);
+    ]));
   }, [
     isMacClient,
     shortcuts.recording,
@@ -60,10 +68,11 @@ export function useStreamQuickMenuShortcuts({
     shortcuts.toggleMicrophone,
     shortcuts.togglePointerLock,
     shortcuts.toggleStats,
+    localizeShortcutError,
   ]);
 
   const getRecordingShortcutError = useCallback((rawValue: string): string | null => {
-    return getShortcutConflictError(rawValue, [
+    return localizeShortcutError(getShortcutConflictError(rawValue, [
       shortcuts.toggleStats,
       shortcuts.togglePointerLock,
       shortcuts.stopStream,
@@ -71,7 +80,7 @@ export function useStreamQuickMenuShortcuts({
       shortcuts.toggleMicrophone,
       shortcuts.screenshot,
       ...(isMacClient ? ["Meta+G"] : ["Ctrl+G", "Ctrl+Shift+G"]),
-    ]);
+    ]));
   }, [
     isMacClient,
     shortcuts.screenshot,
@@ -80,6 +89,7 @@ export function useStreamQuickMenuShortcuts({
     shortcuts.toggleMicrophone,
     shortcuts.togglePointerLock,
     shortcuts.toggleStats,
+    localizeShortcutError,
   ]);
 
   const applyScreenshotShortcutFromCapture = useCallback((canonical: string) => {
@@ -90,7 +100,7 @@ export function useStreamQuickMenuShortcuts({
     }
     const normalized = normalizeShortcut(canonical.trim());
     if (!normalized.valid) {
-      setScreenshotShortcutError("Invalid shortcut format.");
+      setScreenshotShortcutError(t("stream.quickMenu.shortcuts.invalidFormat"));
       return;
     }
     setScreenshotShortcutError(null);
@@ -108,7 +118,7 @@ export function useStreamQuickMenuShortcuts({
     }
     const normalized = normalizeShortcut(canonical.trim());
     if (!normalized.valid) {
-      setRecordingShortcutError("Invalid shortcut format.");
+      setRecordingShortcutError(t("stream.quickMenu.shortcuts.invalidFormat"));
       return;
     }
     setRecordingShortcutError(null);
@@ -220,22 +230,23 @@ export function StreamQuickMenuShortcutsPage({
     handleScreenshotShortcutPaste,
     handleRecordingShortcutPaste,
   } = editor;
+  const { t } = useTranslation();
 
   return (
     <div className="sidebar-page" role="tabpanel">
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Shortcut Bindings</span>
-          <span className="sidebar-section-sub">Edit screenshot keybind here</span>
+          <span>{t("stream.quickMenu.shortcuts.title")}</span>
+          <span className="sidebar-section-sub">{t("stream.quickMenu.shortcuts.subtitle")}</span>
         </div>
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Screenshot Shortcut</span>
+            <span className="sidebar-label">{t("stream.quickMenu.shortcuts.screenshot")}</span>
           </div>
           <input
             type="text"
             name="screenshot-shortcut"
-            aria-label="Screenshot shortcut"
+            aria-label={t("stream.quickMenu.shortcuts.aria")}
             className={`settings-text-input settings-shortcut-input sidebar-shortcut-input ${screenshotShortcutError ? "error" : ""}`}
             value={screenshotShortcutInput}
             readOnly
@@ -249,7 +260,7 @@ export function StreamQuickMenuShortcutsPage({
               }
               const normalized = normalizeShortcut(screenshotShortcutInput.trim());
               if (!normalized.valid) {
-                setScreenshotShortcutError("Invalid shortcut format.");
+                setScreenshotShortcutError(t("stream.quickMenu.shortcuts.invalidFormat"));
                 return;
               }
               setScreenshotShortcutError(null);
@@ -259,8 +270,8 @@ export function StreamQuickMenuShortcutsPage({
               }
             }}
             onKeyDown={handleScreenshotShortcutKeyDown}
-            placeholder="Click, then press a key"
-            title="Focus and press the key combination to bind"
+            placeholder={t("stream.quickMenu.shortcuts.capturePlaceholder")}
+            title={t("stream.quickMenu.shortcuts.captureTitle")}
             spellCheck={false}
           />
         </div>
@@ -269,12 +280,12 @@ export function StreamQuickMenuShortcutsPage({
         )}
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Recording Shortcut</span>
+            <span className="sidebar-label">{t("stream.quickMenu.shortcuts.recording")}</span>
           </div>
           <input
             type="text"
             name="recording-shortcut"
-            aria-label="Recording shortcut"
+            aria-label={t("stream.quickMenu.shortcuts.recordingAria")}
             className={`settings-text-input settings-shortcut-input sidebar-shortcut-input ${recordingShortcutError ? "error" : ""}`}
             value={recordingShortcutInput}
             readOnly
@@ -288,7 +299,7 @@ export function StreamQuickMenuShortcutsPage({
               }
               const normalized = normalizeShortcut(recordingShortcutInput.trim());
               if (!normalized.valid) {
-                setRecordingShortcutError("Invalid shortcut format.");
+                setRecordingShortcutError(t("stream.quickMenu.shortcuts.invalidFormat"));
                 return;
               }
               setRecordingShortcutError(null);
@@ -298,8 +309,8 @@ export function StreamQuickMenuShortcutsPage({
               }
             }}
             onKeyDown={handleRecordingShortcutKeyDown}
-            placeholder="Click, then press a key"
-            title="Focus and press the key combination to bind"
+            placeholder={t("stream.quickMenu.shortcuts.capturePlaceholder")}
+            title={t("stream.quickMenu.shortcuts.captureTitle")}
             spellCheck={false}
           />
         </div>
@@ -307,25 +318,25 @@ export function StreamQuickMenuShortcutsPage({
           <span className="sidebar-hint sidebar-hint--error">{recordingShortcutError}</span>
         )}
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Toggle Stats</span>
+          <span className="sidebar-label">{t("stream.quickMenu.shortcuts.toggleStats")}</span>
           <span className="settings-value-badge">{shortcuts.toggleStats}</span>
         </div>
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Mouse Lock</span>
+          <span className="sidebar-label">{t("stream.quickMenu.shortcuts.mouseLock")}</span>
           <span className="settings-value-badge">{shortcuts.togglePointerLock}</span>
         </div>
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Stop Stream</span>
+          <span className="sidebar-label">{t("stream.quickMenu.shortcuts.stopStream")}</span>
           <span className="settings-value-badge">{shortcuts.stopStream}</span>
         </div>
         {shortcuts.toggleMicrophone && (
           <div className="sidebar-row sidebar-row--aligned">
-            <span className="sidebar-label">Toggle Microphone</span>
+            <span className="sidebar-label">{t("stream.quickMenu.shortcuts.toggleMicrophone")}</span>
             <span className="settings-value-badge">{shortcuts.toggleMicrophone}</span>
           </div>
         )}
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Toggle Sidebar</span>
+          <span className="sidebar-label">{t("stream.quickMenu.shortcuts.toggleSidebar")}</span>
           <span className="sidebar-shortcut-stack">
             <span className="settings-value-badge">{sidebarToggleShortcutDisplay}</span>
             <span className="settings-value-badge">{controllerSidebarShortcutDisplay}</span>

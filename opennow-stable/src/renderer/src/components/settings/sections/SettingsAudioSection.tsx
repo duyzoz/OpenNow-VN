@@ -58,7 +58,7 @@ export function SettingsAudioSection({ settings, showAll, handleChange }: Settin
 
           if (permission.isMacOs && !permission.granted) {
             setMicrophoneDevices([]);
-            setMicrophonePermissionError(getMicrophonePermissionError(permission));
+            setMicrophonePermissionError(getMicrophonePermissionError(permission, t));
             return;
           }
         }
@@ -80,7 +80,7 @@ export function SettingsAudioSection({ settings, showAll, handleChange }: Settin
           const audioInputs = devices.filter((device) => device.kind === "audioinput");
           if (audioInputs.length > 0) {
             setMicrophoneDevices(audioInputs);
-            setMicrophonePermissionError("Microphone access is required to show device names and use voice chat. Allow access and try again.");
+            setMicrophonePermissionError(t("settings.audio.microphoneAccessRequired"));
             if (
               latestMicrophoneDeviceIdRef.current
               && !audioInputs.some((device) => device.deviceId === latestMicrophoneDeviceIdRef.current)
@@ -95,8 +95,8 @@ export function SettingsAudioSection({ settings, showAll, handleChange }: Settin
 
         if (!cancelled) {
           const message = err instanceof DOMException && err.name === "NotAllowedError"
-            ? "Microphone access was denied. Allow access for OpenNOW and try again."
-            : "Unable to access microphone devices right now.";
+            ? t("settings.audio.permissionDenied")
+            : t("settings.audio.deviceAccessUnavailable");
           setMicrophonePermissionError(message);
           setMicrophoneDevices([]);
         }

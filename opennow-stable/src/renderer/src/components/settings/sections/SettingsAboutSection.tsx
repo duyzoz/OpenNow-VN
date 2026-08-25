@@ -167,7 +167,7 @@ export function SettingsAboutSection({
                 });
               }}
             >
-              {updaterState.status === "checking" ? <MotionSpinner size={16} label="Checking for updates" /> : <RefreshCcw size={16} />}
+              {updaterState.status === "checking" ? <MotionSpinner size={16} label={t("settings.about.checkingForUpdates")} /> : <RefreshCcw size={16} />}
               {t("settings.about.checkForUpdates")}
             </button>
             {updaterState.status === "available" ? (

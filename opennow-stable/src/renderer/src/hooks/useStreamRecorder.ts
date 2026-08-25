@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { useTranslation } from "../i18n";
 import {
   normalizeRecordingBitrateMbps,
   type RecordingEntry,
@@ -37,6 +38,7 @@ export function useStreamRecorder({
   recordingResolution,
   recordingFps,
 }: UseStreamRecorderOptions) {
+  const { t } = useTranslation();
   const [recordingStatus, setRecordingStatus] = useState<RecordingStatus>("idle");
   const [recordings, setRecordings] = useState<RecordingEntry[]>([]);
   const [recordingDurationMs, setRecordingDurationMs] = useState(0);
@@ -93,9 +95,9 @@ export function useStreamRecorder({
       setRecordings(items);
     } catch (error) {
       console.error("[StreamView] Failed to load recordings:", error);
-      setRecordingError("Unable to load recordings.");
+      setRecordingError(t("stream.errors.recordingLoad"));
     }
-  }, [recordingApiAvailable]);
+  }, [recordingApiAvailable, t]);
 
   const deleteRecording = useCallback(async (id: string) => {
     setRecordingError(null);
@@ -105,9 +107,9 @@ export function useStreamRecorder({
       setRecordings((prev) => prev.filter((recording) => recording.id !== id));
     } catch (error) {
       console.error("[StreamView] Failed to delete recording:", error);
-      setRecordingError("Unable to delete recording.");
+      setRecordingError(t("stream.errors.recordingDelete"));
     }
-  }, [recordingApiAvailable]);
+  }, [recordingApiAvailable, t]);
 
   const scrollRecordings = useCallback((direction: "left" | "right") => {
     const strip = recCarouselRef.current;
@@ -138,7 +140,7 @@ export function useStreamRecorder({
           await window.openNow.abortRecording({ recordingId: id }).catch(() => undefined);
         }
         updateRecordingStatus("error");
-        setRecordingError("Recording stopped unexpectedly.");
+        setRecordingError(t("stream.errors.recordingUnexpectedStop"));
         return;
       }
       updateRecordingStatus("stopping");
@@ -155,14 +157,14 @@ export function useStreamRecorder({
     updateRecordingStatus("starting");
 
     if (!recordingApiAvailable) {
-      setRecordingError("Recording API unavailable. Restart OpenNOW to enable recording.");
+      setRecordingError(t("stream.errors.recordingApi"));
       updateRecordingStatus("error");
       return;
     }
 
     const video = videoRef.current;
     if (!video || !(video.srcObject instanceof MediaStream)) {
-      setRecordingError("Stream is not ready for recording yet.");
+      setRecordingError(t("stream.errors.recordingNotReady"));
       updateRecordingStatus("error");
       return;
     }
@@ -245,7 +247,7 @@ export function useStreamRecorder({
         if (!settledRecordingId) {
           finalizationInFlightRef.current = false;
           if (mountedRef.current) {
-            setRecordingError(errorMessage ?? "Recording encountered an error.");
+            setRecordingError(errorMessage ?? t("stream.errors.recordingGeneric"));
             updateRecordingStatus("error");
           }
           return;
@@ -255,7 +257,7 @@ export function useStreamRecorder({
           await window.openNow.abortRecording({ recordingId: settledRecordingId }).catch(() => undefined);
           finalizationInFlightRef.current = false;
           if (mountedRef.current) {
-            setRecordingError(errorMessage ?? "Recording encountered an error.");
+            setRecordingError(errorMessage ?? t("stream.errors.recordingGeneric"));
             updateRecordingStatus("error");
           }
           return;
@@ -283,7 +285,7 @@ export function useStreamRecorder({
           console.error("[StreamView] Failed to finish recording:", error);
           await window.openNow.abortRecording({ recordingId: settledRecordingId }).catch(() => undefined);
           if (mountedRef.current) {
-            setRecordingError("Recording could not be saved.");
+            setRecordingError(t("stream.errors.recordingSave"));
             updateRecordingStatus("error");
           }
         } finally {
@@ -356,7 +358,7 @@ export function useStreamRecorder({
         await window.openNow.abortRecording({ recordingId }).catch(() => undefined);
       }
       if (mountedRef.current) {
-        setRecordingError("Could not start recording.");
+        setRecordingError(t("stream.errors.recordingStart"));
         updateRecordingStatus("error");
       }
     }
@@ -370,6 +372,7 @@ export function useStreamRecorder({
     recordingFps,
     recordingResolution,
     updateRecordingStatus,
+    t,
     videoRef,
   ]);
 

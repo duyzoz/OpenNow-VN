@@ -59,9 +59,9 @@ export function StreamQuickMenuSessionPage({
 
   return (
     <div className="sidebar-page sidebar-page--session" role="tabpanel">
-      <section className="sidebar-session-card" aria-label="Current stream session">
+      <section className="sidebar-session-card" aria-label={t("stream.quickMenu.session.aria")}>
         <div className="sidebar-session-card-head">
-          <span className="sidebar-session-kicker">Now streaming</span>
+          <span className="sidebar-session-kicker">{t("stream.quickMenu.nowStreaming")}</span>
           <strong className="sidebar-session-title">{gameTitle}</strong>
           {PlatformIcon && platformName && (
             <span className="sidebar-session-platform" title={platformName}>
@@ -71,9 +71,9 @@ export function StreamQuickMenuSessionPage({
           )}
         </div>
       </section>
-      <section className="sidebar-session-metrics" aria-label="Session time">
+      <section className="sidebar-session-metrics" aria-label={t("stream.quickMenu.session.metricsAria")}>
         <div className="sidebar-metric">
-          <span>Total playtime left</span>
+          <span>{t("stream.quickMenu.remainingPlaytime")}</span>
           <RemainingPlaytimeIndicator
             subscriptionInfo={subscriptionInfo}
             startedAtMs={sessionStartedAtMs}
@@ -93,22 +93,22 @@ export function StreamQuickMenuSessionPage({
       </section>
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Session controls</span>
-          <span className="sidebar-section-sub">Manage the active stream.</span>
+          <span>{t("stream.quickMenu.sessionControls")}</span>
+          <span className="sidebar-section-sub">{t("stream.quickMenu.manageActiveStream")}</span>
         </div>
         <div className="sidebar-quick-actions">
           <button type="button" className="sidebar-action-card" onClick={onToggleFullscreen}>
             {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-            <span>{isFullscreen ? "Windowed" : "Fullscreen"}</span>
+            <span>{isFullscreen ? t("stream.quickMenu.windowed") : t("stream.quickMenu.fullscreen")}</span>
           </button>
           <button type="button" className="sidebar-action-card" onClick={onTogglePointerLock}>
             <MousePointer2 size={16} />
-            <span>{isPointerLocked ? "Release mouse" : "Capture mouse"}</span>
+            <span>{isPointerLocked ? t("stream.quickMenu.releaseMouse") : t("stream.quickMenu.captureMouse")}</span>
           </button>
           {onToggleMicrophone && (
             <button type="button" className="sidebar-action-card" onClick={onToggleMicrophone}>
               <Mic size={16} />
-              <span>Toggle mic</span>
+              <span>{t("stream.quickMenu.toggleMic")}</span>
             </button>
           )}
           <button
@@ -118,15 +118,15 @@ export function StreamQuickMenuSessionPage({
             disabled={isSavingScreenshot || !screenshotApiAvailable}
           >
             <Camera size={16} />
-            <span>{isSavingScreenshot ? "Capturing" : "Screenshot"}</span>
+            <span>{isSavingScreenshot ? t("stream.quickMenu.capturing") : t("stream.quickMenu.screenshot")}</span>
           </button>
         </div>
       </section>
       {sessionTimeRemainingText !== null && (
         <label className="sidebar-setting-card sidebar-mini-toggle" tabIndex={0}>
           <span>
-            <strong>Show time in stats</strong>
-            <small>Keep session time visible in the performance overlay.</small>
+            <strong>{t("stream.quickMenu.showTimeInStats")}</strong>
+            <small>{t("stream.quickMenu.showTimeInStatsHint")}</small>
           </span>
           <input
             type="checkbox"
@@ -139,7 +139,7 @@ export function StreamQuickMenuSessionPage({
         </label>
       )}
       <div className="sidebar-open-shortcuts">
-        <span><kbd>{sidebarToggleShortcutDisplay}</kbd> Keyboard</span>
+        <span><kbd>{sidebarToggleShortcutDisplay}</kbd> {t("stream.quickMenu.keyboard")}</span>
         <span><Gamepad2 size={14} /> {controllerSidebarShortcutDisplay}</span>
       </div>
     </div>

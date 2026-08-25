@@ -33,47 +33,47 @@ interface PlaybackPresentation {
   icon: typeof Loader2;
 }
 
-function getPlaybackPresentation(state: QueueAdPlaybackState): PlaybackPresentation {
+function getPlaybackPresentation(state: QueueAdPlaybackState, t: (key: string, values?: Record<string, string | number | boolean | null | undefined>) => string): PlaybackPresentation {
   switch (state) {
     case "playing":
       return {
-        label: "Playing",
+        label: t("streamLoading.ads.playing"),
         message: "",
         icon: PlayCircle,
       };
     case "paused":
       return {
-        label: "Paused",
-        message: "Ad paused before completion.",
-        retryLabel: "Resume",
+        label: t("streamLoading.ads.paused"),
+        message: t("streamLoading.ads.pausedBeforeCompletion"),
+        retryLabel: t("streamLoading.ads.resume"),
         icon: PauseCircle,
       };
     case "stalled":
       return {
-        label: "Stalled",
-        message: "Playback stopped progressing.",
-        retryLabel: "Retry",
+        label: t("streamLoading.ads.stalled"),
+        message: t("streamLoading.ads.playbackStoppedProgressing"),
+        retryLabel: t("streamLoading.ads.retry"),
         icon: AlertTriangle,
       };
     case "blocked":
       return {
-        label: "Autoplay blocked",
-        message: "Browser blocked automatic playback.",
-        retryLabel: "Start",
+        label: t("streamLoading.ads.autoplayBlocked"),
+        message: t("streamLoading.ads.browserBlockedPlayback"),
+        retryLabel: t("streamLoading.ads.start"),
         icon: AlertTriangle,
       };
     case "timeout":
       return {
-        label: "Timed out",
-        message: "Ad did not start in time.",
-        retryLabel: "Retry",
+        label: t("streamLoading.ads.timedOut"),
+        message: t("streamLoading.ads.adDidNotStart"),
+        retryLabel: t("streamLoading.ads.retry"),
         icon: AlertTriangle,
       };
     case "error":
       return {
-        label: "Playback error",
-        message: "Media failed to load.",
-        retryLabel: "Retry",
+        label: t("streamLoading.ads.playbackError"),
+        message: t("streamLoading.ads.mediaFailedToLoad"),
+        retryLabel: t("streamLoading.ads.retry"),
         icon: XCircle,
       };
     case "loading":
@@ -296,7 +296,7 @@ export const QueueAdPreview = forwardRef<QueueAdPreviewHandle, QueueAdPreviewPro
     };
   }, [mediaUrl]); // intentionally excludes onPlaybackEvent — stored in ref above
 
-  const presentation = getPlaybackPresentation(playbackState);
+  const presentation = getPlaybackPresentation(playbackState, t);
   const StatusIcon = presentation.icon;
   const showFrameOverlay = playbackState !== "playing";
   const muteLabel = muted ? t("streamLoading.ads.unmute") : t("streamLoading.ads.mute");

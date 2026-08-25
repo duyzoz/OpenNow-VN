@@ -8,6 +8,7 @@ import {
   saveStoredPrintedWastePingResults,
 } from "../utils/pingResultsStorage";
 import { spinnerTransition } from "./MotionProvider";
+import { useTranslation } from "../i18n";
 
 // ── Constants / helpers ───────────────────────────────────────────────────────
 
@@ -33,27 +34,25 @@ function formatWait(etaMs: number): string {
 
 function getPingColor(ms: number | null): string {
   if (ms === null) return "#6b7280";
-  if (ms < 30)  return "#58d98a";
-  if (ms < 80)  return "#84cc16";
-  if (ms < 150) return "#eab308";
+  if (ms < 200) return "#58d98a";
+  if (ms <= 300) return "#f59e0b";
   return "#ef4444";
 }
 
 function getQueueColor(q: number): string {
-  if (q <= 5)  return "#58d98a";
-  if (q <= 15) return "#84cc16";
-  if (q <= 30) return "#eab308";
+  if (q <= 5) return "#58d98a";
+  if (q <= 30) return "#f59e0b";
   return "#ef4444";
 }
 
-const REGION_META: Record<string, { label: string; flag: string }> = {
-  US:   { label: "North America",  flag: "🇺🇸" },
-  EU:   { label: "Europe",         flag: "🇪🇺" },
-  JP:   { label: "Japan",          flag: "🇯🇵" },
-  KR:   { label: "South Korea",    flag: "🇰🇷" },
-  CA:   { label: "Canada",         flag: "🇨🇦" },
-  THAI: { label: "Southeast Asia", flag: "🇹🇭" },
-  MY:   { label: "Malaysia",       flag: "🇲🇾" },
+const REGION_META: Record<string, { labelKey: string; flag: string }> = {
+  US:   { labelKey: "northAmerica", flag: "🇺🇸" },
+  EU:   { labelKey: "europe", flag: "🇪🇺" },
+  JP:   { labelKey: "japan", flag: "🇯🇵" },
+  KR:   { labelKey: "southKorea", flag: "🇰🇷" },
+  CA:   { labelKey: "canada", flag: "🇨🇦" },
+  THAI: { labelKey: "southeastAsia", flag: "🇹🇭" },
+  MY:   { labelKey: "malaysia", flag: "🇲🇾" },
 };
 const REGION_ORDER = ["US", "CA", "EU", "JP", "KR", "THAI", "MY"];
 const QUEUE_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
@@ -81,6 +80,7 @@ interface Props {
 }
 
 export function QueueServerSelectModal({ game, initialQueueData = null, onConfirm, onCancel }: Props): JSX.Element {
+  const { t } = useTranslation();
   const [queueData,  setQueueData]  = useState<PrintedWasteQueueData | null>(initialQueueData);
   const [queueLoading, setQueueLoading] = useState(initialQueueData === null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
         const data = await window.openNow.fetchPrintedWasteQueue();
         if (!cancelled) setQueueData(data);
       } catch {
-        if (!cancelled) setFetchError("Could not load queue data. You can still launch with default routing.");
+        if (!cancelled) setFetchError(t("queue.servers.fetchFailed"));
       } finally {
         if (!cancelled) setQueueLoading(false);
       }
@@ -363,13 +363,13 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
               <h2 id="queue-server-select-title" style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>
-                Select Server
+                {t("queueServerSelect.title")}
               </h2>
               <p style={{ margin: "3px 0 0", fontSize: 13, color: "var(--ink-muted)" }}>
-                {game.title} · Free tier server queue
+                {game.title} · {t("queueServerSelect.freeTierQueue")}
               </p>
             </div>
-            <button onClick={onCancel} style={closeBtn} aria-label="Close">✕</button>
+            <button onClick={onCancel} style={closeBtn} aria-label={t("queueServerSelect.close")}>✕</button>
           </div>
           <div style={{ height: 1, background: "var(--panel-border)", margin: "16px 0 0" }} />
         </div>
@@ -380,9 +380,9 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
           {/* Loading queue */}
           {isLoading && (
             <CenteredNote>
-              <Spinner />
+              <Spinner label={t("queueServerSelect.loadingServers")} />
               <span style={{ marginTop: 10, display: "block", fontSize: 14, color: "var(--ink-muted)" }}>
-                Fetching live queue data…
+                {t("queueServerSelect.fetchingLive")}
               </span>
             </CenteredNote>
           )}
@@ -405,18 +405,18 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
             <>
               {/* Recommended — always two cards side by side */}
               <div style={{ marginBottom: 20 }}>
-                <SectionLabel>Recommended</SectionLabel>
+                <SectionLabel>{t("queueServerSelect.recommended")}</SectionLabel>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
 
                   {/* Auto Selected */}
                   <RecommendCard
-                    label="⚡ Auto Selected"
+                    label={`⚡ ${t("queueServerSelect.autoSelected")}`}
                     sublabel={
                       isPinging
-                        ? "Lowest queue · pinging…"
+                        ? t("queueServerSelect.lowestQueuePinging")
                         : zonePings
-                        ? "Best ping + queue balance"
-                        : "Lowest queue position"
+                        ? t("queueServerSelect.bestBalance")
+                        : t("queueServerSelect.lowestQueuePosition")
                     }
                     zone={autoZone}
                     selected={selected === "auto"}
@@ -426,13 +426,13 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
 
                   {/* Closest Server — always visible; shows spinner while pinging */}
                   <RecommendCard
-                    label="📍 Closest Server"
+                    label={`📍 ${t("queueServerSelect.closestServer")}`}
                     sublabel={
                       isPinging
-                        ? "Measuring latency…"
+                        ? t("queueServerSelect.measuringLatency")
                         : closestZone
-                        ? "Lowest latency to you"
-                        : "Ping unavailable"
+                        ? t("queueServerSelect.lowestLatency")
+                        : t("queueServerSelect.pingUnavailable")
                     }
                     zone={closestZone}
                     selected={selected === "closest"}
@@ -446,16 +446,16 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
 
               {/* All servers */}
               <div>
-                <SectionLabel>All Servers</SectionLabel>
+                <SectionLabel>{t("queueServerSelect.allServers")}</SectionLabel>
                 {regionOrder.map((region) => {
                   const regionZones = groupedZones[region] ?? [];
-                  const meta = REGION_META[region] ?? { label: region, flag: "🌐" };
+                  const meta = REGION_META[region] ?? { labelKey: "unknown", flag: "🌐" };
                   return (
                     <div key={region} style={{ marginBottom: 14 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                         <span style={{ fontSize: 15 }}>{meta.flag}</span>
                         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-muted)", letterSpacing: "0.03em" }}>
-                          {meta.label}
+                          {t(`queueServerSelect.regions.${meta.labelKey}`)}
                         </span>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -480,7 +480,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
 
           {!isLoading && !fetchError && zones.length === 0 && (
             <CenteredNote>
-              <span style={{ fontSize: 13, color: "var(--ink-muted)" }}>No server data available.</span>
+              <span style={{ fontSize: 13, color: "var(--ink-muted)" }}>{t("queueServerSelect.noData")}</span>
             </CenteredNote>
           )}
         </div>
@@ -495,7 +495,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
             onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--ink-soft)"; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--ink-dim)"; }}
           >
-            Powered by <strong style={{ color: "inherit" }}>PrintedWaste</strong>
+            {t("queueServerSelect.poweredBy")} <strong style={{ color: "inherit" }}>PrintedWaste</strong>
           </a>
           <div style={{ display: "flex", gap: 10 }}>
             <button
@@ -513,7 +513,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
                 btn.style.border = ghostBtn.border as string;
                 btn.style.color = ghostBtn.color as string;
               }}
-            >Cancel</button>
+            >{t("queueServerSelect.cancel")}</button>
             <button
               onClick={handleConfirm}
               style={launchBtn}
@@ -528,7 +528,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
                 btn.style.boxShadow = launchBtn.boxShadow as string;
               }}
             >
-              Launch
+              {t("queueServerSelect.launch")}
             </button>
           </div>
         </div>
@@ -563,8 +563,9 @@ interface RecommendCardProps {
 }
 
 function RecommendCard({ label, sublabel, zone, selected, accent, pinging, disabled, onClick }: RecommendCardProps): JSX.Element {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
-  const regionMeta = zone ? (REGION_META[zone.pwRegion] ?? { label: zone.pwRegion, flag: "🌐" }) : null;
+  const regionMeta = zone ? (REGION_META[zone.pwRegion] ?? { labelKey: "unknown", flag: "🌐" }) : null;
 
   const isInteractive = !disabled && !pinging;
 
@@ -605,7 +606,7 @@ function RecommendCard({ label, sublabel, zone, selected, accent, pinging, disab
       {pinging ? (
         <>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink-muted)", marginBottom: 8 }}>—</div>
-          <div style={{ fontSize: 11, color: "var(--ink-dim)" }}>Pinging servers…</div>
+          <div style={{ fontSize: 11, color: "var(--ink-dim)" }}>{t("queueServerSelect.pinging")}</div>
         </>
       ) : zone ? (
         <>
@@ -614,12 +615,12 @@ function RecommendCard({ label, sublabel, zone, selected, accent, pinging, disab
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {zone.pingMs !== null && <Chip color={getPingColor(zone.pingMs)}>{zone.pingMs}ms</Chip>}
-            <Chip color={getQueueColor(zone.queuePosition)}>Queue: {zone.queuePosition}</Chip>
-            {zone.etaMs !== undefined && <Chip color="#6b7280">{formatWait(zone.etaMs)} wait</Chip>}
+            <Chip color={getQueueColor(zone.queuePosition)}>{t("queueServerSelect.queueShort", { position: zone.queuePosition })}</Chip>
+            {zone.etaMs !== undefined && <Chip color="#f8fafc" className="queue-eta-chip">{t("queueServerSelect.wait", { duration: formatWait(zone.etaMs) })}</Chip>}
           </div>
         </>
       ) : (
-        <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>No ping data available</div>
+        <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>{t("queueServerSelect.noPingData")}</div>
       )}
     </button>
   );
@@ -635,6 +636,7 @@ interface ZoneRowProps {
 }
 
 function ZoneRow({ zone, isAuto, isClosest, isPinging, selected, onClick }: ZoneRowProps): JSX.Element {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -676,12 +678,12 @@ function ZoneRow({ zone, isAuto, isClosest, isPinging, selected, onClick }: Zone
         </span>
         {isAuto && (
           <span style={{ fontSize: 10, background: "var(--accent-surface-strong)", color: "var(--accent)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
-            AUTO
+            {t("queueServerSelect.auto")}
           </span>
         )}
         {isClosest && !isAuto && (
           <span style={{ fontSize: 10, background: "var(--accent-surface)", color: "var(--accent)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>
-            NEAREST
+            {t("queueServerSelect.nearest")}
           </span>
         )}
       </div>
@@ -689,17 +691,20 @@ function ZoneRow({ zone, isAuto, isClosest, isPinging, selected, onClick }: Zone
       {/* Right */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
         {isPinging ? (
-          <span style={{ fontSize: 11, color: "var(--ink-dim)", fontStyle: "italic" }}>pinging…</span>
+          <span style={{ fontSize: 11, color: "var(--ink-dim)", fontStyle: "italic" }}>{t("queueServerSelect.pingingShort")}</span>
         ) : zone.pingMs !== null ? (
           <span style={{ fontSize: 12, color: getPingColor(zone.pingMs), fontWeight: 600, minWidth: 46, textAlign: "right" }}>
             {zone.pingMs}ms
           </span>
         ) : null}
         <span style={{ fontSize: 12, color: getQueueColor(zone.queuePosition), fontWeight: 700, minWidth: 32, textAlign: "right" }}>
-          Q:{zone.queuePosition}
+          {t("queueServerSelect.queueShort", { position: zone.queuePosition })}
         </span>
         {zone.etaMs !== undefined && (
-          <span style={{ fontSize: 11, color: "var(--ink-muted)", minWidth: 44, textAlign: "right" }}>
+          <span
+            className="queue-eta-text"
+            style={{ fontSize: 11, color: "#f8fafc", fontWeight: 700, minWidth: 44, textAlign: "right", textShadow: "0 1px 2px rgba(0,0,0,0.95)" }}
+          >
             {formatWait(zone.etaMs)}
           </span>
         )}
@@ -708,30 +713,34 @@ function ZoneRow({ zone, isAuto, isClosest, isPinging, selected, onClick }: Zone
   );
 }
 
-function Chip({ color, children }: { color: string; children: React.ReactNode }): JSX.Element {
+function Chip({ color, children, className }: { color: string; children: React.ReactNode; className?: string }): JSX.Element {
   return (
-    <span style={{
-      display: "inline-flex",
-      alignItems: "center",
-      fontSize: 11,
-      fontWeight: 600,
-      color,
-      background: `${color}1a`,
-      borderRadius: 4,
-      padding: "2px 7px",
-    }}>
+    <span
+      className={className}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        fontSize: 11,
+        fontWeight: 700,
+        color,
+        background: `${color}1a`,
+        borderRadius: 4,
+        padding: "2px 7px",
+        textShadow: className === "queue-eta-chip" ? "0 1px 2px rgba(0,0,0,0.95)" : undefined,
+      }}
+    >
       {children}
     </span>
   );
 }
 
-function Spinner(): JSX.Element {
+function Spinner({ label }: { label: string }): JSX.Element {
   return (
       <m.div
         animate={{ rotate: 360 }}
         transition={spinnerTransition}
         role="status"
-        aria-label="Loading servers"
+        aria-label={label}
         style={{
         display: "inline-block",
         width: 26,

@@ -1,5 +1,5 @@
 import { Search, LayoutGrid, ArrowUpDown, Filter, ChevronDown } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 import type { CatalogFilterGroup, CatalogSortOption, GameInfo, GamePanelResult } from "@shared/gfn";
 import { GameCardListItem, useCatalogCardActionsRef } from "./GameCardListItem";
@@ -15,9 +15,13 @@ import { useControllerKeyDown, useControllerNavigation } from "../hooks/useContr
 import { ConsoleStoreView } from "./console/ConsoleStoreView";
 import { SelectDropdown } from "./ui/SelectDropdown";
 import { MotionSpinner } from "./MotionSpinner";
+import { SearchSuggestions } from "./SearchSuggestions";
+import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
+import { getGameSearchSuggestions } from "../lib/gameCatalog";
 
 /** Cap per shelf so a curated panel cannot produce an unbounded row. */
 const CONTROLLER_STORE_ROW_LIMIT = 18;
+const DESKTOP_CATALOG_PAGE_SIZE = 64;
 
 export interface HomePageProps {
   games: GameInfo[];
@@ -80,11 +84,49 @@ export const HomePage = memo(function HomePage({
   onNextControllerPage,
 }: HomePageProps): JSX.Element {
   const { t } = useTranslation();
+  const [recentGames, setRecentGames] = useState<RecentGame[]>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [catalogPage, setCatalogPage] = useState(0);
+  const homeSearchInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    setRecentGames(loadRecentGames());
+  }, []);
+  const rememberGame = useCallback((game: GameInfo) => {
+    setRecentGames((current) => rememberRecentGame(current, game));
+  }, []);
+  const handleCatalogPlay = useCallback((game: GameInfo) => {
+    rememberGame(game);
+    onPlayGame(game);
+  }, [onPlayGame, rememberGame]);
+  const searchSuggestions = useMemo(
+    () => getGameSearchSuggestions(games, searchQuery, 30),
+    [games, searchQuery],
+  );
+  const catalogPageCount = Math.max(1, Math.ceil(games.length / DESKTOP_CATALOG_PAGE_SIZE));
+  const desktopGames = useMemo(
+    () => games.slice(catalogPage * DESKTOP_CATALOG_PAGE_SIZE, (catalogPage + 1) * DESKTOP_CATALOG_PAGE_SIZE),
+    [catalogPage, games],
+  );
+  useEffect(() => {
+    setCatalogPage(0);
+  }, [searchQuery, selectedFilterIds, selectedSortId]);
+  useEffect(() => {
+    setCatalogPage((page) => Math.min(page, Math.max(0, catalogPageCount - 1)));
+  }, [catalogPageCount]);
+  const handleSearchSuggestion = useCallback((game: GameInfo) => {
+    rememberGame(game);
+    onSearchChange(game.title);
+    onSelectGame(game.id);
+    onOpenDetails(game);
+    setSelectedSuggestionIndex(-1);
+    setSearchFocused(false);
+  }, [onOpenDetails, onSearchChange, onSelectGame, rememberGame]);
   const catalogActionsRef = useCatalogCardActionsRef({
-    onPlayGame,
+    onPlayGame: handleCatalogPlay,
     onSelectGame,
     onSelectGameVariant,
-    onOpenDetails,
+    onShowGameInfo: onOpenDetails,
   });
   const [focusedRowIndex, setFocusedRowIndex] = useState(0);
   const [focusedColumnIndex, setFocusedColumnIndex] = useState(0);
@@ -358,7 +400,7 @@ export const HomePage = memo(function HomePage({
   });
 
   const gameGridItems = useMemo(
-    () => games.map((game) => (
+    () => desktopGames.map((game) => (
       <GameCardListItem
         key={game.id}
         game={game}
@@ -368,7 +410,7 @@ export const HomePage = memo(function HomePage({
         actionsRef={catalogActionsRef}
       />
     )),
-    [catalogActionsRef, games, selectedGameId, selectedVariantByGameId],
+    [catalogActionsRef, desktopGames, selectedGameId, selectedVariantByGameId],
   );
 
   if (controllerMode) {
@@ -439,8 +481,48 @@ export const HomePage = memo(function HomePage({
             className="home-search-input"
             placeholder={t("home.searchPlaceholder")}
             value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            ref={homeSearchInputRef}
+            onFocus={() => {
+              setSearchFocused(true);
+              setSelectedSuggestionIndex(-1);
+            }}
+            onChange={(e) => {
+              onSearchChange(e.target.value);
+              setSelectedSuggestionIndex(-1);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" && searchSuggestions.length > 0) {
+                event.preventDefault();
+                setSelectedSuggestionIndex((current) => Math.min(current + 1, searchSuggestions.length - 1));
+              } else if (event.key === "ArrowUp" && searchSuggestions.length > 0) {
+                event.preventDefault();
+                setSelectedSuggestionIndex((current) => Math.max(current - 1, -1));
+              } else if (event.key === "Escape") {
+                setSelectedSuggestionIndex(-1);
+                setSearchFocused(false);
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                const selected = selectedSuggestionIndex >= 0
+                  ? searchSuggestions[selectedSuggestionIndex]
+                  : searchSuggestions[0];
+                if (selected) handleSearchSuggestion(selected);
+              }
+            }}
           />
+          {searchFocused && (
+            <SearchSuggestions
+              query={searchQuery}
+              games={searchSuggestions}
+              selectedIndex={selectedSuggestionIndex}
+              recentGames={recentGames}
+              onSelect={handleSearchSuggestion}
+              onSelectRecent={handleSearchSuggestion}
+              onClearRecent={() => {
+                clearRecentGames();
+                setRecentGames([]);
+              }}
+            />
+          )}
         </div>
 
         {visibleFilterGroups.length > 0 && (
@@ -517,6 +599,29 @@ export const HomePage = memo(function HomePage({
             {gameGridItems}
           </div>
         )}
+      {hasGames && !showInitialLoading && catalogPageCount > 1 && (
+        <nav className="catalog-pagination" aria-label={t("common.pagination.page", { current: catalogPage + 1, total: catalogPageCount })}>
+          <button
+            type="button"
+            className="catalog-pagination-button"
+            onClick={() => setCatalogPage((page) => Math.max(0, page - 1))}
+            disabled={catalogPage === 0}
+          >
+            {t("common.pagination.previous")}
+          </button>
+          <span className="catalog-pagination-label">
+            {t("common.pagination.page", { current: catalogPage + 1, total: catalogPageCount })}
+          </span>
+          <button
+            type="button"
+            className="catalog-pagination-button"
+            onClick={() => setCatalogPage((page) => Math.min(catalogPageCount - 1, page + 1))}
+            disabled={catalogPage >= catalogPageCount - 1}
+          >
+            {t("common.pagination.next")}
+          </button>
+        </nav>
+      )}
       </div>
     </div>
   );

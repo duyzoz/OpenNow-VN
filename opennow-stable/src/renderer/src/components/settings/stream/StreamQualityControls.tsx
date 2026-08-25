@@ -95,6 +95,27 @@ export function StreamQualityControls({
     }),
     [effectiveEntitledResolutions, settings.fps, settings.resolution],
   );
+  const staticResolutionLabelKeys: Record<string, string> = {
+    "1280x720": "settings.video.resolution720p169",
+    "1280x800": "settings.video.resolution720p1610",
+    "1440x900": "settings.video.resolutionWxga",
+    "1680x1050": "settings.video.resolutionWsxga",
+    "1920x1080": "settings.video.resolution1080p",
+    "1920x1200": "settings.video.resolution1200p",
+    "2560x1080": "settings.video.resolutionUltrawide1080p",
+    "2560x1440": "settings.video.resolution1440p",
+    "2560x1600": "settings.video.resolution1600p",
+    "3440x1440": "settings.video.resolutionUltrawide1440p",
+    "3840x2160": "settings.video.resolution4k169",
+    "3840x2400": "settings.video.resolution4k1610",
+    "5120x1440": "settings.video.resolutionSuperUltrawide",
+  };
+  const colorQualityLabelKeys: Record<string, string> = {
+    "8bit_420": "settings.colorQuality.label8bit420",
+    "8bit_444": "settings.colorQuality.label8bit444",
+    "10bit_420": "settings.colorQuality.label10bit420",
+    "10bit_444": "settings.colorQuality.label10bit444",
+  };
   const resolutionOptions = useMemo<SelectDropdownOption[]>(
     () =>
       useEntitledStreamOptions
@@ -107,9 +128,9 @@ export function StreamQualityControls({
           )
       : STATIC_RESOLUTION_PRESETS.map((resolution) => ({
           value: resolution.value,
-          label: resolution.label,
+          label: t(staticResolutionLabelKeys[resolution.value] ?? resolution.label),
         })),
-    [resolutionGroups, useEntitledStreamOptions],
+    [resolutionGroups, t, useEntitledStreamOptions],
   );
 
   const handleResolutionChange = useCallback(
@@ -389,7 +410,7 @@ export function StreamQualityControls({
                           : colorDescription
                       }
                 >
-                  <span>{option.label}</span>
+                  <span>{t(colorQualityLabelKeys[option.value] ?? option.label)}</span>
                 </button>
               );
             })}

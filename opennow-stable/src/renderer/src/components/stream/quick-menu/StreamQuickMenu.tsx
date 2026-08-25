@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useTranslation } from "../../../i18n";
 import type { Dispatch, JSX, RefObject, SetStateAction } from "react";
 import { AnimatePresence, m } from "motion/react";
 import { Bug, Gauge, Images, Keyboard, LogOut, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
@@ -121,6 +122,7 @@ export function StreamQuickMenu({
   onRecordingFpsChange,
   onRecordingBitrateMbpsChange,
 }: StreamQuickMenuProps): JSX.Element {
+  const { t } = useTranslation();
   const micMeterRef = useRef<HTMLCanvasElement | null>(null);
   useMicMeter(micMeterRef, micTrack, open && microphoneMode !== "disabled");
   const shortcutEditor = useStreamQuickMenuShortcuts({
@@ -150,16 +152,16 @@ export function StreamQuickMenu({
         {open && (
           <SideBar
             key="quick-menu-sidebar"
-            title="Quick menu"
+            title={t("stream.quickMenu.title")}
             className="sv-sidebar"
             elementRef={sidebarRef}
             onClose={onClose}
             footer={(
               <>
                 <div className="sidebar-controller-hints" aria-hidden="true">
-                  <span><kbd>A</kbd> Select</span>
-                  <span><kbd>B</kbd> Back</span>
-                  <span><kbd>LB</kbd><kbd>RB</kbd> Pages</span>
+                  <span><kbd>A</kbd> {t("stream.quickMenu.select")}</span>
+                  <span><kbd>B</kbd> {t("stream.quickMenu.back")}</span>
+                  <span><kbd>LB</kbd><kbd>RB</kbd> {t("stream.quickMenu.pagesHint")}</span>
                 </div>
                 <button
                   type="button"
@@ -167,7 +169,7 @@ export function StreamQuickMenu({
                   onClick={onReportBug}
                 >
                   <Bug size={16} />
-                  <span>Report a stream bug</span>
+                  <span>{t("stream.quickMenu.reportBug")}</span>
                 </button>
                 <button
                   type="button"
@@ -175,12 +177,12 @@ export function StreamQuickMenu({
                   onClick={onEndSession}
                 >
                   <LogOut size={16} />
-                  <span>End session</span>
+                  <span>{t("stream.quickMenu.endSession")}</span>
                 </button>
               </>
             )}
           >
-            <div className="sidebar-tabs" role="tablist" aria-label="Quick menu pages">
+            <div className="sidebar-tabs" role="tablist" aria-label={t("stream.quickMenu.pages")}>
               <button
                 type="button"
                 role="tab"
@@ -189,7 +191,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("session")}
               >
                 <Gauge size={16} />
-                <span>Session</span>
+                <span>{t("stream.quickMenu.tabs.session")}</span>
               </button>
               <button
                 type="button"
@@ -199,7 +201,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("controls")}
               >
                 <SlidersHorizontal size={16} />
-                <span>Controls</span>
+                <span>{t("stream.quickMenu.tabs.controls")}</span>
               </button>
               <button
                 type="button"
@@ -209,7 +211,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("media")}
               >
                 <Images size={16} />
-                <span>Media</span>
+                <span>{t("stream.quickMenu.tabs.media")}</span>
               </button>
               <button
                 type="button"
@@ -219,7 +221,7 @@ export function StreamQuickMenu({
                 onClick={() => setActiveTab("shortcuts")}
               >
                 <Keyboard size={16} />
-                <span>Keys</span>
+                <span>{t("stream.quickMenu.tabs.keys")}</span>
               </button>
             </div>
 
@@ -312,21 +314,21 @@ export function StreamQuickMenu({
       </AnimatePresence>
 
       {screenshotGallery.selectedScreenshot && (
-        <div className="sv-shot-modal" role="dialog" aria-modal="true" aria-label="Screenshot preview">
+        <div className="sv-shot-modal" role="dialog" aria-modal="true" aria-label={t("stream.screenshots.preview")}>
           <button
             type="button"
             className="sv-shot-modal-backdrop"
             onClick={() => screenshotGallery.setSelectedScreenshotId(null)}
-            aria-label="Close screenshot preview"
+            aria-label={t("stream.screenshots.closePreview")}
           />
           <div className="sv-shot-modal-card">
             <div className="sv-shot-modal-head">
-              <h4>Screenshot</h4>
+              <h4>{t("stream.screenshots.title")}</h4>
               <button
                 type="button"
                 className="sv-shot-modal-close"
                 onClick={() => screenshotGallery.setSelectedScreenshotId(null)}
-                aria-label="Close screenshot preview"
+                aria-label={t("stream.screenshots.closePreview")}
               >
                 <X size={16} />
               </button>
@@ -334,7 +336,7 @@ export function StreamQuickMenu({
             <img
               className="sv-shot-modal-image"
               src={screenshotGallery.selectedScreenshot.dataUrl}
-              alt={`Screenshot ${screenshotGallery.selectedScreenshot.fileName}`}
+              alt={t("stream.screenshots.alt", { fileName: screenshotGallery.selectedScreenshot.fileName })}
             />
             <div className="sv-shot-modal-actions">
               <button
@@ -343,7 +345,7 @@ export function StreamQuickMenu({
                 onClick={() => { void screenshotGallery.saveSelectedScreenshotAs(); }}
               >
                 <Save size={14} />
-                <span>Save</span>
+                <span>{t("app.actions.save")}</span>
               </button>
               <button
                 type="button"
@@ -351,7 +353,7 @@ export function StreamQuickMenu({
                 onClick={() => { void screenshotGallery.deleteSelectedScreenshot(); }}
               >
                 <Trash2 size={14} />
-                <span>Delete</span>
+                <span>{t("app.actions.delete")}</span>
               </button>
             </div>
           </div>

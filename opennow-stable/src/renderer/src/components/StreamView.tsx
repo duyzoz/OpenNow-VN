@@ -7,6 +7,7 @@ import { SessionStartedSplash } from "./SessionStartedSplash";
 import { StreamStatsHud } from "./StreamStatsHud";
 import type { StreamDiagnosticsStore } from "../utils/streamDiagnosticsStore";
 import { useStreamDiagnosticsSelector } from "../utils/streamDiagnosticsStore";
+import { useTranslation } from "../i18n";
 import { getStoreDisplayName, getStoreIconComponent } from "./GameCard";
 import { SessionElapsedIndicator } from "./ElapsedSessionIndicators";
 import {
@@ -185,6 +186,7 @@ export function StreamView({
   videoShader,
   onVideoShaderChange,
 }: StreamViewProps): JSX.Element {
+  const { t } = useTranslation();
   const [showHints, setShowHints] = useState(true);
   const [showSessionClock, setShowSessionClock] = useState(false);
   const [antiAfkToggleAck, setAntiAfkToggleAck] = useState<"on" | "off" | null>(null);
@@ -722,11 +724,11 @@ export function StreamView({
 
       {pointerLockHintVisible && (
         <div className="sv-pointerlock-hint" role="status" aria-live="polite">
-          <div>Press {shortcuts.toggleFullscreen} to exit fullscreen & release mouse</div>
+          <div>{t("stream.hints.pointerLockExit", { shortcut: shortcuts.toggleFullscreen })}</div>
           <div className="sv-pointerlock-hint-sub">
             {allowEscapeToExitFullscreen
-              ? "Press Escape will also exit fullscreen per your settings."
-              : "Escape goes to the game while pointer-locked; hold Escape ~1.5s to exit fullscreen."}
+              ? t("stream.hints.escapeExitsFullscreen")
+              : t("stream.hints.escapeToGame")}
           </div>
         </div>
       )}
@@ -788,8 +790,8 @@ export function StreamView({
       {isConnecting && (
         <div className="sv-connect">
           <div className="sv-connect-inner">
-            <MotionSpinner className="sv-connect-spin" size={44} label="Connecting to stream" />
-            <p className="sv-connect-title">Connecting to {gameTitle}</p>
+            <MotionSpinner className="sv-connect-spin" size={44} label={t("stream.connecting")} />
+            <p className="sv-connect-title">{t("stream.connectingTo", { gameTitle })}</p>
             {PlatformIcon && (
               <div className="sv-connect-platform" title={platformName}>
                 <span className="sv-connect-platform-icon">
@@ -798,7 +800,7 @@ export function StreamView({
                 <span>{platformName}</span>
               </div>
             )}
-            <p className="sv-connect-sub">Setting up stream...</p>
+            <p className="sv-connect-sub">{t("stream.settingUp")}</p>
           </div>
         </div>
       )}
@@ -806,7 +808,7 @@ export function StreamView({
       {sessionCounterEnabled && !isConnecting && (
         <div
           className={`sv-session-clock${showSessionClock ? " is-visible" : ""}`}
-          title="Current gaming session elapsed time"
+          title={t("stream.sessionElapsedTitle")}
           aria-hidden={!showSessionClock}
         >
           <SessionElapsedIndicator startedAtMs={sessionStartedAtMs} active={isStreaming} />
@@ -816,12 +818,12 @@ export function StreamView({
       {streamWarning && !isConnecting && !exitPrompt.open && (
         <div
           className={`sv-time-warning sv-time-warning--${streamWarning.tone}`}
-          title="Session time warning"
+          title={t("stream.sessionWarningTitle")}
         >
           <AlertTriangle size={14} />
           <span>
             {streamWarning.message}
-            {warningSeconds ? ` · ${warningSeconds} left` : ""}
+            {warningSeconds ? ` · ${t("stream.timeLeft", { seconds: warningSeconds })}` : ""}
           </span>
         </div>
       )}
@@ -829,7 +831,7 @@ export function StreamView({
       {(antiAfkToggleAck || antiAfkReminderVisible) && !isConnecting && (
         <div className={`sv-afk-ack sv-afk-ack--${antiAfkToggleAck ?? "on"}`} role="status" aria-live="polite">
           <span className="sv-afk-ack-dot" aria-hidden />
-          <span>{antiAfkToggleAck === "off" ? "Anti-AFK off" : "Anti-AFK on"}</span>
+          <span>{antiAfkToggleAck === "off" ? t("stream.hints.antiAfkOff") : t("stream.overlay.antiAfkOn")}</span>
         </div>
       )}
 
@@ -884,31 +886,31 @@ export function StreamView({
       />
 
       {exitPrompt.open && !isConnecting && typeof document !== "undefined" && createPortal(
-        <div className="sv-exit" role="dialog" aria-modal="true" aria-label="Exit stream confirmation">
+        <div className="sv-exit" role="dialog" aria-modal="true" aria-label={t("stream.exitPrompt.aria")}>
           <button
             type="button"
             className="sv-exit-backdrop"
             onClick={onCancelExit}
-            aria-label="Cancel exit"
+            aria-label={t("stream.exitPrompt.cancel")}
           />
           <div className="sv-exit-card">
-            <div className="sv-exit-kicker">Session Control</div>
-            <h3 className="sv-exit-title">Exit Stream?</h3>
+            <div className="sv-exit-kicker">{t("stream.exitPrompt.kicker")}</div>
+            <h3 className="sv-exit-title">{t("stream.exitPrompt.title")}</h3>
             <p className="sv-exit-text">
-              Do you really want to exit <strong>{exitPrompt.gameTitle}</strong>?
+              {t("stream.exitPrompt.question", { gameTitle: exitPrompt.gameTitle })}
             </p>
-            <p className="sv-exit-subtext">Your current cloud gaming session will be closed.</p>
+            <p className="sv-exit-subtext">{t("stream.exitPrompt.subtext")}</p>
             <div className="sv-exit-actions">
               <button type="button" className="sv-exit-btn sv-exit-btn-cancel" onClick={onCancelExit}>
-                Keep Playing
+                {t("stream.exitPrompt.keepPlaying")}
               </button>
               <button type="button" className="sv-exit-btn sv-exit-btn-confirm" onClick={onConfirmExit}>
-                Exit Stream
+                {t("stream.exitPrompt.exitStream")}
               </button>
             </div>
             <div className="sv-exit-hint">
-              <span><kbd>Enter</kbd> confirm · <kbd>Esc</kbd> cancel</span>
-              <span><kbd>A</kbd> select · <kbd>B</kbd> cancel</span>
+              <span><kbd>Enter</kbd> {t("stream.exitPrompt.confirmHint")} · <kbd>Esc</kbd> {t("stream.exitPrompt.cancelHint")}</span>
+              <span><kbd>A</kbd> {t("stream.exitPrompt.selectHint")} · <kbd>B</kbd> {t("stream.exitPrompt.cancelHint")}</span>
             </div>
           </div>
         </div>,
@@ -920,8 +922,8 @@ export function StreamView({
         <button
           className="sv-fs"
           onClick={handleFullscreenToggle}
-          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          title={isFullscreen ? t("stream.controls.exitFullscreen") : t("stream.controls.enterFullscreen")}
+          aria-label={isFullscreen ? t("stream.controls.exitFullscreen") : t("stream.controls.enterFullscreen")}
         >
           {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
         </button>
@@ -932,8 +934,8 @@ export function StreamView({
         <button
           className="sv-end"
           onClick={onEndSession}
-          title="End session"
-          aria-label="End session"
+          title={t("stream.quickMenu.endSession")}
+          aria-label={t("stream.quickMenu.endSession")}
         >
           <LogOut size={18} />
         </button>
@@ -942,12 +944,12 @@ export function StreamView({
       {/* Keyboard hints */}
       {showHints && !isConnecting && (
         <div className="sv-hints">
-          <div className="sv-hint"><kbd>{shortcuts.toggleStats}</kbd><span>Stats</span></div>
-          <div className="sv-hint"><kbd>{shortcuts.togglePointerLock}</kbd><span>Mouse lock</span></div>
-          <div className="sv-hint"><kbd>{shortcuts.toggleFullscreen}</kbd><span>Full screen</span></div>
-          <div className="sv-hint"><kbd>{shortcuts.stopStream}</kbd><span>Stop</span></div>
-          <div className="sv-hint"><kbd>{CONTROLLER_SIDEBAR_SHORTCUT_DISPLAY}</kbd><span>Controller menu</span></div>
-          {shortcuts.toggleMicrophone && <div className="sv-hint"><kbd>{shortcuts.toggleMicrophone}</kbd><span>Mic</span></div>}
+          <div className="sv-hint"><kbd>{shortcuts.toggleStats}</kbd><span>{t("stream.hints.stats")}</span></div>
+          <div className="sv-hint"><kbd>{shortcuts.togglePointerLock}</kbd><span>{t("stream.hints.mouseLock")}</span></div>
+          <div className="sv-hint"><kbd>{shortcuts.toggleFullscreen}</kbd><span>{t("stream.hints.fullscreen")}</span></div>
+          <div className="sv-hint"><kbd>{shortcuts.stopStream}</kbd><span>{t("stream.hints.stop")}</span></div>
+          <div className="sv-hint"><kbd>{CONTROLLER_SIDEBAR_SHORTCUT_DISPLAY}</kbd><span>{t("stream.hints.controllerMenu")}</span></div>
+          {shortcuts.toggleMicrophone && <div className="sv-hint"><kbd>{shortcuts.toggleMicrophone}</kbd><span>{t("stream.hints.mic")}</span></div>}
         </div>
       )}
 

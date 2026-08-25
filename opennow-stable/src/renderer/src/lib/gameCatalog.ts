@@ -47,7 +47,7 @@ export function findSessionContextForAppId(
 export function matchesGameSearch(game: GameInfo, query: string): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return true;
-  if (game.searchText?.includes(normalizedQuery)) return true;
+  if (game.searchText?.toLowerCase().includes(normalizedQuery)) return true;
   return [
     game.title,
     game.description,
@@ -58,6 +58,39 @@ export function matchesGameSearch(game: GameInfo, query: string): boolean {
   ]
     .filter((value): value is string => typeof value === "string" && value.length > 0)
     .some((value) => value.toLowerCase().includes(normalizedQuery));
+}
+
+/** Rank already-loaded catalog items without refetching or rebuilding server data. */
+export function getGameSearchSuggestions(
+  games: GameInfo[],
+  query: string,
+  limit = 30,
+): GameInfo[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery || limit <= 0) return [];
+
+  return games
+    .map((game, index) => {
+      const title = game.title.trim().toLowerCase();
+      const words = title.split(/[^a-z0-9\u00c0-\u024f]+/i).filter(Boolean);
+      const titleIndex = title.indexOf(normalizedQuery);
+      let score = Number.POSITIVE_INFINITY;
+      if (title === normalizedQuery) score = 0;
+      else if (title.startsWith(normalizedQuery)) score = 1;
+      else if (words.some((word) => word.startsWith(normalizedQuery))) score = 2;
+      else if (titleIndex >= 0) score = 3 + titleIndex / 1000;
+      else if (game.searchText?.toLowerCase().includes(normalizedQuery)) score = 5;
+      else if (matchesGameSearch(game, normalizedQuery)) score = 6;
+      return { game, score, index };
+    })
+    .filter((item) => Number.isFinite(item.score))
+    .sort((left, right) => (
+      left.score - right.score
+      || left.game.title.localeCompare(right.game.title)
+      || left.index - right.index
+    ))
+    .slice(0, limit)
+    .map(({ game }) => game);
 }
 
 export function areStringArraysEqual(left: string[], right: string[]): boolean {

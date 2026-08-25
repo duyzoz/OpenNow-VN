@@ -1,5 +1,5 @@
 import { Library, Search, Clock, Gamepad2, ArrowUpDown, Filter, ChevronDown, X } from "lucide-react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 import { AnimatePresence, m } from "motion/react";
 import type { CatalogSortOption, GameInfo } from "@shared/gfn";
@@ -26,6 +26,11 @@ import { pageTransition } from "./MotionProvider";
 import { SelectDropdown } from "./ui/SelectDropdown";
 import { LibraryControllerView } from "./library/LibraryControllerView";
 import { MotionSpinner } from "./MotionSpinner";
+import { SearchSuggestions } from "./SearchSuggestions";
+import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
+import { getGameSearchSuggestions } from "../lib/gameCatalog";
+
+const DESKTOP_CATALOG_PAGE_SIZE = 64;
 
 
 export interface LibraryPageProps {
@@ -78,11 +83,38 @@ export const LibraryPage = memo(function LibraryPage({
   onNextControllerPage,
 }: LibraryPageProps): JSX.Element {
   const { t } = useTranslation();
+  const [recentGames, setRecentGames] = useState<RecentGame[]>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [catalogPage, setCatalogPage] = useState(0);
+  const librarySearchInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    setRecentGames(loadRecentGames());
+  }, []);
+  const rememberGame = useCallback((game: GameInfo) => {
+    setRecentGames((current) => rememberRecentGame(current, game));
+  }, []);
+  const handleCatalogPlay = useCallback((game: GameInfo) => {
+    rememberGame(game);
+    onPlayGame(game);
+  }, [onPlayGame, rememberGame]);
+  const searchSuggestions = useMemo(
+    () => getGameSearchSuggestions(allGames, searchQuery, 30),
+    [allGames, searchQuery],
+  );
+  const handleSearchSuggestion = useCallback((game: GameInfo) => {
+    rememberGame(game);
+    onSearchChange(game.title);
+    onSelectGame(game.id);
+    onOpenDetails(game);
+    setSelectedSuggestionIndex(-1);
+    setSearchFocused(false);
+  }, [onOpenDetails, onSearchChange, onSelectGame, rememberGame]);
   const catalogActionsRef = useCatalogCardActionsRef({
-    onPlayGame,
+    onPlayGame: handleCatalogPlay,
     onSelectGame,
     onSelectGameVariant,
-    onOpenDetails,
+    onShowGameInfo: onOpenDetails,
   });
   const [detailsGame, setDetailsGame] = useState<GameInfo | null>(null);
   const [detailsActionIndex, setDetailsActionIndex] = useState(0);
@@ -114,6 +146,17 @@ export const LibraryPage = memo(function LibraryPage({
     () => games.filter((game) => gameMatchesLibraryFilters(game, selectedLibraryFilterIds, playtimeData, t)),
     [games, playtimeData, selectedLibraryFilterIds, t],
   );
+  const catalogPageCount = Math.max(1, Math.ceil(visibleLibraryGames.length / DESKTOP_CATALOG_PAGE_SIZE));
+  const desktopLibraryGames = useMemo(
+    () => visibleLibraryGames.slice(catalogPage * DESKTOP_CATALOG_PAGE_SIZE, (catalogPage + 1) * DESKTOP_CATALOG_PAGE_SIZE),
+    [catalogPage, visibleLibraryGames],
+  );
+  useEffect(() => {
+    setCatalogPage(0);
+  }, [searchQuery, selectedLibraryFilterIds, selectedSortId]);
+  useEffect(() => {
+    setCatalogPage((page) => Math.min(page, Math.max(0, catalogPageCount - 1)));
+  }, [catalogPageCount]);
   const activeLibraryFilterOptions = useMemo(
     () => selectedLibraryFilterIds
       .map((filterId) => getLibraryFilterOptionById(libraryFilterGroups, filterId))
@@ -433,7 +476,7 @@ export const LibraryPage = memo(function LibraryPage({
   });
 
   const libraryGridItems = useMemo(
-    () => visibleLibraryGames.map((game) => (
+    () => desktopLibraryGames.map((game) => (
       <div key={game.id} className="library-game-wrapper">
         <GameCardListItem
           game={game}
@@ -451,7 +494,7 @@ export const LibraryPage = memo(function LibraryPage({
         </div>
       </div>
     )),
-    [catalogActionsRef, selectedGameId, selectedVariantByGameId, t, visibleLibraryGames],
+    [catalogActionsRef, desktopLibraryGames, selectedGameId, selectedVariantByGameId, t],
   );
 
   if (controllerMode) {
@@ -522,10 +565,50 @@ export const LibraryPage = memo(function LibraryPage({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            ref={librarySearchInputRef}
+            onFocus={() => {
+              setSearchFocused(true);
+              setSelectedSuggestionIndex(-1);
+            }}
+            onChange={(e) => {
+              onSearchChange(e.target.value);
+              setSelectedSuggestionIndex(-1);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" && searchSuggestions.length > 0) {
+                event.preventDefault();
+                setSelectedSuggestionIndex((current) => Math.min(current + 1, searchSuggestions.length - 1));
+              } else if (event.key === "ArrowUp" && searchSuggestions.length > 0) {
+                event.preventDefault();
+                setSelectedSuggestionIndex((current) => Math.max(current - 1, -1));
+              } else if (event.key === "Escape") {
+                setSelectedSuggestionIndex(-1);
+                setSearchFocused(false);
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                const selected = selectedSuggestionIndex >= 0
+                  ? searchSuggestions[selectedSuggestionIndex]
+                  : searchSuggestions[0];
+                if (selected) handleSearchSuggestion(selected);
+              }
+            }}
             placeholder={t("library.searchPlaceholder")}
             className="library-search-input"
           />
+          {searchFocused && (
+            <SearchSuggestions
+              query={searchQuery}
+              games={searchSuggestions}
+              selectedIndex={selectedSuggestionIndex}
+              recentGames={recentGames}
+              onSelect={handleSearchSuggestion}
+              onSelectRecent={handleSearchSuggestion}
+              onClearRecent={() => {
+                clearRecentGames();
+                setRecentGames([]);
+              }}
+            />
+          )}
         </div>
 
         {libraryFilterGroups.length > 0 && (
@@ -637,6 +720,29 @@ export const LibraryPage = memo(function LibraryPage({
           <div className="game-grid">
             {libraryGridItems}
           </div>
+        )}
+        {visibleLibraryGames.length > 0 && !isLoading && catalogPageCount > 1 && (
+          <nav className="catalog-pagination" aria-label={t("common.pagination.page", { current: catalogPage + 1, total: catalogPageCount })}>
+            <button
+              type="button"
+              className="catalog-pagination-button"
+              onClick={() => setCatalogPage((page) => Math.max(0, page - 1))}
+              disabled={catalogPage === 0}
+            >
+              {t("common.pagination.previous")}
+            </button>
+            <span className="catalog-pagination-label">
+              {t("common.pagination.page", { current: catalogPage + 1, total: catalogPageCount })}
+            </span>
+            <button
+              type="button"
+              className="catalog-pagination-button"
+              onClick={() => setCatalogPage((page) => Math.min(catalogPageCount - 1, page + 1))}
+              disabled={catalogPage >= catalogPageCount - 1}
+            >
+              {t("common.pagination.next")}
+            </button>
+          </nav>
         )}
       </div>
     </div>

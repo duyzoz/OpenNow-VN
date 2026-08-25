@@ -1,21 +1,15 @@
-import { Eye, Play, Monitor } from "lucide-react";
+import { Clock, Heart, Info, Monitor, Play, PlayCircle, Square } from "lucide-react";
+import { getPlaytimeStat } from "../lib/playtimeStats";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
 import { m } from "motion/react";
+import { normalizeGameStore } from "@shared/gfn";
 import type { GameInfo } from "@shared/gfn";
 import { getActiveGameAvailabilityBadge } from "../lib/gameCardStatus";
-import {
-  getActiveStoreOption,
-  getStoreOptions as getGameCardStoreOptions,
-  getStoreDisplayName,
-  normalizeStoreKey,
-} from "../lib/gameCardStores";
+import { getStoreOptions as getGameCardStoreOptions } from "../lib/gameCardStores";
 import { useTranslation } from "../i18n";
-
-// Re-exported for the many call sites that still reach for these through the
-// card module; the implementations live in lib/gameCardStores so pure modules
-// can use them without pulling in React.
-export { getStoreDisplayName, normalizeStoreKey };
+import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
+import { preloadGameBoxArt, preloadGameHeroArt } from "../lib/gameArtwork";
 
 interface GameCardProps {
   game: GameInfo;
@@ -25,6 +19,13 @@ interface GameCardProps {
   onSelect: () => void;
   selectedVariantId?: string;
   onSelectStore?: (variantId: string) => void;
+  onOpenStore?: (variantId: string) => void;
+  isActiveGame?: boolean;
+  isFavorite?: boolean;
+  onResume?: () => void;
+  onTerminate?: () => void;
+  onShowInfo?: () => void;
+  onToggleFavorite?: () => void;
 }
 
 /* ── Official store brand icons (Simple Icons / MDI, viewBox 0 0 24 24) ── */
@@ -105,6 +106,33 @@ const STORE_ICON_MAP: Record<string, () => JSX.Element> = {
   BATTLE_NET: BattleNetIcon,
 };
 
+const STORE_DISPLAY_NAME: Record<string, string> = {
+  STEAM: "Steam",
+  EPIC_GAMES_STORE: "Epic",
+  UPLAY: "Ubisoft",
+  EA_APP: "EA",
+  GOG: "GOG",
+  XBOX: "Xbox",
+  BATTLE_NET: "Battle.net",
+};
+
+/** Normalize an appStore value to the uppercase key used by the icon/name maps. */
+export function normalizeStoreKey(raw: string): string {
+  return normalizeGameStore(raw);
+}
+
+function formatStoreFallbackName(storeKey: string): string {
+  return storeKey
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+export function getStoreDisplayName(store: string): string {
+  const key = normalizeStoreKey(store);
+  return STORE_DISPLAY_NAME[key] ?? formatStoreFallbackName(key);
+}
+
 export function getStoreIconComponent(store: string): () => JSX.Element {
   const key = normalizeStoreKey(store);
   return STORE_ICON_MAP[key] ?? DefaultStoreIcon;
@@ -131,6 +159,13 @@ function gameCardPropsAreEqual(prev: GameCardProps, next: GameCardProps): boolea
     && prev.onPlay === next.onPlay
     && prev.onSelect === next.onSelect
     && prev.onSelectStore === next.onSelectStore
+    && prev.onOpenStore === next.onOpenStore
+    && prev.isActiveGame === next.isActiveGame
+    && prev.isFavorite === next.isFavorite
+    && prev.onResume === next.onResume
+    && prev.onTerminate === next.onTerminate
+    && prev.onShowInfo === next.onShowInfo
+    && prev.onToggleFavorite === next.onToggleFavorite
   );
 }
 
@@ -142,6 +177,13 @@ export const GameCard = memo(function GameCard({
   onSelect,
   selectedVariantId,
   onSelectStore,
+  onOpenStore,
+  isActiveGame = false,
+  isFavorite: isFav = false,
+  onResume,
+  onTerminate,
+  onShowInfo,
+  onToggleFavorite,
 }: GameCardProps): JSX.Element {
   const { t } = useTranslation();
   const storeOptions = useMemo(
@@ -151,33 +193,26 @@ export const GameCard = memo(function GameCard({
     })),
     [game, selectedVariantId],
   );
-  const activeStoreOption = getActiveStoreOption(storeOptions);
+  const activeStoreOption = storeOptions.find((option) => option.isActive) ?? storeOptions[0];
   const availabilityBadge = useMemo(
     () => getActiveGameAvailabilityBadge(game, selectedVariantId),
     [game, selectedVariantId],
   );
+  const lastPlayedAt = getPlaytimeStat(game.id).lastPlayedAt ?? game.lastPlayed;
+  const accessLabel = lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : null;
 
   const fallbackAspectPct = GAME_CARD_FALLBACK_ASPECT[surface];
   const [aspectPct, setAspectPct] = useState(
-    () => (
-      surface === "library" && game.imageUrl
-        ? gameCardAspectByImageUrl.get(game.imageUrl)
-        : undefined
-    ) ?? fallbackAspectPct,
+    () => (game.imageUrl ? gameCardAspectByImageUrl.get(game.imageUrl) : undefined) ?? fallbackAspectPct,
   );
 
   useEffect(() => {
     setAspectPct(
-      (
-        surface === "library" && game.imageUrl
-          ? gameCardAspectByImageUrl.get(game.imageUrl)
-          : undefined
-      ) ?? fallbackAspectPct,
+      (game.imageUrl ? gameCardAspectByImageUrl.get(game.imageUrl) : undefined) ?? fallbackAspectPct,
     );
-  }, [fallbackAspectPct, game.imageUrl, surface]);
+  }, [fallbackAspectPct, game.imageUrl]);
 
   const handleImageLoad = useCallback((event: React.SyntheticEvent<HTMLImageElement>) => {
-    if (surface !== "library") return;
     const img = event.currentTarget;
     const w = img.naturalWidth;
     const h = img.naturalHeight;
@@ -188,32 +223,53 @@ export const GameCard = memo(function GameCard({
       }
       setAspectPct(measuredAspectPct);
     }
-  }, [game.imageUrl, surface]);
+  }, [game.imageUrl]);
+
+  const [isLaunching, setIsLaunching] = useState(false);
 
   const handlePlayClick = (event: React.MouseEvent): void => {
     event.stopPropagation();
+    setIsLaunching(true);
+    setTimeout(() => setIsLaunching(false), 6000);
     onPlay();
   };
 
   const handleStoreClick = (event: React.MouseEvent, variantId: string): void => {
     event.stopPropagation();
     onSelectStore?.(variantId);
+    onOpenStore?.(variantId);
+  };
+
+  const handleShowInfo = (event: React.MouseEvent): void => {
+    event.stopPropagation();
+    preloadGameBoxArt(game);
+    preloadGameHeroArt(game);
+    onShowInfo?.();
   };
 
   return (
-    <m.article
+    <div
       className={`game-card ${isSelected ? "selected" : ""}`}
-      whileHover={{ y: -2, scale: 1.01 }}
-      whileTap={{ scale: 0.985 }}
+      onPointerEnter={() => {
+        preloadGameBoxArt(game);
+        preloadGameHeroArt(game);
+      }}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) {
+          return;
+        }
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onPlay();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label={t("gameCard.selectGame", { title: game.title })}
     >
-      <button
-        type="button"
-        className="game-card-details-hit-target"
-        onClick={onSelect}
-        aria-label={t("gameCard.viewDetailsFor", { title: game.title })}
-      />
       <div
-        className="game-card-image-wrapper"
+        className="game-card-image-wrapper" onClick={handleShowInfo}
         style={
           aspectPct
             ? (({ ["--game-aspect" as any]: `${aspectPct}%` } as unknown) as React.CSSProperties)
@@ -236,13 +292,74 @@ export const GameCard = memo(function GameCard({
 
         <div className="game-card-overlay">
           <div className="game-card-gradient" />
-          <button
-            className="game-card-play-button"
-            onClick={handlePlayClick}
-            aria-label={t("gameCard.playGame", { title: game.title })}
-          >
-            <Play size={24} fill="currentColor" />
-          </button>
+          <div className="game-card-corner-actions">
+            {onToggleFavorite && (
+              <button
+                className={`game-card-fav-btn${isFav ? " active" : ""}`}
+                onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+                tabIndex={-1}
+                title={isFav ? t("gameCard.favoriteRemove") : t("gameCard.favoriteAdd")}
+                aria-label={isFav ? t("gameCard.favoriteRemove") : t("gameCard.favoriteAdd")}
+              >
+                <Heart size={15} fill={isFav ? "currentColor" : "none"} />
+              </button>
+            )}
+            {isActiveGame ? (
+              <button
+                className="game-card-corner-play-button game-card-corner-play-button--active"
+                onClick={(e) => { e.stopPropagation(); onResume?.(); }}
+                tabIndex={-1}
+                title={t("gameCard.resume")}
+                aria-label={t("gameCard.resume")}
+              >
+                <PlayCircle size={19} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                className={`game-card-corner-play-button${isLaunching ? " launching" : ""}`}
+                onClick={handlePlayClick}
+                aria-label={t("gameCard.playGame", { title: game.title })}
+                title={t("gameCard.playGame", { title: game.title })}
+                tabIndex={-1}
+              >
+                {isLaunching ? (
+                  <span className="game-card-play-spinner game-card-play-spinner--small" />
+                ) : (
+                  <Play size={18} fill="currentColor" />
+                )}
+              </button>
+            )}
+          </div>
+          {onShowInfo && (
+            <button
+              type="button"
+              className="game-card-details-button"
+              onClick={handleShowInfo}
+              tabIndex={-1}
+              aria-label={t("gameCard.viewDetailsFor", { title: game.title })}
+            >
+              <Info size={14} aria-hidden="true" />
+              <span>{t("gameCard.viewDetails")}</span>
+            </button>
+          )}
+          {isActiveGame && (
+            <div className="game-card-active-actions">
+              <button
+                className="game-card-resume-btn"
+                onClick={(e) => { e.stopPropagation(); onResume?.(); }}
+                tabIndex={-1}
+              >
+                <PlayCircle size={14} /> {t("gameCard.resume")}
+              </button>
+              <button
+                className="game-card-quit-btn"
+                onClick={(e) => { e.stopPropagation(); onTerminate?.(); }}
+                tabIndex={-1}
+              >
+                <Square size={12} /> {t("gameCard.quit")}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="game-card-info">
@@ -301,15 +418,17 @@ export const GameCard = memo(function GameCard({
               )}
             </div>
           )}
+          {accessLabel && (
+            <div className="game-card-access-time" title={accessLabel}>
+              <Clock size={12} aria-hidden="true" />
+              <span>{accessLabel}</span>
+            </div>
+          )}
           <h3 className="game-card-title" title={game.title}>
             {game.title}
           </h3>
         </div>
       </div>
-      <span className="game-card-details-label" aria-hidden="true">
-        <Eye size={15} />
-        {t("gameCard.viewDetails")}
-      </span>
-    </m.article>
+    </div>
   );
 }, gameCardPropsAreEqual);

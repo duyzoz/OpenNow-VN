@@ -59,7 +59,32 @@ export function SettingsNativeStreamerSection({
   const [nativeStreamerEnablePromptOpen, setNativeStreamerEnablePromptOpen] = useState(false);
   const nativeStreamerEnablePromptConfirmRef = useRef<HTMLButtonElement | null>(null);
   const hostVideoBackends = getHostVideoBackends(nativeStreamerStatus);
-  const selectableVideoBackendOptions = nativeVideoBackendOptions.filter(
+  const nativeBackendLabelKeys: Record<string, string> = {
+    auto: "settings.nativeStreamer.backendAuto",
+    d3d12: "settings.nativeStreamer.backendD3d12",
+    d3d11: "settings.nativeStreamer.backendD3d11",
+    nvdec: "settings.nativeStreamer.backendNvdec",
+    vaapi: "settings.nativeStreamer.backendVaapi",
+    v4l2: "settings.nativeStreamer.backendV4l2",
+    vulkan: "settings.nativeStreamer.backendVulkan",
+    software: "settings.nativeStreamer.backendSoftware",
+  };
+  const nativeBackendHintKeys: Record<string, string> = {
+    auto: "settings.nativeStreamer.backendAutoHint",
+    d3d12: "settings.nativeStreamer.backendD3d12Hint",
+    d3d11: "settings.nativeStreamer.backendD3d11Hint",
+    nvdec: "settings.nativeStreamer.backendNvdecHint",
+    vaapi: "settings.nativeStreamer.backendVaapiHint",
+    v4l2: "settings.nativeStreamer.backendV4l2Hint",
+    vulkan: "settings.nativeStreamer.backendVulkanHint",
+    software: "settings.nativeStreamer.backendSoftwareHint",
+  };
+  const localizedVideoBackendOptions = nativeVideoBackendOptions.map((option) => ({
+    ...option,
+    label: t(nativeBackendLabelKeys[option.value] ?? option.label),
+    description: t(nativeBackendHintKeys[option.value] ?? option.description),
+  }));
+  const selectableVideoBackendOptions = localizedVideoBackendOptions.filter(
     (option) => option.value === "auto"
       || hostVideoBackends.some((backend) => backend.backend === option.value),
   );
@@ -93,9 +118,9 @@ export function SettingsNativeStreamerSection({
         gstreamerRuntime: {
           source: "unknown",
           bundled: false,
-          message: "GStreamer runtime could not be checked.",
+          message: t("settings.nativeStreamer.gstreamerCheckFailed"),
         },
-        message: "Native streamer status could not be checked.",
+        message: t("settings.nativeStreamer.statusCheckFailed"),
       });
     } finally {
       setNativeStreamerStatusLoading(false);
@@ -255,7 +280,7 @@ export function SettingsNativeStreamerSection({
                     title={t("settings.nativeStreamer.checkNativeStreamer")}
                     aria-label={t("settings.nativeStreamer.checkNativeStreamer")}
                   >
-                    {nativeStreamerStatusLoading ? <MotionSpinner size={15} label="Checking streamer status" /> : <RefreshCcw size={15} />}
+                    {nativeStreamerStatusLoading ? <MotionSpinner size={15} label={t("settings.nativeStreamer.checkingStatus")} /> : <RefreshCcw size={15} />}
                   </button>
                 </div>
                 <div className="settings-chip-row">
@@ -275,7 +300,7 @@ export function SettingsNativeStreamerSection({
                         : t("settings.nativeStreamer.notReady")}
                   </span>
                   <span className={`settings-inline-badge ${getGstreamerRuntimeBadgeClass(nativeStreamerStatus)}`}>
-                    {formatGstreamerRuntimeLabel(nativeStreamerStatus)}
+                    {formatGstreamerRuntimeLabel(nativeStreamerStatus, t)}
                   </span>
                 </div>
                 <span className="settings-subtle-hint">
@@ -345,7 +370,7 @@ export function SettingsNativeStreamerSection({
                               {backend.available ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
                             </span>
                             <div className="settings-native-capability-name">
-                              <strong>{formatNativeVideoBackendName(backend.backend)}</strong>
+                              <strong>{formatNativeVideoBackendName(backend.backend, t)}</strong>
                               <span>{backend.available ? t("settings.nativeStreamer.supported") : t("settings.nativeStreamer.unavailable")}</span>
                             </div>
                             {isActive ? (

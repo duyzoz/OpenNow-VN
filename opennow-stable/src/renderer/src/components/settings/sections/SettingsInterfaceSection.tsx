@@ -90,28 +90,27 @@ export function SettingsInterfaceSection({ settings, showAll, handleChange, hand
 
           <div className="settings-row settings-row--simple">
             <label className="settings-label" htmlFor="appTheme">
-              {t("settings.interface.theme") || "Theme"}
-              <span className="settings-hint">{t("settings.interface.themeHint") || "Choose a light, dark, or system-matching theme."}</span>
+              {t("settings.interface.theme")}
+              <span className="settings-hint">{t("settings.interface.themeHint")}</span>
             </label>
             <div className="settings-row-control">
               <SelectDropdown
                 id="appTheme"
                 value={settings.appTheme}
                 options={[
-                  { value: "auto", label: t("settings.interface.themeAuto") || "Auto" },
-                  { value: "light", label: t("settings.interface.themeLight") || "Light" },
-                  { value: "dark", label: t("settings.interface.themeDark") || "Dark" },
+                  { value: "auto", label: t("settings.interface.themeAuto") },
+                  { value: "light", label: t("settings.interface.themeLight") },
+                  { value: "dark", label: t("settings.interface.themeDark") },
                 ]}
                 onChange={(value) => handleChange("appTheme", value as any)}
-                ariaLabel={t("settings.interface.theme") || "Theme"}
-              />
+                ariaLabel={t("settings.interface.theme")}             />
             </div>
           </div>
 
           <div className="settings-row settings-row--toggle">
             <div className="settings-row-top settings-row-top--compact">
               <label className="settings-label settings-label--wrap" htmlFor="settings-interface-translucent-ui">
-                <span className="settings-label-title">{t("settings.interface.translucentUI") || "Translucent UI"}</span>
+                <span className="settings-label-title">{t("settings.interface.translucentUI")}</span>
               </label>
               <label className="settings-toggle">
                 <input
@@ -123,7 +122,7 @@ export function SettingsInterfaceSection({ settings, showAll, handleChange, hand
                 <span className="settings-toggle-track" />
               </label>
             </div>
-            <span className="settings-subtle-hint">{t("settings.interface.translucentUIHint") || "Enable glassmorphism and translucent overlays."}</span>
+            <span className="settings-subtle-hint">{t("settings.interface.translucentUIHint")}</span>
           </div>
 
           <div className="settings-row settings-row--simple">

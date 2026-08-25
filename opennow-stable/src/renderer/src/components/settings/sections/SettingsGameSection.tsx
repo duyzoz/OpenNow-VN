@@ -15,6 +15,10 @@ export function SettingsGameSection({ settings, showAll, handleChange }: Setting
   const { t } = useTranslation();
   const gameLanguageId = "settings-game-language";
   const persistSettingsId = "settings-game-persist-in-game-settings";
+  const localizedGameLanguageOptions = gameLanguageOptions.map((option) => ({
+    ...option,
+    label: t(`settings.game.languages.${option.value}`),
+  }));
 
   return (
     <section className="settings-section">
@@ -33,7 +37,7 @@ export function SettingsGameSection({ settings, showAll, handleChange }: Setting
             <SelectDropdown
               id={gameLanguageId}
               value={settings.gameLanguage}
-              options={gameLanguageOptions}
+              options={localizedGameLanguageOptions}
               onChange={(value) => handleChange("gameLanguage", value as GameLanguage)}
               menuClassName="select-dropdown__menu--tall"
             />

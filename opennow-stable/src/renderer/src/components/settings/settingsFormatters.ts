@@ -57,6 +57,7 @@ export const nativeVideoBackendOptions: { value: NativeVideoBackendPreference; l
 
 export const APP_LANGUAGE_LABELS: Record<string, string> = {
   en: "English",
+  vi: "Tiếng Việt",
   es: "Español",
   fr: "Français",
   de: "Deutsch",
@@ -76,24 +77,28 @@ export function getAppLanguageLabel(locale: string): string {
   return APP_LANGUAGE_LABELS[locale] ?? locale.toUpperCase();
 }
 
-export function formatNativeVideoBackendName(backend: string | undefined): string {
+export function formatNativeVideoBackendName(
+  backend: string | undefined,
+  translate?: (key: string) => string,
+): string {
+  const resolve = translate ?? ((key: string) => key);
   switch (backend) {
     case "d3d12":
-      return "D3D12";
+      return resolve("settings.nativeStreamer.backendD3d12");
     case "d3d11":
-      return "D3D11";
+      return resolve("settings.nativeStreamer.backendD3d11");
     case "videotoolbox":
       return "VideoToolbox";
     case "nvdec":
-      return "NVIDIA NVDEC";
+      return resolve("settings.nativeStreamer.backendNvdec");
     case "vaapi":
-      return "VAAPI";
+      return resolve("settings.nativeStreamer.backendVaapi");
     case "v4l2":
-      return "V4L2";
+      return resolve("settings.nativeStreamer.backendV4l2");
     case "vulkan":
-      return "Vulkan";
+      return resolve("settings.nativeStreamer.backendVulkan");
     case "software":
-      return "Software";
+      return resolve("settings.nativeStreamer.backendSoftware");
     default:
       return backend ?? "Unknown";
   }
@@ -118,16 +123,22 @@ export function getAvailableNativeCodecLabels(backend: NativeVideoBackendCapabil
     .map((codec) => formatNativeVideoCodec(codec.codec)) ?? [];
 }
 
-export function formatGstreamerRuntimeLabel(status: NativeStreamerStatus | null): string {
+export function formatGstreamerRuntimeLabel(
+  status: NativeStreamerStatus | null,
+  translate?: (key: string) => string,
+): string {
+  const resolve = translate ?? ((key: string) => key);
   switch (status?.gstreamerRuntime.source) {
     case "bundled":
-      return status.gstreamerAvailable ? "Bundled Runtime Used" : "Bundled Runtime Found";
+      return status.gstreamerAvailable
+        ? resolve("settings.nativeStreamer.runtimeBundledUsed")
+        : resolve("settings.nativeStreamer.runtimeBundledFound");
     case "system":
-      return "System Runtime";
+      return resolve("settings.nativeStreamer.runtimeSystem");
     case "missing":
-      return "Runtime Missing";
+      return resolve("settings.nativeStreamer.runtimeMissing");
     default:
-      return "Runtime Unknown";
+      return resolve("settings.nativeStreamer.runtimeUnknown");
   }
 }
 
@@ -216,19 +227,21 @@ export function getShortcutConflictMessage(
   editingKey: ShortcutSettingKey,
   candidateCanonical: string,
   currentSettings: Settings,
+  translate?: (key: string) => string,
 ): string | null {
+  const resolve = translate ?? ((key: string) => key);
   const sidebarShortcuts = SIDEBAR_TOGGLE_SHORTCUT_ALIASES
     .map((value) => normalizeShortcut(value))
     .filter((parsed) => parsed.valid)
     .map((parsed) => parsed.canonical);
   if (sidebarShortcuts.includes(candidateCanonical)) {
-    return "Shortcut conflicts with the settings sidebar toggle.";
+    return resolve("settings.input.shortcutConflictSidebar");
   }
   for (const key of SHORTCUT_SETTING_KEYS) {
     if (key === editingKey) continue;
     const parsed = normalizeShortcut(currentSettings[key]);
     if (parsed.valid && parsed.canonical === candidateCanonical) {
-      return "Shortcut conflicts with another binding.";
+      return resolve("settings.input.shortcutConflictExisting");
     }
   }
   return null;
@@ -240,16 +253,20 @@ export const microphoneModeOptions: Array<{ value: MicrophoneMode; label: string
   { value: "voice-activity", label: "Voice Activity" },
 ];
 
-export function getMicrophonePermissionError(result: MicrophonePermissionResult): string {
+export function getMicrophonePermissionError(
+  result: MicrophonePermissionResult,
+  translate?: (key: string) => string,
+): string {
+  const resolve = translate ?? ((key: string) => key);
   switch (result.status) {
     case "denied":
-      return "Microphone access was denied. Enable microphone access for OpenNOW in System Settings → Privacy & Security → Microphone.";
+      return resolve("settings.audio.macPermissionDenied");
     case "restricted":
-      return "Microphone access is restricted by macOS and cannot be enabled from OpenNOW.";
+      return resolve("settings.audio.macPermissionRestricted");
     case "unknown":
-      return "Unable to determine microphone permission status. Check macOS microphone privacy settings for OpenNOW.";
+      return resolve("settings.audio.macPermissionUnknown");
     default:
-      return "Microphone access is not available.";
+      return resolve("settings.audio.microphoneUnavailable");
   }
 }
 

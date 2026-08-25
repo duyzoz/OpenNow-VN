@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { ScreenshotEntry } from "@shared/gfn";
+import { useTranslation } from "../i18n";
 
 interface UseScreenshotGalleryOptions {
   videoRef: RefObject<HTMLVideoElement | null>;
@@ -11,6 +12,7 @@ export function useScreenshotGallery({
   videoRef,
   gameTitle,
 }: UseScreenshotGalleryOptions) {
+  const { t } = useTranslation();
   const [screenshots, setScreenshots] = useState<ScreenshotEntry[]>([]);
   const [isSavingScreenshot, setIsSavingScreenshot] = useState(false);
   const [galleryError, setGalleryError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function useScreenshotGallery({
   const refreshScreenshots = useCallback(async () => {
     setGalleryError(null);
     if (!screenshotApiAvailable) {
-      setGalleryError("Screenshot API unavailable. Restart OpenNOW to enable gallery.");
+      setGalleryError(t("stream.errors.screenshotApiGallery"));
       return;
     }
     try {
@@ -38,14 +40,14 @@ export function useScreenshotGallery({
       setScreenshots(items);
     } catch (error) {
       console.error("[StreamView] Failed to load screenshots:", error);
-      setGalleryError("Unable to load screenshot gallery.");
+      setGalleryError(t("stream.errors.screenshotLoad"));
     }
-  }, [screenshotApiAvailable]);
+  }, [screenshotApiAvailable, t]);
 
   const captureScreenshot = useCallback(async () => {
     setGalleryError(null);
     if (!screenshotApiAvailable) {
-      setGalleryError("Screenshot API unavailable. Restart OpenNOW to enable capture.");
+      setGalleryError(t("stream.errors.screenshotApiCapture"));
       return;
     }
     if (isSavingScreenshot) {
@@ -54,7 +56,7 @@ export function useScreenshotGallery({
 
     const video = videoRef.current;
     if (!video || video.videoWidth <= 0 || video.videoHeight <= 0) {
-      setGalleryError("Stream is not ready for screenshots yet.");
+      setGalleryError(t("stream.errors.screenshotNotReady"));
       return;
     }
 
@@ -74,11 +76,11 @@ export function useScreenshotGallery({
       setScreenshots((prev) => [saved, ...prev.filter((item) => item.id !== saved.id)].slice(0, 60));
     } catch (error) {
       console.error("[StreamView] Failed to capture screenshot:", error);
-      setGalleryError("Screenshot failed. Try again.");
+      setGalleryError(t("stream.errors.screenshotCapture"));
     } finally {
       setIsSavingScreenshot(false);
     }
-  }, [gameTitle, isSavingScreenshot, screenshotApiAvailable, videoRef]);
+  }, [gameTitle, isSavingScreenshot, screenshotApiAvailable, t, videoRef]);
 
   const scrollGallery = useCallback((direction: "left" | "right") => {
     const strip = galleryStripRef.current;
@@ -90,7 +92,7 @@ export function useScreenshotGallery({
   const deleteSelectedScreenshot = useCallback(async () => {
     setGalleryError(null);
     if (!screenshotApiAvailable) {
-      setGalleryError("Screenshot API unavailable. Restart OpenNOW to enable gallery.");
+      setGalleryError(t("stream.errors.screenshotApiGallery"));
       return;
     }
     if (!selectedScreenshot) return;
@@ -101,14 +103,14 @@ export function useScreenshotGallery({
       setSelectedScreenshotId(null);
     } catch (error) {
       console.error("[StreamView] Failed to delete screenshot:", error);
-      setGalleryError("Unable to delete screenshot.");
+      setGalleryError(t("stream.errors.screenshotDelete"));
     }
-  }, [screenshotApiAvailable, selectedScreenshot]);
+  }, [screenshotApiAvailable, selectedScreenshot, t]);
 
   const saveSelectedScreenshotAs = useCallback(async () => {
     setGalleryError(null);
     if (!screenshotApiAvailable) {
-      setGalleryError("Screenshot API unavailable. Restart OpenNOW to enable gallery.");
+      setGalleryError(t("stream.errors.screenshotApiGallery"));
       return;
     }
     if (!selectedScreenshot) return;
@@ -117,9 +119,9 @@ export function useScreenshotGallery({
       await window.openNow.saveScreenshotAs({ id: selectedScreenshot.id });
     } catch (error) {
       console.error("[StreamView] Failed to save screenshot as:", error);
-      setGalleryError("Unable to save screenshot.");
+      setGalleryError(t("stream.errors.screenshotSave"));
     }
-  }, [screenshotApiAvailable, selectedScreenshot]);
+  }, [screenshotApiAvailable, selectedScreenshot, t]);
 
   useEffect(() => {
     if (!selectedScreenshotId) return;

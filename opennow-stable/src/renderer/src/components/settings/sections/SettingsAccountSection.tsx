@@ -273,7 +273,7 @@ export function SettingsAccountSection({
                 void handleGameAccountAction(account, "resync");
               }}
             >
-              {busyAction === "resync" ? <MotionSpinner size={15} label="Resyncing" /> : <RefreshCcw size={15} />}
+              {busyAction === "resync" ? <MotionSpinner size={15} label={t("settings.accountConnections.resyncing")} /> : <RefreshCcw size={15} />}
               {busyAction === "resync"
                 ? t("settings.accountConnections.resyncing")
                 : t("settings.accountConnections.resync")}
@@ -290,7 +290,7 @@ export function SettingsAccountSection({
                 void handleGameAccountAction(account, primaryAction);
               }}
             >
-              {busyAction === primaryAction ? <MotionSpinner size={15} label="Updating" /> : primaryIcon}
+              {busyAction === primaryAction ? <MotionSpinner size={15} label={t("app.status.updating")} /> : primaryIcon}
               {busyAction === primaryAction
                 ? primaryAction === "unlink"
                   ? t("settings.accountConnections.unlinking")
@@ -434,7 +434,7 @@ export function SettingsAccountSection({
             void loadGameAccounts();
           }}
         >
-          {gameAccountsLoading ? <MotionSpinner size={15} label="Refreshing accounts" /> : <RefreshCcw size={15} />}
+          {gameAccountsLoading ? <MotionSpinner size={15} label={t("settings.accountConnections.loading")} /> : <RefreshCcw size={15} />}
           {t("settings.accountConnections.refresh")}
         </button>
       </div>

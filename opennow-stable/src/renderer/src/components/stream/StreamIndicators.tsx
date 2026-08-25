@@ -5,6 +5,7 @@ import type { StreamDiagnosticsStore } from "../../utils/streamDiagnosticsStore"
 import { useStreamDiagnosticsSelector } from "../../utils/streamDiagnosticsStore";
 import type { MicState } from "../../platforms/gfn/microphoneManager";
 import { formatElapsed } from "../../utils/timeFormat";
+import { useTranslation } from "../../i18n";
 
 type MicBadgeState = {
   connectedGamepads: number;
@@ -33,6 +34,7 @@ export function MicrophoneIndicator({
   isConnecting: boolean;
   onToggleMicrophone?: () => void;
 }): JSX.Element | null {
+  const { t } = useTranslation();
   const { connectedGamepads, micState, micEnabled } = useStreamDiagnosticsSelector(
     diagnosticsStore,
     (stats): MicBadgeState => ({
@@ -55,8 +57,8 @@ export function MicrophoneIndicator({
       className={`sv-mic${connectedGamepads > 0 || showAntiAfkIndicator ? " sv-mic--stacked" : ""}`}
       onClick={onToggleMicrophone}
       data-enabled={micEnabled}
-      title={micEnabled ? "Mute microphone" : "Unmute microphone"}
-      aria-label={micEnabled ? "Mute microphone" : "Unmute microphone"}
+      title={micEnabled ? t("stream.overlay.muteMicrophone") : t("stream.overlay.unmuteMicrophone")}
+      aria-label={micEnabled ? t("stream.overlay.muteMicrophone") : t("stream.overlay.unmuteMicrophone")}
       aria-pressed={micEnabled}
     >
       {micEnabled ? <Mic size={18} /> : <MicOff size={18} />}
@@ -75,6 +77,7 @@ export function AntiAfkIndicator({
   showAntiAfkIndicator: boolean;
   isConnecting: boolean;
 }): JSX.Element | null {
+  const { t } = useTranslation();
   const hasGamepad = useStreamDiagnosticsSelector(
     diagnosticsStore,
     (stats) => stats.connectedGamepads > 0,
@@ -85,9 +88,9 @@ export function AntiAfkIndicator({
   }
 
   return (
-    <div className={`sv-afk${hasGamepad ? " sv-afk--stacked" : ""}`} title="Anti-AFK is enabled">
+    <div className={`sv-afk${hasGamepad ? " sv-afk--stacked" : ""}`} title={t("stream.overlay.antiAfkEnabled")}>
       <span className="sv-afk-dot" />
-      <span className="sv-afk-label">ANTI-AFK ON</span>
+      <span className="sv-afk-label">{t("stream.overlay.antiAfkOn")}</span>
     </div>
   );
 }
@@ -109,6 +112,7 @@ export function RecordingIndicator({
   onToggleMicrophone?: () => void;
   recordingDurationMs: number;
 }): JSX.Element | null {
+  const { t } = useTranslation();
   const { connectedGamepads, micState } = useStreamDiagnosticsSelector(
     diagnosticsStore,
     (stats) => ({
@@ -129,14 +133,14 @@ export function RecordingIndicator({
     <div
       className="sv-rec"
       style={{ top: 14 + 42 * stackedBadges }}
-      title={`Recording · ${formatElapsed(Math.round(recordingDurationMs / 1000))}`}
+      title={t("stream.overlay.recording", { duration: formatElapsed(Math.round(recordingDurationMs / 1000)) })}
     >
       <m.span
         className="sv-rec-dot"
         animate={{ opacity: [0.45, 1, 0.45], scale: [0.85, 1, 0.85] }}
         transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
       />
-      <span className="sv-rec-label">REC {formatElapsed(Math.round(recordingDurationMs / 1000))}</span>
+      <span className="sv-rec-label">{t("stream.overlay.recordingShort", { duration: formatElapsed(Math.round(recordingDurationMs / 1000)) })}</span>
     </div>
   );
 }

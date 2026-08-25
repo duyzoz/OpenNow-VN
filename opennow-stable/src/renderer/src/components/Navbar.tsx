@@ -1,5 +1,5 @@
 import type { ActiveSessionInfo, AuthUser, SavedAccount, SubscriptionInfo } from "@shared/gfn";
-import { House, Library, Settings, User, Timer, HardDrive, X, PlayCircle, Square, ChevronDown, Check, Plus, Store as StoreIcon, MessageSquareText, Power } from "lucide-react";
+import { House, Library, Heart, Settings, User, Timer, HardDrive, X, PlayCircle, Square, ChevronDown, Check, Plus, Store as StoreIcon, MessageSquareText, Power } from "lucide-react";
 import { memo, useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "../i18n";
 import { OpenNowLogoMark } from "./OpenNowLogoMark";
@@ -7,8 +7,8 @@ import { MotionSpinner } from "./MotionSpinner";
 import { ModalSurface } from "./ui/ModalSurface";
 
 interface NavbarProps {
-  currentPage: "home" | "library" | "settings";
-  onNavigate: (page: "home" | "library" | "settings") => void;
+  currentPage: "home" | "library" | "favorites" | "settings";
+  onNavigate: (page: "home" | "library" | "favorites" | "settings") => void;
   user: AuthUser | null;
   subscription: SubscriptionInfo | null;
   activeSession: ActiveSessionInfo | null;
@@ -83,6 +83,7 @@ export const Navbar = memo(function Navbar({
     : [
         { id: "home", page: "home" as const, label: t("navigation.home"), icon: House },
         { id: "library", page: "library" as const, label: t("navigation.library"), icon: Library },
+        { id: "favorites", page: "favorites" as const, label: t("navigation.favorites"), icon: Heart },
         { id: "settings", page: "settings" as const, label: t("navigation.settings"), icon: Settings },
       ];
 
@@ -363,7 +364,7 @@ export const Navbar = memo(function Navbar({
               onClick={onResumeSession}
               disabled={isResumingSession || isTerminatingSession || !activeSession.serverIp}
             >
-              {isResumingSession ? <MotionSpinner size={14} label="Resuming session" /> : <PlayCircle size={14} />}
+              {isResumingSession ? <MotionSpinner size={14} label={t("navbar.resumingSession")} /> : <PlayCircle size={14} />}
               <span className="navbar-session-resume-text">{t("app.actions.resume")}</span>
               {activeSessionTitle && <span className="navbar-session-resume-game">{activeSessionTitle}</span>}
             </button>
@@ -378,7 +379,7 @@ export const Navbar = memo(function Navbar({
               onClick={onTerminateSession}
               disabled={isResumingSession || isTerminatingSession}
             >
-              {isTerminatingSession ? <MotionSpinner size={14} label="Ending session" /> : <Square size={12} />}
+              {isTerminatingSession ? <MotionSpinner size={14} label={t("navbar.endingSession")} /> : <Square size={12} />}
               <span className="navbar-session-terminate-text">{t("session.terminate")}</span>
             </button>
           </div>

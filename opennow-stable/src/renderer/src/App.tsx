@@ -100,13 +100,14 @@ import { LoginScreen } from "./components/LoginScreen";
 import { Navbar } from "./components/Navbar";
 import { HomePage } from "./components/HomePage";
 import { LibraryPage } from "./components/LibraryPage";
+import { FavoritesPage } from "./components/FavoritesPage";
 import { PageErrorBoundary } from "./components/PageErrorBoundary";
 import { SettingsPage } from "./components/SettingsPage";
 import { SettingsModalHost } from "./components/SettingsModalHost";
 import { StreamLoading } from "./components/StreamLoading";
 import { StreamView } from "./components/StreamView";
 import { QueueServerSelectModal } from "./components/QueueServerSelectModal";
-import { GameDetailModal } from "./components/GameDetailModal";
+import { GameInfoPanel } from "./components/GameInfoPanel";
 import { ReleaseHighlightsModal } from "./components/ReleaseHighlightsModal";
 import { ErrorReportingConsentModal } from "./components/ErrorReportingConsentModal";
 import { FeedbackModal } from "./components/FeedbackModal";
@@ -143,7 +144,7 @@ const FREE_TIER_15_MIN_WARNING_SECONDS = 15 * 60;
 const FREE_TIER_FINAL_MINUTE_WARNING_SECONDS = 60;
 const STREAM_WARNING_VISIBILITY_MS = 15 * 1000;
 
-type AppPage = "home" | "library" | "settings";
+type AppPage = "home" | "library" | "favorites" | "settings";
 type ExitPromptState = { open: boolean; gameTitle: string };
 
 const RUNTIME_PLATFORM = resolveRuntimePlatform(navigator.platform);
@@ -2036,6 +2037,7 @@ export function App(): JSX.Element {
   }, []);
   const handleCloseDetails = useCallback((): void => {
     setDetailsGame(null);
+    setDetailsSurfacePresent(false);
   }, []);
 
   // Gate handler: shows queue server modal for FREE-tier users before launching
@@ -2766,7 +2768,7 @@ export function App(): JSX.Element {
     : streamStatus === "streaming"
       ? "connecting"
       : toLoadingStatus(streamStatus);
-  const showCatalogAtmosphere = mainPage === "home" || mainPage === "library";
+  const showCatalogAtmosphere = mainPage === "home" || mainPage === "library" || mainPage === "favorites";
   const consoleGateOpen = consoleShell.stage !== "shell";
   const shellBlocked = consoleGateOpen
     || showLaunchOverlay
@@ -2932,6 +2934,25 @@ export function App(): JSX.Element {
                   onBuyGame={handleBuyGame}
                   onPreviousControllerPage={navigateToPreviousControllerPage}
                   onNextControllerPage={navigateToNextControllerPage}
+                />
+              </PageErrorBoundary>
+            )}
+
+            {mainPage === "favorites" && (
+              <PageErrorBoundary label="favorites">
+                <FavoritesPage
+                  games={allKnownGames}
+                  playtimeData={playtime}
+                  isCatalogLoading={isLoadingCatalog || isLoadingLibrary}
+                  onPlayGame={handleInitiatePlay}
+                  onBuyGame={handleBuyGame}
+                  selectedGameId={selectedGameId}
+                  onSelectGame={setSelectedGameId}
+                  selectedVariantByGameId={variantByGameId}
+                  onSelectGameVariant={handleSelectGameVariant}
+                  activeSessionAppIds={activeSessionAppIds}
+                  onResumeGame={handleNavbarResumeSession}
+                  onTerminateGame={handleNavbarTerminateSession}
                 />
               </PageErrorBoundary>
             )}
@@ -3122,20 +3143,22 @@ export function App(): JSX.Element {
       </SettingsModalHost>
       {logoutConfirmModal}
       {removeAccountConfirmModal}
-      <GameDetailModal
-        open={detailsGame !== null}
-        game={detailsGame}
-        selectedVariantId={detailsGame ? variantByGameId[detailsGame.id] : undefined}
-        onSelectVariant={(variantId) => {
-          if (detailsGame) handleSelectGameVariant(detailsGame.id, variantId);
-        }}
-        onPlay={(game, variantId) => {
-          handleCloseDetails();
-          void handleInitiatePlay(game, variantId);
-        }}
-        onClose={handleCloseDetails}
-        onExitComplete={() => setDetailsSurfacePresent(false)}
-      />
+      <AnimatePresence>
+        {detailsGame && (
+          <GameInfoPanel
+            game={detailsGame}
+            isActiveGame={Boolean(streamStatus === "streaming" && streamingGame?.id === detailsGame.id)}
+            onResume={handleNavbarResumeSession}
+            onTerminate={handleNavbarTerminateSession}
+            onSelectVariant={(variantId) => handleSelectGameVariant(detailsGame.id, variantId)}
+            onPlay={(variantId) => {
+              handleCloseDetails();
+              void handleInitiatePlay(detailsGame, variantId ?? variantByGameId[detailsGame.id]);
+            }}
+            onClose={handleCloseDetails}
+          />
+        )}
+      </AnimatePresence>
       {queueModalGame && streamStatus === "idle" && (
         <QueueServerSelectModal
           game={queueModalGame}
