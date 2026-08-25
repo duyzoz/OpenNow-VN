@@ -213,28 +213,6 @@ export const HomePage = memo(function HomePage({
     [games, currentPage]
   );
 
-  // Keep the scroll reveal lightweight: update one state attribute per threshold,
-  // never blur or write transform/opacity inline during scrolling.
-  useEffect(() => {
-    const cards = document.querySelectorAll(".home-page .scroll-anim-wrapper");
-    if (cards.length === 0) return undefined;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const ratio = entry.intersectionRatio;
-          const el = entry.target as HTMLElement;
-          const state = ratio >= 0.65 ? "full" : ratio >= 0.35 ? "near" : "far";
-          if (el.dataset.scrollState !== state) el.dataset.scrollState = state;
-        });
-      },
-      { threshold: [0, 0.35, 0.65, 1.0] }
-    );
-
-    cards.forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
-  }, [current64Games]);
-
   const gameGridItems = useMemo(
     () => current64Games.map((game, index) => (
       <div

@@ -185,26 +185,6 @@ export const FavoritesPage = memo(function FavoritesPage({
     [visibleGames, currentPage]
   );
 
-  useEffect(() => {
-    const cards = document.querySelectorAll(".favorites-page .scroll-anim-wrapper");
-    if (cards.length === 0) return undefined;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const el = entry.target as HTMLElement;
-          const ratio = entry.intersectionRatio;
-          const state = ratio >= 0.65 ? "full" : ratio >= 0.35 ? "near" : "far";
-          if (el.dataset.scrollState !== state) el.dataset.scrollState = state;
-        });
-      },
-      { threshold: [0.35, 0.65] }
-    );
-
-    cards.forEach((card) => observer.observe(card));
-    return () => observer.disconnect();
-  }, [current64FavoriteGames]);
-
   const activeInfoGame = infoGame
     ? {
         game: infoGame,
