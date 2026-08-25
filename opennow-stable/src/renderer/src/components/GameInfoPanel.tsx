@@ -354,10 +354,10 @@ export function GameInfoPanel({
               {isActiveGame ? (
                 <>
                   <button className="game-info-btn game-info-btn--resume" onClick={onResume}>
-                    <PlayCircle size={15} /> {t("gameInfo.resume")}
+                    <PlayCircle size={15} /> {t("gameInfo.resumeStream")}
                   </button>
                   <button className="game-info-btn game-info-btn--quit" onClick={onTerminate}>
-                    <Square size={13} /> {t("gameInfo.quit")}
+                    <Square size={13} /> {t("gameInfo.endStream")}
                   </button>
                 </>
               ) : (

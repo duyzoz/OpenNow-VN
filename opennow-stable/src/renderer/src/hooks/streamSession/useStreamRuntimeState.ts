@@ -23,9 +23,6 @@ export function useStreamRuntimeState() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("idle");
   const [statsMode, setStatsMode] = useState<StatsOverlayMode>("off");
-  // Compatibility state retained for the Remake shell; upstream stream hooks
-  // still use statsMode internally, while App controls the visible HUD flag.
-  const [showStatsOverlay, setShowStatsOverlay] = useState(false);
   const [launchStartedAtMs, setLaunchStartedAtMs] = useState<number | null>(null);
   const [antiAfkEnabled, setAntiAfkEnabled] = useState(false);
   const [antiAfkAckNonce, setAntiAfkAckNonce] = useState(0);
@@ -93,7 +90,6 @@ export function useStreamRuntimeState() {
     session, setSession,
     streamStatus, setStreamStatus,
     statsMode, setStatsMode,
-    showStatsOverlay, setShowStatsOverlay,
     launchStartedAtMs, setLaunchStartedAtMs,
     antiAfkEnabled, setAntiAfkEnabled,
     antiAfkAckNonce, setAntiAfkAckNonce,

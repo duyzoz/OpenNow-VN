@@ -44,6 +44,7 @@ import {
 import { useQueueAdRuntime } from "./hooks/useQueueAdRuntime";
 import { usePlaytime } from "./utils/usePlaytime";
 import { createStreamDiagnosticsStore, useStreamDiagnosticsSelector } from "./utils/streamDiagnosticsStore";
+import { nextStatsOverlayMode } from "./utils/streamStatsHud";
 import type { StreamStatus } from "./lib/appTypes";
 import {
   loadStoredCodecResults,
@@ -81,6 +82,7 @@ import {
   isStreamVideoReady,
   toLoadingStatus,
 } from "./lib/sessionState";
+import { isStreamPointerLocked } from "./lib/pointerLock";
 import { defaultDiagnostics } from "./lib/streamDiagnostics";
 import { selectRecoveryCandidate } from "./lib/streamRecoveryDecisions";
 import { applyAccentColor, applyTheme, applyTranslucentUI } from "./lib/uiCustomization";
@@ -264,8 +266,10 @@ export function App(): JSX.Element {
   const {
     session, setSession,
     streamStatus, setStreamStatus,
-    showStatsOverlay, setShowStatsOverlay,
+    statsMode, setStatsMode,
     antiAfkEnabled, setAntiAfkEnabled,
+    nativeInputCaptureActive,
+    nativeStreamingRef,
     antiAfkAckNonce, setAntiAfkAckNonce,
     streamingGame, setStreamingGame,
     streamingStore, setStreamingStore,
@@ -331,8 +335,8 @@ export function App(): JSX.Element {
   }, [streamingGame]);
 
   const resetStatsOverlayToPreference = useCallback((): void => {
-    setShowStatsOverlay(settings.showStatsOnLaunch);
-  }, [settings.showStatsOnLaunch]);
+    setStatsMode(settings.showStatsOnLaunch ? "compact" : "off");
+  }, [setStatsMode, settings.showStatsOnLaunch]);
 
   const runCodecTest = useCallback(async (): Promise<void> => {
     if (codecTestPromiseRef.current) {
@@ -479,7 +483,7 @@ export function App(): JSX.Element {
 
   const onBootstrapSettings = useCallback((loadedSettings: Settings, _sessionProxyUrl: string | undefined) => {
     setSettings(loadedSettings);
-    setShowStatsOverlay(loadedSettings.showStatsOnLaunch);
+    setStatsMode(loadedSettings.showStatsOnLaunch ? "compact" : "off");
     setSettingsLoaded(true);
   }, []);
 
@@ -1095,6 +1099,13 @@ export function App(): JSX.Element {
       void requestPointerLockCapture(videoRef.current);
     }
   }, [requestPointerLockCapture]);
+
+  const setNativeInputPaused = useCallback((paused: boolean): void => {
+    if (!nativeStreamingRef.current && settings.streamClientMode !== "native") {
+      return;
+    }
+    window.openNow.setNativeInputPaused(paused);
+  }, [nativeStreamingRef, settings.streamClientMode]);
 
   const resolveExitPrompt = useCallback((confirmed: boolean) => {
     const resolver = exitPromptResolverRef.current;
@@ -2254,13 +2265,16 @@ export function App(): JSX.Element {
   const handleStreamShortcutAction = useCallback((action: StreamShortcutAction): void => {
     switch (action) {
       case "toggleStats":
-        setShowStatsOverlay((prev) => !prev);
+        setStatsMode(nextStatsOverlayMode);
         return;
       case "togglePointerLock":
+        if (nativeStreamingRef.current) {
+          return;
+        }
         {
           const targetVideo = videoRef.current;
           if (streamStatus === "streaming" && targetVideo) {
-            if (document.pointerLockElement === targetVideo) {
+            if (isStreamPointerLocked(targetVideo)) {
               clientRef.current?.suppressNextSyntheticEscapeOnPointerLockLoss();
               document.exitPointerLock();
             } else {
@@ -2295,7 +2309,7 @@ export function App(): JSX.Element {
         }
         return;
     }
-  }, [handlePromptedStopStream, requestPointerLockCapture, streamStatus, toggleSessionFullscreen]);
+  }, [handlePromptedStopStream, nativeStreamingRef, requestPointerLockCapture, setStatsMode, streamStatus, toggleSessionFullscreen]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2437,8 +2451,26 @@ export function App(): JSX.Element {
     if (session?.sessionId === navbarActiveSession.sessionId && streamingGame?.title) {
       return streamingGame.title;
     }
+
+    // After a client restart the catalog may not expose the session app id in the
+    // same shape as the live session. Use the persisted game id only when the
+    // snapshot still points at this exact remote session/app; never invent a
+    // resumable session from local storage alone.
+    const snapshot = runtimeSnapshotRef.current;
+    const snapshotMatches = Boolean(
+      snapshot && (
+        snapshot.sessionId === navbarActiveSession.sessionId
+        || snapshot.sessionAppId === navbarActiveSession.appId
+      ),
+    );
+    if (snapshotMatches && snapshot?.streamingGameId) {
+      const snapshotGame = allKnownGames.find((game) =>
+        game.id === snapshot.streamingGameId || game.uuid === snapshot.streamingGameId,
+      );
+      if (snapshotGame?.title) return snapshotGame.title;
+    }
     return null;
-  }, [gameTitleByAppId, navbarActiveSession, session?.sessionId, streamingGame?.title]);
+  }, [allKnownGames, gameTitleByAppId, navbarActiveSession, session?.sessionId, streamingGame?.title]);
 
   const navigateControllerPage = useCallback((direction: -1 | 1): void => {
     const pages: AppPage[] = ["library", "home", "favorites", "settings"];
@@ -2765,7 +2797,12 @@ export function App(): JSX.Element {
               videoRef={videoRef}
               audioRef={audioRef}
               diagnosticsStore={diagnosticsStore}
-              showStats={showStatsOverlay}
+              statsMode={statsMode}
+              statsPosition={settings.statsOverlayPosition}
+              showNativeStats={settings.showNativeStreamerStats}
+              nativeInputCaptureActive={nativeInputCaptureActive}
+              gstreamerEnabled={settings.streamClientMode === "native"}
+              nativeExternalRenderer={settings.nativeExternalRenderer}
               shortcuts={{
                 toggleStats: formatShortcutForDisplay(settings.shortcutToggleStats, isMac),
                 togglePointerLock: formatShortcutForDisplay(settings.shortcutTogglePointerLock, isMac),
@@ -2781,6 +2818,8 @@ export function App(): JSX.Element {
               antiAfkEnabled={antiAfkEnabled}
               antiAfkAckNonce={antiAfkAckNonce}
               showAntiAfkIndicator={settings.showAntiAfkIndicator}
+              antiAfkReminderEveryMinutes={settings.antiAfkReminderEveryMinutes}
+              antiAfkReminderDurationSeconds={settings.antiAfkReminderDurationSeconds}
               exitPrompt={exitPrompt}
               sessionStartedAtMs={sessionStartedAtMs}
               sessionCounterEnabled={settings.sessionCounterEnabled}
@@ -2796,7 +2835,6 @@ export function App(): JSX.Element {
               recordingBitrateMbps={settings.recordingBitrateMbps}
               recordingResolution={settings.recordingResolution}
               recordingFps={settings.recordingFps}
-              statsOverlayPosition={settings.statsOverlayPosition}
               gameTitle={streamingGame?.title ?? t("app.labels.game")}
               platformStore={streamingStore ?? undefined}
               onToggleFullscreen={() => {
@@ -2807,6 +2845,7 @@ export function App(): JSX.Element {
               onEndSession={() => {
                 void handlePromptedStopStream();
               }}
+              onReportBug={() => setFeedbackOpen(true)}
               onToggleMicrophone={() => {
                 clientRef.current?.toggleMicrophone();
               }}
@@ -2840,6 +2879,7 @@ export function App(): JSX.Element {
               onReleasePointerLock={() => {
                 void releasePointerLockIfNeeded();
               }}
+              onNativeInputPaused={setNativeInputPaused}
               allowEscapeToExitFullscreen={settings.allowEscapeToExitFullscreen}
               videoShader={settings.videoShader}
               onVideoShaderChange={handleVideoShaderChange}

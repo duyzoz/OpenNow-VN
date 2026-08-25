@@ -47,6 +47,7 @@ export function Navbar({
   isResumingSession,
   isTerminatingSession,
   onResumeSession,
+  onTerminateSession,
   savedAccounts,
   onSwitchAccount,
   onRemoveAccount,
@@ -310,6 +311,39 @@ export function Navbar({
           <OpenNowLogoMark className="opennow-logo-mark" />
         </div>
         <span className="navbar-logo-text">OpenNOW</span>
+        {activeSession && !controllerMode && (
+          <div className="navbar-streaming-indicator" aria-label={activeSessionTitle || t("navigation.streamingNow")}>
+            <button
+              type="button"
+              className="navbar-streaming-btn"
+              onClick={onResumeSession}
+              disabled={isResumingSession || isTerminatingSession || !activeSession.serverIp}
+              title={
+                !activeSession.serverIp
+                  ? t("session.activeSessionMissingServerAddress")
+                  : activeSessionTitle
+                    ? t("session.resumeActiveCloudSessionTitle", { title: activeSessionTitle })
+                    : t("session.resumeActiveCloudSession")
+              }
+            >
+              <span className="navbar-streaming-pulse" />
+              {isResumingSession ? <MotionSpinner size={13} label={t("app.actions.resume")} /> : <Radio size={13} />}
+              <span className="navbar-streaming-action">{t("app.actions.resume")}</span>
+              <span className="navbar-streaming-label">{activeSessionTitle || t("navigation.streamingNow")}</span>
+            </button>
+            <button
+              type="button"
+              className="navbar-streaming-btn navbar-streaming-btn--terminate"
+              onClick={onTerminateSession}
+              disabled={isResumingSession || isTerminatingSession}
+              title={t("session.endActiveCloudSession")}
+              aria-label={t("session.endActiveCloudSession")}
+            >
+              {isTerminatingSession ? <MotionSpinner size={13} label={t("session.endActiveCloudSession")} /> : <X size={13} />}
+              <span>{t("app.actions.end")}</span>
+            </button>
+          </div>
+        )}
         {onOpenFeedback && !controllerMode && (
           <button
             type="button"
@@ -323,29 +357,6 @@ export function Navbar({
           </button>
         )}
       </div>
-
-      {activeSession && !controllerMode && (
-        <div className="navbar-streaming-indicator">
-          <button
-            type="button"
-            className="navbar-streaming-btn"
-            onClick={onResumeSession}
-            disabled={isResumingSession || isTerminatingSession || !activeSession.serverIp}
-            title={
-              !activeSession.serverIp
-                ? t("session.activeSessionMissingServerAddress")
-                : activeSessionTitle
-                  ? t("session.resumeActiveCloudSessionTitle", { title: activeSessionTitle })
-                  : t("session.resumeActiveCloudSession")
-            }
-          >
-            <span className="navbar-streaming-pulse" />
-            {isResumingSession ? <MotionSpinner size={13} label="Resuming session" /> : <Radio size={13} />}
-            <span className="navbar-streaming-action">{t("app.actions.resume")}</span>
-            <span className="navbar-streaming-label">{activeSessionTitle || t("navigation.streamingNow")}</span>
-          </button>
-        </div>
-      )}
 
       <div className="navbar-nav">
         {navItems.map((item) => {

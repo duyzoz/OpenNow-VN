@@ -951,7 +951,9 @@ export const LibraryPage = memo(function LibraryPage({
           <GameInfoPanel
             game={gameInfoGame}
             isActiveGame={activeSessionAppIds.some(
-              (id) => (gameInfoGame.variants ?? []).some((v) => String(v.id) === String(id)),
+              (id) =>
+                String(gameInfoGame.launchAppId ?? "") === String(id)
+                || (gameInfoGame.variants ?? []).some((v) => String(v.id) === String(id)),
             )}
             onResume={onResumeGame}
             onTerminate={onTerminateGame}

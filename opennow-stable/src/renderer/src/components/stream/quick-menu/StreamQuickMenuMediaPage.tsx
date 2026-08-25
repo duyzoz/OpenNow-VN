@@ -196,11 +196,11 @@ export function StreamQuickMenuMediaPage({
       <div className="sidebar-separator" aria-hidden="true" />
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Gallery</span>
-          <span className="sidebar-section-sub">Screenshot key: {screenshotShortcut}</span>
+          <span>{t("stream.quickMenu.media.gallery")}</span>
+          <span className="sidebar-section-sub">{t("stream.quickMenu.media.screenshotKey", { shortcut: screenshotShortcut })}</span>
         </div>
         <div className="sidebar-row sidebar-row--aligned">
-          <span className="sidebar-label">Screenshots</span>
+          <span className="sidebar-label">{t("stream.quickMenu.media.screenshots")}</span>
           <button
             type="button"
             className="sidebar-button sidebar-screenshot-button"
@@ -208,7 +208,7 @@ export function StreamQuickMenuMediaPage({
             disabled={isSavingScreenshot || !screenshotApiAvailable}
           >
             <Camera size={14} />
-            <span>{isSavingScreenshot ? "Capturing..." : "Capture"}</span>
+            <span>{isSavingScreenshot ? t("stream.quickMenu.media.capturing") : t("stream.quickMenu.media.capture")}</span>
           </button>
         </div>
         <div className="sidebar-gallery-row">
@@ -216,7 +216,7 @@ export function StreamQuickMenuMediaPage({
             type="button"
             className="sidebar-gallery-arrow"
             onClick={() => onScrollGallery("left")}
-            aria-label="Scroll gallery left"
+            aria-label={t("stream.screenshots.scrollLeft")}
           >
             <ChevronLeft size={16} />
           </button>
@@ -229,7 +229,7 @@ export function StreamQuickMenuMediaPage({
                 onClick={() => onSelectScreenshot(shot.id)}
                 title={new Date(shot.createdAtMs).toLocaleString()}
               >
-                <img src={shot.dataUrl} alt={`Screenshot ${shot.fileName}`} />
+                <img src={shot.dataUrl} alt={t("stream.screenshots.alt", { fileName: shot.fileName })} />
               </button>
             ))}
           </div>
@@ -237,21 +237,21 @@ export function StreamQuickMenuMediaPage({
             type="button"
             className="sidebar-gallery-arrow"
             onClick={() => onScrollGallery("right")}
-            aria-label="Scroll gallery right"
+            aria-label={t("stream.screenshots.scrollRight")}
           >
             <ChevronRight size={16} />
           </button>
         </div>
         {screenshots.length === 0 && (
-          <span className="sidebar-hint">No screenshots yet. Press {screenshotShortcut} to capture one.</span>
+          <span className="sidebar-hint">{t("stream.quickMenu.media.noScreenshots", { shortcut: screenshotShortcut })}</span>
         )}
         {galleryError && <span className="sidebar-hint sidebar-hint--error">{galleryError}</span>}
       </section>
       <div className="sidebar-separator" aria-hidden="true" />
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Recordings</span>
-          <span className="sidebar-section-sub">Record key: {recordingShortcut}</span>
+          <span>{t("stream.quickMenu.media.recordings")}</span>
+          <span className="sidebar-section-sub">{t("stream.quickMenu.media.recordKey", { shortcut: recordingShortcut })}</span>
         </div>
         {usedMimeType && (
           <span className="sidebar-hint sidebar-hint--codec">
@@ -297,14 +297,14 @@ export function StreamQuickMenuMediaPage({
           <span className="sidebar-hint sidebar-hint--error" role="alert">{recordingError}</span>
         )}
         {recordings.length === 0 ? (
-          <span className="sidebar-hint">No recordings yet. Press {recordingShortcut} to record.</span>
+          <span className="sidebar-hint">{t("stream.quickMenu.media.noRecordings", { shortcut: recordingShortcut })}</span>
         ) : (
           <div className="sidebar-gallery-row">
             <button
               type="button"
               className="sidebar-gallery-arrow"
               onClick={() => onScrollRecordings("left")}
-              aria-label="Scroll recordings left"
+              aria-label={t("stream.recordings.scrollLeft")}
             >
               <ChevronLeft size={16} />
             </button>
@@ -323,7 +323,7 @@ export function StreamQuickMenuMediaPage({
                     </div>
                   )}
                   <div className="sidebar-rec-card-meta">
-                    <span className="sidebar-rec-card-title">{recording.gameTitle ?? "Untitled"}</span>
+                    <span className="sidebar-rec-card-title">{recording.gameTitle ?? t("stream.quickMenu.media.untitled") }</span>
                     <span className="sidebar-rec-card-detail">
                       {formatElapsed(Math.round(recording.durationMs / 1000))} · {formatFileSize(recording.sizeBytes)}
                     </span>
@@ -332,8 +332,8 @@ export function StreamQuickMenuMediaPage({
                     <button
                       type="button"
                       className="sidebar-rec-card-action"
-                      aria-label="Show in folder"
-                      title="Show in folder"
+                      aria-label={t("stream.quickMenu.media.showInFolder")}
+                      title={t("stream.quickMenu.media.showInFolder")}
                       onClick={() => { void window.openNow.showRecordingInFolder(recording.id); }}
                       disabled={typeof window.openNow?.showRecordingInFolder !== "function"}
                     >
@@ -342,8 +342,8 @@ export function StreamQuickMenuMediaPage({
                     <button
                       type="button"
                       className="sidebar-rec-card-action sidebar-rec-card-action--danger"
-                      aria-label="Delete recording"
-                      title="Delete"
+                      aria-label={t("stream.recordings.delete")}
+                      title={t("stream.quickMenu.media.delete")}
                       onClick={() => onDeleteRecording(recording.id)}
                     >
                       <Trash2 size={11} />
@@ -356,7 +356,7 @@ export function StreamQuickMenuMediaPage({
               type="button"
               className="sidebar-gallery-arrow"
               onClick={() => onScrollRecordings("right")}
-              aria-label="Scroll recordings right"
+              aria-label={t("stream.recordings.scrollRight")}
             >
               <ChevronRight size={16} />
             </button>

@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { AlertTriangle } from "lucide-react";
-import type { JSX } from "react";
 import type { StatsOverlayPosition } from "@shared/gfn";
-import type { StreamLagReason } from "../platforms/gfn/webrtcClient";
+import type { StreamDiagnostics, StreamLagReason } from "../platforms/gfn/webrtcClient";
 import type { StreamDiagnosticsStore } from "../utils/streamDiagnosticsStore";
-import { useStreamDiagnosticsStore } from "../utils/streamDiagnosticsStore";
+import { useStreamDiagnosticsSelector } from "../utils/streamDiagnosticsStore";
 import {
   getPacketLossColor,
   getRttColor,
@@ -42,6 +41,35 @@ function getLagReasonTranslationKey(reason: StreamLagReason): string {
   }
 }
 
+const COMPACT_STATS_KEYS: Array<keyof StreamDiagnostics> = [
+  "renderFps",
+  "gameFps",
+  "rttMs",
+  "serverGpuType",
+  "gpuType",
+  "packetLossPercent",
+  "jitterMs",
+  "availableBitrateKbps",
+  "targetBitrateKbps",
+  "bitrateKbps",
+  "transportType",
+  "localCandidateType",
+  "nativeRendererActive",
+  "resolution",
+  "codec",
+  "colorCodec",
+  "requestedCodec",
+  "serverRegion",
+  "serverZone",
+  "serverLocation",
+  "framesDecoded",
+  "lagReason",
+];
+
+function areCompactStatsEqual(previous: StreamDiagnostics, next: StreamDiagnostics): boolean {
+  return COMPACT_STATS_KEYS.every((key) => Object.is(previous[key], next[key]));
+}
+
 export interface StreamStatsHudProps {
   diagnosticsStore: StreamDiagnosticsStore;
   mode: "compact" | "full";
@@ -66,7 +94,14 @@ export function StreamStatsHud({
   const { t } = useTranslation();
   const reducedMotion = useReducedMotion();
   const statusPulseMotion = getStatusPulseMotion(reducedMotion);
-  const stats = useStreamDiagnosticsStore(diagnosticsStore);
+  // Keep WebRTC's diagnostics polling untouched, but do not repaint the compact
+  // HUD for internal counters that are not visible in that mode. Full mode still
+  // follows every diagnostics snapshot so its detailed values remain accurate.
+  const stats = useStreamDiagnosticsSelector(
+    diagnosticsStore,
+    (snapshot) => snapshot,
+    mode === "compact" ? areCompactStatsEqual : Object.is,
+  );
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [rttSpikeActive, setRttSpikeActive] = useState(false);
   const [rttSpikeValueMs, setRttSpikeValueMs] = useState(0);
@@ -223,6 +258,7 @@ export function StreamStatsHud({
   const hasIssues = hasLagIssue || hasPacketLoss;
 
   const advancedLines = useMemo(() => {
+    if (mode === "compact") return [];
     const lines: string[] = [];
     lines.push(
       t("stream.stats.advancedTiming", {
@@ -321,7 +357,7 @@ export function StreamStatsHud({
       );
     }
     return lines;
-  }, [gstreamerEnabled, hasLagIssue, shaderActive, stats, t, transportText]);
+  }, [gstreamerEnabled, hasLagIssue, mode, shaderActive, stats, t, transportText]);
 
   const kpiRow = (
     <div className="sv-stats-kpis">

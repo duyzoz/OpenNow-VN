@@ -9,13 +9,14 @@ import type { StreamDiagnosticsStore } from "../utils/streamDiagnosticsStore";
 import { useStreamDiagnosticsSelector } from "../utils/streamDiagnosticsStore";
 import { getStoreDisplayName, getStoreIconComponent } from "./GameCard";
 import { SessionElapsedIndicator } from "./ElapsedSessionIndicators";
-import type {
-  MicrophoneMode,
-  RecordingFps,
-  RecordingResolution,
-  StatsOverlayPosition,
-  SubscriptionInfo,
-  VideoShaderSettings,
+import {
+  videoShaderHasVisibleEffect,
+  type MicrophoneMode,
+  type RecordingFps,
+  type RecordingResolution,
+  type StatsOverlayPosition,
+  type SubscriptionInfo,
+  type VideoShaderSettings,
 } from "@shared/gfn";
 import { VideoShaderPipeline } from "../platforms/gfn/videoShaderPipeline";
 import { formatShortcutForDisplay } from "../shortcuts";
@@ -33,6 +34,10 @@ import {
 } from "./stream/StreamEmptyStates";
 import { StreamQuickMenu } from "./stream/quick-menu/StreamQuickMenu";
 import { MotionSpinner } from "./MotionSpinner";
+import { isStreamPointerLocked } from "../lib/pointerLock";
+import type { StatsOverlayMode } from "../utils/streamStatsHud";
+import { RecurringReminderScheduler, shouldScheduleAntiAfkReminder } from "./stream/antiAfkReminder";
+import { useTranslation } from "../i18n";
 
 const ANTI_AFK_TOGGLE_ACK_MS = 5000;
 const CONTROLLER_SIDEBAR_SHORTCUT_DISPLAY = "View + Menu";
@@ -41,7 +46,12 @@ interface StreamViewProps {
   videoRef: React.Ref<HTMLVideoElement>;
   audioRef: React.Ref<HTMLAudioElement>;
   diagnosticsStore: StreamDiagnosticsStore;
-  showStats: boolean;
+  statsMode: StatsOverlayMode;
+  statsPosition: StatsOverlayPosition;
+  showNativeStats?: boolean;
+  nativeInputCaptureActive?: boolean;
+  gstreamerEnabled: boolean;
+  nativeExternalRenderer?: boolean;
   shortcuts: {
     toggleStats: string;
     togglePointerLock: string;
@@ -57,6 +67,8 @@ interface StreamViewProps {
   antiAfkEnabled: boolean;
   antiAfkAckNonce: number;
   showAntiAfkIndicator: boolean;
+  antiAfkReminderEveryMinutes: number;
+  antiAfkReminderDurationSeconds: number;
   exitPrompt: {
     open: boolean;
     gameTitle: string;
@@ -81,12 +93,12 @@ interface StreamViewProps {
   recordingBitrateMbps: number | null;
   recordingResolution: RecordingResolution;
   recordingFps: RecordingFps;
-  statsOverlayPosition: StatsOverlayPosition;
   platformStore?: string;
   onToggleFullscreen: () => void;
   onConfirmExit: () => void;
   onCancelExit: () => void;
   onEndSession: () => void;
+  onReportBug: () => void;
   onToggleMicrophone?: () => void;
   mouseSensitivity: number;
   onMouseSensitivityChange: (value: number) => void;
@@ -94,6 +106,7 @@ interface StreamViewProps {
   onMouseAccelerationChange: (value: number) => void;
   onRequestPointerLock?: () => void;
   onReleasePointerLock?: () => void;
+  onNativeInputPaused?: (paused: boolean) => void;
   microphoneMode: MicrophoneMode;
   onMicrophoneModeChange: (value: MicrophoneMode) => void;
   onScreenshotShortcutChange: (value: string) => void;
@@ -114,12 +127,19 @@ export function StreamView({
   videoRef,
   audioRef,
   diagnosticsStore,
-  showStats,
+  statsMode,
+  statsPosition,
+  showNativeStats = false,
+  nativeInputCaptureActive = false,
+  gstreamerEnabled,
+  nativeExternalRenderer = false,
   shortcuts,
   serverRegion,
   antiAfkEnabled,
   antiAfkAckNonce,
   showAntiAfkIndicator,
+  antiAfkReminderEveryMinutes,
+  antiAfkReminderDurationSeconds,
   exitPrompt,
   sessionStartedAtMs,
   isStreaming,
@@ -136,12 +156,12 @@ export function StreamView({
   recordingBitrateMbps,
   recordingResolution,
   recordingFps,
-  statsOverlayPosition,
   platformStore,
   onToggleFullscreen,
   onConfirmExit,
   onCancelExit,
   onEndSession,
+  onReportBug,
   onToggleMicrophone,
   mouseSensitivity,
   onMouseSensitivityChange,
@@ -149,6 +169,7 @@ export function StreamView({
   onMouseAccelerationChange,
   onRequestPointerLock,
   onReleasePointerLock,
+  onNativeInputPaused,
   microphoneMode,
   onMicrophoneModeChange,
   onScreenshotShortcutChange,
@@ -165,12 +186,18 @@ export function StreamView({
   videoShader,
   onVideoShaderChange,
 }: StreamViewProps): JSX.Element {
+  const { t } = useTranslation();
   const [showHints, setShowHints] = useState(true);
   const [showSessionClock, setShowSessionClock] = useState(false);
   const [antiAfkToggleAck, setAntiAfkToggleAck] = useState<"on" | "off" | null>(null);
+  const [antiAfkReminderVisible, setAntiAfkReminderVisible] = useState(false);
   const [isPointerLocked, setIsPointerLocked] = useState(false);
   const [pointerLockHintVisible, setPointerLockHintVisible] = useState(false);
   const pointerLockHintTimerRef = useRef<number | null>(null);
+  const nativeRendererActive = useStreamDiagnosticsSelector(
+    diagnosticsStore,
+    (stats) => stats.nativeRendererActive,
+  );
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const localAudioRef = useRef<HTMLAudioElement | null>(null);
   const shaderPipelineRef = useRef<VideoShaderPipeline | null>(null);
@@ -210,7 +237,7 @@ export function StreamView({
   const streamVideoReady = streamHasVideo || videoElementHasFrame;
   const [sessionReadySplashVisible, setSessionReadySplashVisible] = useState(false);
   const sessionReadySplashShownRef = useRef(false);
-  const showStatsHud = showStats && !isConnecting;
+  const showStatsHud = statsMode !== "off" && !nativeRendererActive && !isConnecting;
 
   useEffect(() => {
     if (isConnecting) {
@@ -219,7 +246,8 @@ export function StreamView({
       return;
     }
     if (
-      !streamVideoReady
+      nativeRendererActive
+      || !streamVideoReady
       || !streamRevealComplete
       || sessionReadySplashShownRef.current
     ) {
@@ -227,7 +255,7 @@ export function StreamView({
     }
     sessionReadySplashShownRef.current = true;
     setSessionReadySplashVisible(true);
-  }, [isConnecting, streamRevealComplete, streamVideoReady]);
+  }, [isConnecting, nativeRendererActive, streamRevealComplete, streamVideoReady]);
 
   const handleSessionReadySplashFinished = useCallback(() => {
     setSessionReadySplashVisible(false);
@@ -327,6 +355,32 @@ export function StreamView({
     };
   }, [antiAfkAckNonce, antiAfkEnabled, showAntiAfkIndicator, isConnecting]);
 
+  useEffect(() => {
+    const intervalMs = Math.max(0, Math.floor(antiAfkReminderEveryMinutes || 0)) * 60 * 1000;
+    const durationMs = Math.max(1, Math.floor(antiAfkReminderDurationSeconds || 1)) * 1000;
+    const scheduler = new RecurringReminderScheduler(window, setAntiAfkReminderVisible);
+    scheduler.start(
+      shouldScheduleAntiAfkReminder({
+        antiAfkEnabled,
+        isStreaming,
+        isConnecting,
+        showPersistentIndicator: showAntiAfkIndicator,
+        intervalMs,
+      }),
+      intervalMs,
+      durationMs,
+    );
+
+    return () => scheduler.stop();
+  }, [
+    antiAfkEnabled,
+    antiAfkReminderDurationSeconds,
+    antiAfkReminderEveryMinutes,
+    isConnecting,
+    isStreaming,
+    showAntiAfkIndicator,
+  ]);
+
   const warningSeconds = formatWarningSeconds(streamWarning?.secondsLeft);
   const sessionTimeRemainingText = formatSessionTimeRemaining(sessionTimeRemainingSeconds);
   const showSessionTimeRemainingInStats =
@@ -379,18 +433,21 @@ export function StreamView({
   });
   const suppressVideoFocusOnSidebarCloseRef = useRef(false);
 
-  // Video shader post-processing pipeline for the embedded WebRTC video.
+  // Video shader post-processing pipeline (embedded WebRTC path only; the
+  // native streamer renders outside Chromium so shaders cannot apply there).
   useEffect(() => {
     const video = localVideoRef.current;
     if (!video) return;
-    const effective = videoShader;
+    const effective = gstreamerEnabled || nativeRendererActive
+      ? { ...videoShader, enabled: false }
+      : videoShader;
     if (!shaderPipelineRef.current) {
       if (!effective.enabled) return;
       shaderPipelineRef.current = new VideoShaderPipeline(video, effective);
     } else {
       shaderPipelineRef.current.updateSettings(effective);
     }
-  }, [videoShader]);
+  }, [videoShader, gstreamerEnabled, nativeRendererActive]);
 
   useEffect(() => () => {
     shaderPipelineRef.current?.dispose();
@@ -415,18 +472,92 @@ export function StreamView({
     }
   }, [audioRef]);
 
+  useEffect(() => {
+    const updateSurface = window.openNow?.updateNativeRenderSurface;
+    if (typeof updateSurface !== "function") {
+      return undefined;
+    }
+
+    let frame = 0;
+    const publish = (): void => {
+      const element = localVideoRef.current;
+      const dpr = window.devicePixelRatio || 1;
+      if (!element || document.visibilityState === "hidden") {
+        updateSurface({ rect: null, visible: false, deviceScaleFactor: dpr });
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      const width = Math.round(rect.width * dpr);
+      const height = Math.round(rect.height * dpr);
+      const visible = width >= 2 && height >= 2 && !showSideBar && !exitPrompt.open;
+      updateSurface({
+        deviceScaleFactor: dpr,
+        visible,
+        showStats: statsMode !== "off" || showNativeStats,
+        rect: visible
+          ? {
+              x: Math.round(rect.left * dpr),
+              y: Math.round(rect.top * dpr),
+              width,
+              height,
+            }
+          : null,
+      });
+    };
+
+    const schedule = (): void => {
+      if (frame !== 0) {
+        return;
+      }
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        publish();
+      });
+    };
+
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    if (observer && localVideoRef.current) {
+      observer.observe(localVideoRef.current);
+    }
+
+    window.addEventListener("resize", schedule);
+    window.addEventListener("fullscreenchange", schedule);
+    document.addEventListener("visibilitychange", schedule);
+    window.visualViewport?.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("scroll", schedule);
+    schedule();
+
+    return () => {
+      if (frame !== 0) {
+        window.cancelAnimationFrame(frame);
+      }
+      observer?.disconnect();
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("fullscreenchange", schedule);
+      document.removeEventListener("visibilitychange", schedule);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("scroll", schedule);
+      updateSurface({
+        rect: null,
+        visible: false,
+        deviceScaleFactor: window.devicePixelRatio || 1,
+        showStats: false,
+      });
+    };
+  }, [exitPrompt.open, showNativeStats, showSideBar, statsMode]);
 
   useEffect(() => {
     const handlePointerLockChange = () => {
-      const video = localVideoRef.current;
-      const lockTarget = video?.parentElement ?? video;
-      const activeElement = document.pointerLockElement;
-      setIsPointerLocked(activeElement === video || activeElement === lockTarget);
+      setIsPointerLocked(
+        (localVideoRef.current !== null && isStreamPointerLocked(localVideoRef.current))
+          || nativeInputCaptureActive,
+      );
     };
     handlePointerLockChange();
     document.addEventListener("pointerlockchange", handlePointerLockChange);
     return () => document.removeEventListener("pointerlockchange", handlePointerLockChange);
-  }, []);
+  }, [nativeInputCaptureActive]);
 
   useEffect(() => {
     // Show a transient HUD hint when pointer lock is acquired
@@ -454,6 +585,14 @@ export function StreamView({
     };
   }, [isPointerLocked]);
 
+  useEffect(() => {
+    onNativeInputPaused?.(showSideBar);
+    return () => {
+      if (showSideBar) {
+        onNativeInputPaused?.(false);
+      }
+    };
+  }, [onNativeInputPaused, showSideBar]);
 
   useEffect(() => {
     if (showSideBar) {
@@ -505,13 +644,6 @@ export function StreamView({
       if (active instanceof HTMLElement && active.closest(".sv")) {
         active.blur();
       }
-      if (document.pointerLockElement) {
-        if (onReleasePointerLock) {
-          onReleasePointerLock();
-        } else {
-          document.exitPointerLock();
-        }
-      }
     };
 
     const hideFocusRingOnAccessKey = (event: KeyboardEvent): void => {
@@ -544,25 +676,45 @@ export function StreamView({
     };
   }, [exitPrompt.open, isConnecting, showSideBar]);
 
+  const nativeInternalHole =
+    (nativeRendererActive || gstreamerEnabled) && !nativeExternalRenderer;
+
   return (
-    <div className={["sv", streamVideoReady ? "sv--video-ready" : "sv--video-pending", className].filter(Boolean).join(" ")}>
-      <m.video
-        ref={setVideoRef}
-        autoPlay
-        playsInline
-        tabIndex={-1}
-        className="sv-video"
-        initial={false}
-        animate={streamVideoReady
-          ? { opacity: 1, scale: 1 }
-          : { opacity: 0, scale: 1.008 }}
-        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-        onClick={() => {
-          if (localVideoRef.current && document.activeElement !== localVideoRef.current) {
-            localVideoRef.current.focus({ preventScroll: true });
-          }
-        }}
-      />
+    <div className={["sv", streamVideoReady ? "sv--video-ready" : "sv--video-pending", nativeInternalHole ? "sv--native-hole" : "", className].filter(Boolean).join(" ")}>
+      {nativeInternalHole ? (
+        <video
+          ref={setVideoRef}
+          autoPlay
+          playsInline
+          muted
+          tabIndex={-1}
+          className="sv-video sv-video--native-hole"
+          onClick={() => {
+            if (localVideoRef.current && document.activeElement !== localVideoRef.current) {
+              localVideoRef.current.focus({ preventScroll: true });
+            }
+          }}
+        />
+      ) : (
+        <m.video
+          ref={setVideoRef}
+          autoPlay
+          playsInline
+          muted
+          tabIndex={-1}
+          className="sv-video"
+          initial={false}
+          animate={streamVideoReady
+            ? { opacity: 1, scale: 1 }
+            : { opacity: 0, scale: 1.008 }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          onClick={() => {
+            if (localVideoRef.current && document.activeElement !== localVideoRef.current) {
+              localVideoRef.current.focus({ preventScroll: true });
+            }
+          }}
+        />
+      )}
       <audio ref={setAudioRef} autoPlay playsInline />
       <VideoFocusOnReady
         diagnosticsStore={diagnosticsStore}
@@ -572,13 +724,11 @@ export function StreamView({
 
       {pointerLockHintVisible && (
         <div className="sv-pointerlock-hint" role="status" aria-live="polite">
-          <div>Press {shortcuts.toggleFullscreen} to exit fullscreen & release mouse</div>
+          <div>{t("stream.view.pointerLockExit", { shortcut: shortcuts.toggleFullscreen })}</div>
           <div className="sv-pointerlock-hint-sub">
-            {isPointerLocked
-              ? "Escape goes to the game and keeps the mouse locked; use F8 or the fullscreen shortcut to release it."
-              : allowEscapeToExitFullscreen
-                ? "Press Escape will also exit fullscreen per your settings."
-                : "Escape goes to the game while pointer-locked; hold Escape ~1.5s to exit fullscreen."}
+            {allowEscapeToExitFullscreen
+              ? t("stream.view.pointerLockEscapeSetting")
+              : t("stream.view.pointerLockEscapeGame")}
           </div>
         </div>
       )}
@@ -590,14 +740,14 @@ export function StreamView({
         activeTab={activeSidebarTab}
         setActiveTab={setActiveSidebarTab}
         onEndSession={handleSidebarExitSession}
-        onReportBug={() => undefined}
+        onReportBug={onReportBug}
         gameTitle={gameTitle}
+        antiAfkEnabled={antiAfkEnabled}
         platformName={platformName}
         PlatformIcon={PlatformIcon}
         subscriptionInfo={subscriptionInfo}
         sessionStartedAtMs={sessionStartedAtMs}
         isStreaming={isStreaming}
-        gstreamerEnabled={false}
         sessionTimeRemainingText={sessionTimeRemainingText}
         isFullscreen={isFullscreen}
         isPointerLocked={isPointerLocked}
@@ -612,6 +762,7 @@ export function StreamView({
         onMouseSensitivityChange={onMouseSensitivityChange}
         mouseAcceleration={mouseAcceleration}
         onMouseAccelerationChange={onMouseAccelerationChange}
+        gstreamerEnabled={gstreamerEnabled}
         videoShader={videoShader}
         onVideoShaderChange={onVideoShaderChange}
         microphoneMode={microphoneMode}
@@ -640,8 +791,8 @@ export function StreamView({
       {isConnecting && (
         <div className="sv-connect">
           <div className="sv-connect-inner">
-            <MotionSpinner className="sv-connect-spin" size={44} label="Connecting to stream" />
-            <p className="sv-connect-title">Connecting to {gameTitle}</p>
+            <MotionSpinner className="sv-connect-spin" size={44} label={t("stream.view.connectingLabel")} />
+            <p className="sv-connect-title">{t("stream.view.connectingTitle", { gameTitle })}</p>
             {PlatformIcon && (
               <div className="sv-connect-platform" title={platformName}>
                 <span className="sv-connect-platform-icon">
@@ -650,7 +801,7 @@ export function StreamView({
                 <span>{platformName}</span>
               </div>
             )}
-            <p className="sv-connect-sub">Setting up stream...</p>
+            <p className="sv-connect-sub">{t("stream.view.connectingSub")}</p>
           </div>
         </div>
       )}
@@ -658,34 +809,30 @@ export function StreamView({
       {sessionCounterEnabled && !isConnecting && (
         <div
           className={`sv-session-clock${showSessionClock ? " is-visible" : ""}`}
-          title="Current gaming session elapsed time"
+          title={t("stream.view.sessionElapsedTitle")}
           aria-hidden={!showSessionClock}
         >
-          <SessionElapsedIndicator 
-            startedAtMs={sessionStartedAtMs} 
-            active={isStreaming} 
-            timeRemainingSeconds={sessionTimeRemainingSeconds} 
-          />
+          <SessionElapsedIndicator startedAtMs={sessionStartedAtMs} active={isStreaming} />
         </div>
       )}
 
       {streamWarning && !isConnecting && !exitPrompt.open && (
         <div
           className={`sv-time-warning sv-time-warning--${streamWarning.tone}`}
-          title="Session time warning"
+          title={t("stream.view.sessionWarningTitle")}
         >
           <AlertTriangle size={14} />
           <span>
             {streamWarning.message}
-            {warningSeconds ? ` · ${warningSeconds} left` : ""}
+            {warningSeconds ? ` · ${t("stream.view.timeLeft", { value: warningSeconds })}` : ""}
           </span>
         </div>
       )}
 
-      {antiAfkToggleAck && !isConnecting && (
-        <div className={`sv-afk-ack sv-afk-ack--${antiAfkToggleAck}`} role="status" aria-live="polite">
+      {(antiAfkToggleAck || antiAfkReminderVisible) && !isConnecting && (
+        <div className={`sv-afk-ack sv-afk-ack--${antiAfkToggleAck ?? "on"}`} role="status" aria-live="polite">
           <span className="sv-afk-ack-dot" aria-hidden />
-          <span>{antiAfkToggleAck === "on" ? "Anti-AFK on" : "Anti-AFK off"}</span>
+          <span>{antiAfkToggleAck === "off" ? t("stream.view.antiAfkOff") : t("stream.view.antiAfkOn")}</span>
         </div>
       )}
 
@@ -700,12 +847,13 @@ export function StreamView({
           <StreamStatsHud
             key="stream-stats-hud"
             diagnosticsStore={diagnosticsStore}
-            mode="full"
-            position={statsOverlayPosition}
-            gstreamerEnabled={false}
+            mode={statsMode === "full" ? "full" : "compact"}
+            position={statsPosition}
+            gstreamerEnabled={gstreamerEnabled}
             serverRegion={serverRegion}
             sessionTimeRemainingText={showSessionTimeRemainingInStats ? sessionTimeRemainingText : null}
             hintsVisible={showHints}
+            shaderActive={!nativeRendererActive && videoShaderHasVisibleEffect(videoShader)}
           />
         )}
       </AnimatePresence>
@@ -739,31 +887,31 @@ export function StreamView({
       />
 
       {exitPrompt.open && !isConnecting && typeof document !== "undefined" && createPortal(
-        <div className="sv-exit" role="dialog" aria-modal="true" aria-label="Exit stream confirmation">
+        <div className="sv-exit" role="dialog" aria-modal="true" aria-label={t("stream.view.exitDialogLabel")}>
           <button
             type="button"
             className="sv-exit-backdrop"
             onClick={onCancelExit}
-            aria-label="Cancel exit"
+            aria-label={t("stream.view.cancelExit")}
           />
           <div className="sv-exit-card">
-            <div className="sv-exit-kicker">Session Control</div>
-            <h3 className="sv-exit-title">Exit Stream?</h3>
+            <div className="sv-exit-kicker">{t("stream.view.exitKicker")}</div>
+            <h3 className="sv-exit-title">{t("stream.view.exitTitle")}</h3>
             <p className="sv-exit-text">
-              Do you really want to exit <strong>{exitPrompt.gameTitle}</strong>?
+              {t("stream.view.exitText")} <strong>{exitPrompt.gameTitle}</strong>?
             </p>
-            <p className="sv-exit-subtext">Your current cloud gaming session will be closed.</p>
+            <p className="sv-exit-subtext">{t("stream.view.exitSubtext")}</p>
             <div className="sv-exit-actions">
               <button type="button" className="sv-exit-btn sv-exit-btn-cancel" onClick={onCancelExit}>
-                Keep Playing
+                {t("stream.view.keepPlaying")}
               </button>
               <button type="button" className="sv-exit-btn sv-exit-btn-confirm" onClick={onConfirmExit}>
-                Exit Stream
+                {t("stream.view.exitStream")}
               </button>
             </div>
             <div className="sv-exit-hint">
-              <span><kbd>Enter</kbd> confirm · <kbd>Esc</kbd> cancel</span>
-              <span><kbd>A</kbd> select · <kbd>B</kbd> cancel</span>
+              <span><kbd>Enter</kbd> {t("stream.view.confirm")} · <kbd>Esc</kbd> {t("stream.view.cancel")}</span>
+              <span><kbd>A</kbd> {t("stream.view.select")} · <kbd>B</kbd> {t("stream.view.cancel")}</span>
             </div>
           </div>
         </div>,
@@ -775,8 +923,8 @@ export function StreamView({
         <button
           className="sv-fs"
           onClick={handleFullscreenToggle}
-          title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-          aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          title={isFullscreen ? t("stream.view.exitFullscreen") : t("stream.view.enterFullscreen")}
+          aria-label={isFullscreen ? t("stream.view.exitFullscreen") : t("stream.view.enterFullscreen")}
         >
           {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
         </button>
@@ -787,8 +935,8 @@ export function StreamView({
         <button
           className="sv-end"
           onClick={onEndSession}
-          title="End session"
-          aria-label="End session"
+          title={t("stream.view.endSession")}
+          aria-label={t("stream.view.endSession")}
         >
           <LogOut size={18} />
         </button>
@@ -797,12 +945,12 @@ export function StreamView({
       {/* Keyboard hints */}
       {showHints && !isConnecting && (
         <div className="sv-hints">
-          <div className="sv-hint"><kbd>{shortcuts.toggleStats}</kbd><span>Stats</span></div>
-          <div className="sv-hint"><kbd>{shortcuts.togglePointerLock}</kbd><span>Mouse lock</span></div>
-          <div className="sv-hint"><kbd>{shortcuts.toggleFullscreen}</kbd><span>Full screen</span></div>
-          <div className="sv-hint"><kbd>{shortcuts.stopStream}</kbd><span>Stop</span></div>
-          <div className="sv-hint"><kbd>{CONTROLLER_SIDEBAR_SHORTCUT_DISPLAY}</kbd><span>Controller menu</span></div>
-          {shortcuts.toggleMicrophone && <div className="sv-hint"><kbd>{shortcuts.toggleMicrophone}</kbd><span>Mic</span></div>}
+          <div className="sv-hint"><kbd>{shortcuts.toggleStats}</kbd><span>{t("stream.view.hintStats")}</span></div>
+          <div className="sv-hint"><kbd>{shortcuts.togglePointerLock}</kbd><span>{t("stream.view.hintMouseLock")}</span></div>
+          <div className="sv-hint"><kbd>{shortcuts.toggleFullscreen}</kbd><span>{t("stream.view.hintFullscreen")}</span></div>
+          <div className="sv-hint"><kbd>{shortcuts.stopStream}</kbd><span>{t("stream.view.hintStop")}</span></div>
+          <div className="sv-hint"><kbd>{CONTROLLER_SIDEBAR_SHORTCUT_DISPLAY}</kbd><span>{t("stream.view.hintControllerMenu")}</span></div>
+          {shortcuts.toggleMicrophone && <div className="sv-hint"><kbd>{shortcuts.toggleMicrophone}</kbd><span>{t("stream.view.hintMic")}</span></div>}
         </div>
       )}
 
@@ -813,6 +961,7 @@ export function StreamView({
         platformName={platformName}
         PlatformIcon={PlatformIcon}
         showHints={showHints}
+        antiAfkEnabled={antiAfkEnabled}
       />
     </div>
   );

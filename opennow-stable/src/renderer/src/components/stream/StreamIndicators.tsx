@@ -5,6 +5,7 @@ import type { StreamDiagnosticsStore } from "../../utils/streamDiagnosticsStore"
 import { useStreamDiagnosticsSelector } from "../../utils/streamDiagnosticsStore";
 import type { MicState } from "../../platforms/gfn/microphoneManager";
 import { formatElapsed } from "../../utils/timeFormat";
+import { useTranslation } from "../../i18n";
 
 type MicBadgeState = {
   connectedGamepads: number;
@@ -75,6 +76,7 @@ export function AntiAfkIndicator({
   showAntiAfkIndicator: boolean;
   isConnecting: boolean;
 }): JSX.Element | null {
+  const { t } = useTranslation();
   const hasGamepad = useStreamDiagnosticsSelector(
     diagnosticsStore,
     (stats) => stats.connectedGamepads > 0,
@@ -85,9 +87,9 @@ export function AntiAfkIndicator({
   }
 
   return (
-    <div className={`sv-afk${hasGamepad ? " sv-afk--stacked" : ""}`} title="Anti-AFK is enabled">
+    <div className={`sv-afk${hasGamepad ? " sv-afk--stacked" : ""}`} title={t("stream.view.afkOnShort")}>
       <span className="sv-afk-dot" />
-      <span className="sv-afk-label">ANTI-AFK ON</span>
+      <span className="sv-afk-label">{t("stream.view.afkOnShort")}</span>
     </div>
   );
 }

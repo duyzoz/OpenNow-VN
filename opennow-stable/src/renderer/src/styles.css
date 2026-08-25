@@ -410,6 +410,75 @@ body,
 }
 
 
+/* Active-session actions: deliberately compact so the real remote session is visible at a glance. */
+.navbar-streaming-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-left: 14px;
+  z-index: 1;
+}
+
+.navbar-streaming-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: min(38vw, 360px);
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--panel-border));
+  border-radius: var(--r-full);
+  background: linear-gradient(180deg, rgba(var(--accent-rgb), 0.16), rgba(var(--accent-rgb), 0.06));
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast), color var(--t-fast);
+}
+
+.navbar-streaming-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.22);
+}
+
+.navbar-streaming-btn:focus-visible,
+.navbar-streaming-btn--terminate:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-surface);
+}
+
+.navbar-streaming-btn:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.navbar-streaming-btn--terminate {
+  flex: 0 0 auto;
+  border-color: color-mix(in srgb, var(--error) 58%, var(--panel-border));
+  background: color-mix(in srgb, var(--error) 13%, transparent);
+  color: color-mix(in srgb, var(--error) 88%, var(--ink));
+}
+
+.navbar-streaming-btn--terminate:hover:not(:disabled) {
+  border-color: var(--error);
+  background: color-mix(in srgb, var(--error) 21%, transparent);
+  color: var(--ink);
+}
+
+.navbar-streaming-btn--terminate:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--error) 30%, transparent);
+}
+
+.navbar-streaming-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* navbar: 'Tiếp tục' label next to the streaming pill --------------------------------- */
 .navbar-streaming-action {
   display: inline-block;
@@ -428,6 +497,35 @@ body,
 }
 [data-perf-mode="low"] .navbar-streaming-action {
   transition: none;
+}
+
+@media (max-width: 900px) {
+  .navbar-streaming-indicator {
+    margin-left: 8px;
+  }
+
+  .navbar-streaming-label {
+    display: none;
+  }
+
+  .navbar-streaming-btn {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .navbar-streaming-indicator {
+    gap: 4px;
+    margin-left: 4px;
+  }
+
+  .navbar-streaming-btn {
+    padding: 5px 7px;
+  }
+
+  .navbar-streaming-btn .navbar-streaming-action {
+    display: none;
+  }
 }
 
 .motion-spinner {
@@ -4675,8 +4773,8 @@ button.game-card-store-chip.owned.active:hover {
   border-right: 1px solid var(--panel-border);
   padding: 14px 12px;
   overflow-y: auto;
-  will-change: scroll-position;
-  transform: translateZ(0);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   transition: width var(--t-normal), padding var(--t-normal), background var(--t-normal);
 }
 
@@ -5017,7 +5115,7 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 .settings-row {
-  --settings-label-col: minmax(12.5rem, 13.5rem);
+  --settings-label-col: clamp(10.5rem, 26vw, 14.5rem);
   display: grid;
   grid-template-columns: var(--settings-label-col) minmax(0, 1fr);
   align-items: center;
@@ -5216,7 +5314,7 @@ button.game-card-store-chip.owned.active:hover {
   flex: 1 1 auto;
   min-width: 0;
   max-width: 100%;
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
   word-break: normal;
   hyphens: none;
   cursor: default;
@@ -5246,7 +5344,8 @@ button.game-card-store-chip.owned.active:hover {
 .settings-label--wrap {
   flex: 1 1 auto;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .settings-label-title {
@@ -7727,290 +7826,269 @@ button.game-card-store-chip.owned.active:hover {
 /* Stats HUD (StreamView inline stats) */
 .sv-stats {
   position: fixed;
-  left: 14px;
-  bottom: 14px;
   z-index: 1001;
+  isolation: isolate;
+  contain: layout paint style;
+  transform: translateZ(0);
   display: flex;
   flex-direction: column;
-  gap: 0;
-  min-width: 220px;
-  max-width: min(92vw, 340px);
+  gap: 10px;
+  padding: 12px;
   font-variant-numeric: tabular-nums;
   border: 1px solid var(--panel-border-solid);
   border-radius: var(--r-md);
   background: var(--bg-b);
-  overflow: hidden;
-  transition: border-color 320ms var(--ease), box-shadow 320ms var(--ease);
+  max-width: calc(100vw - 28px);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 5%, transparent);
+  transition: border-color 180ms var(--ease);
 }
 
-[data-translucent="true"] .sv-stats {
-  background: color-mix(in srgb, var(--bg-b) 75%, transparent);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
+/* Position: four corners. --hints lifts bottom-anchored variants above the hint bar. */
+.sv-stats--pos-bottom-left { left: max(14px, env(safe-area-inset-left)); bottom: max(14px, env(safe-area-inset-bottom)); }
+.sv-stats--pos-bottom-right { right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); }
+.sv-stats--pos-top-left { left: max(14px, env(safe-area-inset-left)); top: max(14px, env(safe-area-inset-top)); }
+.sv-stats--pos-top-right { right: max(14px, env(safe-area-inset-right)); top: max(14px, env(safe-area-inset-top)); }
 
-.sv-stats--hints {
+.sv-stats--hints.sv-stats--pos-bottom-left,
+.sv-stats--hints.sv-stats--pos-bottom-right {
   bottom: 118px;
+}
+
+.sv-stats--compact { width: 230px; }
+
+.sv-stats--full {
+  width: 300px;
+  max-height: calc(100dvh - 28px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-border-solid) transparent;
+}
+
+.sv-stats--full.sv-stats--hints {
+  max-height: calc(100dvh - 132px);
+}
+
+/* Keep the stats surface opaque enough to avoid a backdrop-filter pass over the
+   decoded video. A translucent blurred surface forces Chromium to re-composite
+   the entire area behind the HUD and can steal a large amount of render FPS on
+   integrated GPUs. The border/shadow preserve the upstream visual hierarchy
+   without touching WebRTC or Native Stream. */
+[data-translucent="true"] .sv-stats {
+  background: color-mix(in srgb, var(--bg-b) 98%, #000 2%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .sv-stats--warn {
   border-color: color-mix(in srgb, var(--warning) 35%, var(--panel-border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 12%, transparent);
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--warning) 10%, transparent);
 }
 
-.sv-stats--expanded {
-  max-width: min(92vw, 380px);
-}
-
-.sv-stats-toggle {
+/* Header: accent bar + GPU tier title */
+.sv-stats-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  padding: 8px 10px;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  align-items: center;
+  gap: 8px;
 }
 
-.sv-stats-toggle:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--accent-surface);
+.sv-stats-head-accent {
+  width: 4px;
+  height: 15px;
+  border-radius: 2px;
+  background: var(--accent);
+  flex-shrink: 0;
 }
 
-.sv-stats-toggle-main {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-}
-
-.sv-stats-primary {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 600;
+.sv-stats-head-title {
+  font-size: 0.82rem;
+  font-weight: 700;
   color: var(--ink);
-  line-height: 1.1;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.sv-stats-toggle-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.sv-stats-kpi {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  min-width: 0;
-}
-
-.sv-stats-kpi-label {
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
-
-.sv-stats-kpi-val {
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: var(--ink-soft);
-  transition: color 320ms var(--ease);
-}
-
-.sv-stats-kpi-val--rtt {
-  color: var(--ink-soft);
-}
-
-.sv-stats-kpi-divider {
-  width: 1px;
-  height: 12px;
-  background: color-mix(in srgb, var(--ink-muted) 35%, transparent);
-  flex-shrink: 0;
-}
-
-.sv-stats-toggle-trail {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.sv-stats-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-muted);
+.sv-stats--compact .sv-stats-head-title {
+  max-width: 176px;
 }
 
 .sv-stats-alert-dot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  margin-left: auto;
   color: var(--warning);
 }
 
-.sv-stats-warn-strip {
+/* Transient network alert banner (RTT spike / packet loss) */
+.sv-stats-net-alert {
   display: flex;
-  flex-wrap: nowrap;
-  gap: 4px;
-  padding: 0 10px 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.sv-stats-warn-strip::-webkit-scrollbar {
-  display: none;
-}
-
-.sv-stats-warn-pill {
-  display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
-  white-space: nowrap;
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--panel-border));
-  background: color-mix(in srgb, var(--warning) 10%, transparent);
-  color: var(--warning);
-  font-size: 0.62rem;
-  font-weight: 700;
-}
-
-.sv-stats-details {
+  gap: 7px;
   overflow: hidden;
+  padding: 6px 9px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  background: color-mix(in srgb, var(--warning) 12%, var(--bg-b));
+  color: var(--warning);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
 }
 
-.sv-stats-details-inner {
+.sv-stats-net-alert svg {
+  flex-shrink: 0;
+}
+
+.sv-stats-net-alert--critical {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: color-mix(in srgb, var(--error) 13%, var(--bg-b));
+  color: var(--error);
+}
+
+/* KPI cards row (GAME / STREAM / PING) */
+.sv-stats-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.sv-stats-kpi-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 0 10px 10px;
-  border-top: 1px solid color-mix(in srgb, var(--ink-muted) 18%, transparent);
-}
-
-.sv-stats-live {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 36px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 0.62rem;
-  letter-spacing: 0.03em;
+  gap: 1px;
+  padding: 8px 4px 7px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
   border: 1px solid var(--panel-border);
-  color: var(--ink-soft);
-  background: color-mix(in srgb, var(--ink) 3%, transparent);
-  transition: color 320ms var(--ease), border-color 320ms var(--ease), background 320ms var(--ease);
 }
 
-.sv-stats-live.is-live {
-  color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 45%, var(--panel-border));
-  background: color-mix(in srgb, var(--success) 12%, transparent);
-}
-
-.sv-stats-live.is-pending {
-  color: var(--warning);
-  border-color: color-mix(in srgb, var(--warning) 40%, var(--panel-border));
-  background: color-mix(in srgb, var(--warning) 10%, transparent);
-}
-
-.sv-stats-sub {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-top: 1px;
-}
-
-.sv-stats-sub-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink-soft);
-  font-size: 0.68rem;
-}
-
-.sv-stats-hdr {
-  padding: 1px 5px;
-  background: var(--accent-surface);
-  border-radius: 3px;
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: var(--accent);
-  text-transform: uppercase;
-}
-
-.sv-stats-metrics {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-wrap: nowrap;
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.sv-stats-metrics::-webkit-scrollbar {
-  display: none;
-}
-
-.sv-stats-chip {
-  display: inline-flex;
-  align-items: center;
-  flex: 0 0 auto;
-  white-space: nowrap;
-  gap: 5px;
-  padding: 2px 5px;
-  background: color-mix(in srgb, var(--ink) 3%, transparent);
-  border: 1px solid var(--panel-border);
-  border-radius: 4px;
-  font-size: 0.64rem;
-  color: var(--ink-muted);
-}
-
-.sv-stats-chip--warn {
-  border-color: color-mix(in srgb, var(--warning) 40%, var(--panel-border));
-  background: color-mix(in srgb, var(--warning) 8%, transparent);
-}
-
-.sv-stats-chip-val {
-  font-weight: 700;
-  color: var(--ink-soft);
+.sv-stats-kpi-num {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
   transition: color 320ms var(--ease);
 }
 
-.sv-stats-chip--time {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--panel-border));
-  background: var(--accent-surface);
+.sv-stats-kpi-unit {
+  margin-top: 3px;
+  font-size: 0.56rem;
+  font-weight: 600;
+  color: var(--ink-muted);
 }
 
-.sv-stats-chip--time .sv-stats-chip-val {
-  color: var(--accent);
+.sv-stats-kpi-name {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
 }
 
+/* Compact: single server-location bar */
+.sv-stats-serverbar {
+  padding: 5px 8px;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--panel-border);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Compact HUD: codec fell back from the requested one (e.g. AV1 → H265).
+   Sits under the server bar so the codec switch is visible at a glance. */
+.sv-stats-serverbar--codec-fallback {
+  margin-top: 4px;
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+  color: color-mix(in srgb, var(--warning) 78%, #fff);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+}
+
+/* Compact HUD: client-side WebGL post-processing is actively applying an
+   effect to the stream frames (extra GPU load on weak iGPUs). */
+.sv-stats-serverbar--shader {
+  margin-top: 4px;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: color-mix(in srgb, var(--accent) 80%, #fff);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.sv-stats-serverbar + .sv-stats-serverbar {
+  margin-top: -6px;
+}
+/* Full: Network + Stream sections */
+.sv-stats-full {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sv-stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sv-stats-section-title {
+  margin: 0 0 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.sv-stats-subhead {
+  margin: 4px 0 0;
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.sv-stats-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 8px;
+  font-size: 0.7rem;
+}
+
+.sv-stats-row > span:first-child {
+  color: var(--ink-muted);
+}
+
+.sv-stats-row > span:last-child {
+  color: var(--ink-soft);
+  font-weight: 600;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Advanced (debug) disclosure inside Full mode */
 .sv-stats-advanced {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  border-top: 1px solid var(--panel-border);
+  padding-top: 8px;
 }
 
 .sv-stats-advanced-toggle {
@@ -8036,34 +8114,18 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 .sv-stats-advanced-body {
-  min-width: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .sv-stats-foot {
   margin: 0;
-  min-width: 0;
-  font-size: 0.64rem;
+  font-size: 0.62rem;
   color: var(--ink-muted);
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sv-stats-foot--singleline {
-  max-width: 100%;
-  min-height: 1.35em;
-  white-space: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  text-overflow: clip;
-  scrollbar-width: none;
-  font-variant-numeric: tabular-nums;
-  -webkit-overflow-scrolling: touch;
-}
-
-.sv-stats-foot--singleline::-webkit-scrollbar {
-  display: none;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 /* Session ready badge */
@@ -8504,9 +8566,54 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 .sv-title-game {
+  min-width: 0;
   color: var(--ink);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sv-title-afk,
+.sidebar-session-afk {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid color-mix(in srgb, var(--ink-muted) 28%, transparent);
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sv-title-afk--on,
+.sidebar-session-afk--on {
+  border-color: color-mix(in srgb, var(--success) 44%, transparent);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  color: var(--success);
+}
+
+.sv-title-afk--off,
+.sidebar-session-afk--off {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink-muted);
+}
+
+.sv-title-afk-dot,
+.sidebar-session-afk-dot {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.sv-title-afk--on .sv-title-afk-dot,
+.sidebar-session-afk--on .sidebar-session-afk-dot {
+  box-shadow: 0 0 7px color-mix(in srgb, var(--success) 75%, transparent);
 }
 
 .sv-title-platform {
@@ -9504,7 +9611,15 @@ button.game-card-store-chip.owned.active:hover {
   font-weight: 650;
 }
 
+.sidebar-session-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .sidebar-session-title {
+  min-width: 0;
   color: var(--ink);
   font-size: 1.16rem;
   font-weight: 600;
@@ -9755,6 +9870,32 @@ button.game-card-store-chip.owned.active:hover {
 
 .sidebar-button:active {
   background: var(--chip);
+}
+
+.sidebar-button:disabled,
+.sidebar-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+.recording-action--recording,
+.recording-action--stopping {
+  border-color: color-mix(in srgb, #fb7185 55%, var(--panel-border));
+  background: color-mix(in srgb, #fb7185 12%, var(--card));
+}
+
+.recording-action--error {
+  border-color: color-mix(in srgb, #fda4af 45%, var(--panel-border));
+}
+
+.recording-action-spinner {
+  animation: recording-action-spin 0.8s linear infinite;
+}
+
+@keyframes recording-action-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .sidebar-screenshot-button {
@@ -10023,7 +10164,7 @@ button.game-card-store-chip.owned.active:hover {
 .sidebar-footer {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
@@ -10070,6 +10211,34 @@ button.game-card-store-chip.owned.active:hover {
   padding: 0 12px 0 10px;
   border-radius: 8px;
   background: transparent;
+}
+
+.sidebar-report-bug-button {
+  min-height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--accent, #76b900) 34%, var(--panel-border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #76b900) 7%, transparent);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.sidebar-report-bug-button:hover {
+  border-color: color-mix(in srgb, var(--accent, #76b900) 62%, var(--panel-border));
+  background: color-mix(in srgb, var(--accent, #76b900) 12%, transparent);
+  color: var(--ink);
+}
+
+.sidebar-report-bug-button:focus-visible {
+  outline: 2px solid var(--accent, #76b900);
+  outline-offset: 2px;
 }
 
 .sv-sidebar .sidebar-tabs {
@@ -11337,8 +11506,8 @@ button.game-card-store-chip.owned.active:hover {
   width: 108%;
   height: 108%;
   object-fit: cover;
-  opacity: 0.52;
-  filter: blur(4px) saturate(1.16) contrast(1.1);
+  opacity: 0.58;
+  filter: saturate(1.12) contrast(1.08);
   transform: translate3d(calc(var(--sload-drift-x) * 0.82), calc(var(--sload-drift-y) * 0.82), 0) scale(1.065);
   transition: transform 360ms cubic-bezier(0.18, 0.86, 0.24, 1.18), filter 260ms ease, opacity 260ms ease;
   pointer-events: none;
@@ -11762,6 +11931,24 @@ button.game-card-store-chip.owned.active:hover {
 .navbar-streaming-btn:hover {
   background: rgba(118,225,111,0.28);
   transform: scale(1.04);
+}
+
+.navbar-streaming-btn--terminate {
+  margin-left: 5px;
+  background: linear-gradient(90deg, rgba(255, 91, 91, 0.2), rgba(255, 91, 91, 0.08));
+  border-color: rgba(255, 116, 116, 0.42);
+  color: #ff9b9b;
+}
+
+.navbar-streaming-btn--terminate:hover:not(:disabled) {
+  background: linear-gradient(90deg, rgba(255, 91, 91, 0.32), rgba(255, 91, 91, 0.14));
+  border-color: rgba(255, 133, 133, 0.68);
+  color: #ffd0d0;
+}
+
+.navbar-streaming-btn--terminate:disabled {
+  border-color: rgba(255, 116, 116, 0.2);
+  color: rgba(255, 155, 155, 0.54);
 }
 
 .navbar-streaming-btn:disabled {
@@ -13011,8 +13198,6 @@ button.game-card-store-chip.owned.active:hover {
 .sv-session-clock,
 .sv-time-warning,
 .sv-afk-ack,
-.sv-stats,
-.sv-stats-toggle,
 .sv-connect-inner {
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
@@ -13025,9 +13210,6 @@ button.game-card-store-chip.owned.active:hover {
 .sv-session-clock,
 .sv-time-warning,
 .sv-afk-ack,
-.sv-stats-toggle-main,
-.sv-stats-kpi,
-.sv-stats-warn-pill,
 .sv-connect-platform,
 .sv-exit-kicker,
 .sv-exit-hint span {
@@ -13039,8 +13221,6 @@ button.game-card-store-chip.owned.active:hover {
 .sv-session-clock > svg,
 .sv-time-warning > svg,
 .sv-afk-ack > svg,
-.sv-stats-toggle-main > svg,
-.sv-stats-warn-pill > svg,
 .sv-connect-platform > svg,
 .sv-exit-kicker > svg {
   flex: 0 0 auto;
@@ -13052,9 +13232,7 @@ button.game-card-store-chip.owned.active:hover {
 
 /* Digits must not jitter while the clock and the KPIs update. */
 .sv-session-clock,
-.sv-time-warning,
-.sv-stats-kpi-val,
-.sv-stats-primary {
+.sv-time-warning {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
@@ -13330,7 +13508,7 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 .settings-row {
-  --settings-label-col: minmax(15rem, 17rem);
+  --settings-label-col: clamp(11rem, 24vw, 15rem);
 }
 
 @media (max-width: 900px) {
@@ -13358,7 +13536,7 @@ button.game-card-store-chip.owned.active:hover {
   }
 
   .settings-row {
-    --settings-label-col: minmax(13rem, 15rem);
+    --settings-label-col: clamp(10.5rem, 35vw, 14rem);
   }
 }
 
@@ -14006,5 +14184,44 @@ button.game-card-store-chip.owned.active:hover {
   .game-info-cover.is-fallback,
   .sload-cover-empty {
     background: linear-gradient(145deg, #1f2937, #111827);
+  }
+}
+
+
+/* Final launch-art layering: keep the supplied per-game key art visible without
+   changing the stream renderer or the queue data source. */
+.sload > .sload-backdrop {
+  z-index: 0;
+  background: rgba(2, 7, 4, 0.24);
+}
+
+.sload > .sload-backdrop-art {
+  z-index: 0;
+  opacity: 0.82;
+  mix-blend-mode: normal;
+  filter: saturate(1.14) contrast(1.08) brightness(0.92);
+}
+
+.sload > .sload-backdrop-mosaic {
+  z-index: 1;
+  opacity: 0.16;
+}
+
+.sload > .shader-atmosphere {
+  z-index: 1;
+  opacity: 0.24;
+  pointer-events: none;
+}
+
+.sload > .sload-backdrop-wash {
+  z-index: 1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(7, 16, 10, 0.18) 0%, rgba(7, 16, 10, 0.1) 30%, rgba(7, 16, 10, 0.02) 62%, transparent 78%),
+    linear-gradient(180deg, rgba(5, 10, 7, 0.04), rgba(5, 10, 7, 0.12));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sload > .shader-atmosphere {
+    opacity: 0;
   }
 }

@@ -148,7 +148,11 @@ export function StreamLoading({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [queueSamples, setQueueSamples] = useState<Array<{ position: number; at: number }>>([]);
   const [queueMovement, setQueueMovement] = useState(0);
+  const [backdropArtwork, setBackdropArtwork] = useState(gameCover ?? gameLogo);
   const previousQueuePositionRef = useRef<number | null>(null);
+  const parallaxFrameRef = useRef<number | null>(null);
+  const parallaxElementRef = useRef<HTMLDivElement | null>(null);
+  const parallaxValueRef = useRef({ x: 0, y: 0 });
 
   const hasError = Boolean(error);
   const effectiveStartedAt = launchStartedAtMs ?? mountedAt;
@@ -156,6 +160,10 @@ export function StreamLoading({
   const platformName = platformStore ? getStoreDisplayName(platformStore) : "";
   const squareArtwork = gameLogo;
   const artworkInitials = getGameArtworkInitials(gameTitle);
+
+  useEffect(() => {
+    setBackdropArtwork(gameCover ?? gameLogo);
+  }, [gameCover, gameLogo]);
   const PlatformIcon = platformStore ? getStoreIconComponent(platformStore) : null;
   const adSummary = getAdSummary(t, adState);
   const cachedAdMediaUrl = activeAdMediaUrl ?? getPreferredSessionAdMediaUrl(activeAd);
@@ -204,34 +212,60 @@ export function StreamLoading({
     return () => window.clearInterval(timer);
   }, [effectiveStartedAt, hasError]);
 
+  useEffect(() => {
+    return () => {
+      if (parallaxFrameRef.current !== null) {
+        window.cancelAnimationFrame(parallaxFrameRef.current);
+      }
+    };
+  }, []);
+
+  const scheduleParallax = (element: HTMLDivElement, x: number, y: number): void => {
+    parallaxElementRef.current = element;
+    parallaxValueRef.current = { x, y };
+    if (parallaxFrameRef.current !== null) return;
+    parallaxFrameRef.current = window.requestAnimationFrame(() => {
+      const target = parallaxElementRef.current;
+      const value = parallaxValueRef.current;
+      if (target) {
+        target.style.setProperty("--sload-drift-x", `${value.x.toFixed(2)}px`);
+        target.style.setProperty("--sload-drift-y", `${value.y.toFixed(2)}px`);
+      }
+      parallaxFrameRef.current = null;
+    });
+  };
+
   return (
     <div
       className={`sload${hasError ? " sload--error" : ""}`}
       onPointerMove={(event) => {
         if (reducedMotion) return;
-        const rect = event.currentTarget.getBoundingClientRect();
+        const element = event.currentTarget;
+        const rect = element.getBoundingClientRect();
         const x = rect.width > 0 ? ((event.clientX - rect.left) / rect.width) * 100 : 50;
         const y = rect.height > 0 ? ((event.clientY - rect.top) / rect.height) * 100 : 50;
         const driftX = Math.max(-14, Math.min(14, ((x - 50) / 50) * 14));
         const driftY = Math.max(-10, Math.min(10, ((y - 50) / 50) * 10));
-        event.currentTarget.style.setProperty("--sload-drift-x", `${driftX.toFixed(2)}px`);
-        event.currentTarget.style.setProperty("--sload-drift-y", `${driftY.toFixed(2)}px`);
+        scheduleParallax(element, driftX, driftY);
       }}
       onPointerLeave={(event) => {
-        event.currentTarget.style.setProperty("--sload-drift-x", "0px");
-        event.currentTarget.style.setProperty("--sload-drift-y", "0px");
+        scheduleParallax(event.currentTarget, 0, 0);
       }}
     >
       <div className="sload-backdrop" />
-      {gameCover && (
+      {backdropArtwork && (
         <img
           className="sload-backdrop-art"
-          src={gameCover}
+          src={backdropArtwork}
           alt=""
           aria-hidden="true"
           draggable={false}
           loading="eager"
           decoding="async"
+          fetchPriority="high"
+          onError={() => {
+            setBackdropArtwork((current) => current !== gameLogo && gameLogo ? gameLogo : undefined);
+          }}
         />
       )}
       <div className="sload-backdrop-mosaic" aria-hidden="true" />

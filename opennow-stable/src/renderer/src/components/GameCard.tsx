@@ -310,8 +310,8 @@ export const GameCard = memo(function GameCard({
                 className="game-card-corner-play-button game-card-corner-play-button--active"
                 onClick={(e) => { e.stopPropagation(); onResume?.(); }}
                 tabIndex={-1}
-                title={t("gameCard.resume")}
-                aria-label={t("gameCard.resume")}
+                title={t("gameCard.resumeStream")}
+                aria-label={t("gameCard.resumeStream")}
               >
                 <PlayCircle size={19} fill="currentColor" />
               </button>
@@ -350,14 +350,14 @@ export const GameCard = memo(function GameCard({
                 onClick={(e) => { e.stopPropagation(); onResume?.(); }}
                 tabIndex={-1}
               >
-                <PlayCircle size={14} /> {t("gameCard.resume")}
+                <PlayCircle size={14} /> {t("gameCard.resumeStream")}
               </button>
               <button
                 className="game-card-quit-btn"
                 onClick={(e) => { e.stopPropagation(); onTerminate?.(); }}
                 tabIndex={-1}
               >
-                <Square size={12} /> {t("gameCard.quit")}
+                <Square size={12} /> {t("gameCard.endStream")}
               </button>
             </div>
           )}
