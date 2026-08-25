@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { AlertTriangle } from "lucide-react";
 import type { StatsOverlayPosition } from "@shared/gfn";
 import type { StreamDiagnostics, StreamLagReason } from "../platforms/gfn/webrtcClient";
@@ -17,11 +16,6 @@ import {
   PACKET_LOSS_ALERT_PERCENT,
 } from "../utils/streamStatsHud";
 import { getStreamServerLocationLabel } from "../platforms/gfn/webrtc/sessionDiagnostics";
-import {
-  disclosureTransition,
-  getStatusPulseMotion,
-  surfaceRevealTransition,
-} from "./MotionProvider";
 import { useTranslation } from "../i18n";
 
 function getLagReasonTranslationKey(reason: StreamLagReason): string {
@@ -92,8 +86,6 @@ export function StreamStatsHud({
   shaderActive = false,
 }: StreamStatsHudProps): JSX.Element {
   const { t } = useTranslation();
-  const reducedMotion = useReducedMotion();
-  const statusPulseMotion = getStatusPulseMotion(reducedMotion);
   // Keep WebRTC's diagnostics polling untouched, but do not repaint the compact
   // HUD for internal counters that are not visible in that mode. Full mode still
   // follows every diagnostics snapshot so its detailed values remain accurate.
@@ -380,7 +372,7 @@ export function StreamStatsHud({
   );
 
   return (
-    <m.aside
+    <aside
       className={[
         "sv-stats",
         `sv-stats--${mode}`,
@@ -390,40 +382,26 @@ export function StreamStatsHud({
       ]
         .filter(Boolean)
         .join(" ")}
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 6 }}
-      transition={surfaceRevealTransition}
       aria-label={t("stream.stats.overlayLabel")}
     >
       <header className="sv-stats-head">
         <span className="sv-stats-head-accent" aria-hidden />
         <span className="sv-stats-head-title">{gpuTitle}</span>
         {hasIssues && (
-          <m.span
-            className="sv-stats-alert-dot"
-            aria-hidden
-            animate={statusPulseMotion.animate}
-            transition={statusPulseMotion.transition}
-          >
+          <span className="sv-stats-alert-dot" aria-hidden>
             <AlertTriangle size={12} />
-          </m.span>
+          </span>
         )}
       </header>
 
       {/* Transient network alert banner: sudden RTT spike or real packet loss. */}
-      <AnimatePresence initial={false}>
-        {(rttSpikeActive || bannerPacketLoss) && (
-          <m.div
+      {(rttSpikeActive || bannerPacketLoss) && (
+          <div
             key="network-alert"
             className={[
               "sv-stats-net-alert",
               rttSpikeActive && bannerPacketLoss ? "sv-stats-net-alert--critical" : "",
             ].filter(Boolean).join(" ")}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={disclosureTransition}
             role="status"
           >
             <AlertTriangle size={12} aria-hidden />
@@ -440,9 +418,8 @@ export function StreamStatsHud({
                     })
               )}
             </span>
-          </m.div>
+          </div>
         )}
-      </AnimatePresence>
 
       {kpiRow}
 
@@ -556,26 +533,17 @@ export function StreamStatsHud({
               >
                 {advancedOpen ? t("stream.stats.hideAdvanced") : t("stream.stats.showAdvanced")}
               </button>
-              <AnimatePresence initial={false}>
-                {advancedOpen && (
-                  <m.div
-                    key="advanced"
-                    className="sv-stats-advanced-body"
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={disclosureTransition}
-                  >
-                    {advancedLines.map((line) => (
-                      <p key={line} className="sv-stats-foot">{line}</p>
-                    ))}
-                  </m.div>
-                )}
-              </AnimatePresence>
+              {advancedOpen && (
+                <div key="advanced" className="sv-stats-advanced-body">
+                  {advancedLines.map((line) => (
+                    <p key={line} className="sv-stats-foot">{line}</p>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
-    </m.aside>
+    </aside>
   );
 }

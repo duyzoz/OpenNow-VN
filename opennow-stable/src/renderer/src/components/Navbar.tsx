@@ -1,5 +1,5 @@
 import type { ActiveSessionInfo, AuthUser, SavedAccount, SubscriptionInfo } from "@shared/gfn";
-import { House, Library, Settings, User, Timer, HardDrive, X, ChevronDown, Check, Plus, Store as StoreIcon, MessageSquareText, Radio, Heart } from "lucide-react";
+import { House, Library, Settings, User, Timer, HardDrive, X, ChevronDown, Check, Plus, Store as StoreIcon, MessageSquareText, Play, Pause, Heart } from "lucide-react";
 import { useEffect, useRef, useState, type JSX } from "react";
 import { useTranslation } from "../i18n";
 import { OpenNowLogoMark } from "./OpenNowLogoMark";
@@ -327,8 +327,7 @@ export function Navbar({
               }
             >
               <span className="navbar-streaming-pulse" />
-              {isResumingSession ? <MotionSpinner size={13} label={t("app.actions.resume")} /> : <Radio size={13} />}
-              <span className="navbar-streaming-action">{t("app.actions.resume")}</span>
+              {isResumingSession ? <MotionSpinner size={13} label={t("app.actions.resume")} /> : <Play size={13} fill="currentColor" aria-hidden="true" />}
               <span className="navbar-streaming-label">{activeSessionTitle || t("navigation.streamingNow")}</span>
             </button>
             <button
@@ -339,8 +338,7 @@ export function Navbar({
               title={t("session.endActiveCloudSession")}
               aria-label={t("session.endActiveCloudSession")}
             >
-              {isTerminatingSession ? <MotionSpinner size={13} label={t("session.endActiveCloudSession")} /> : <X size={13} />}
-              <span>{t("app.actions.end")}</span>
+              {isTerminatingSession ? <MotionSpinner size={13} label={t("session.endActiveCloudSession")} /> : <Pause size={13} fill="currentColor" aria-hidden="true" />}
             </button>
           </div>
         )}

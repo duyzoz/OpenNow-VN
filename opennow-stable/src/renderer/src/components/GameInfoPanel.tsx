@@ -8,8 +8,8 @@ import {
   Gamepad2,
   Heart,
   LockKeyhole,
+  Pause,
   PlayCircle,
-  Square,
   X,
 } from "lucide-react";
 import { useTranslation } from "../i18n";
@@ -344,11 +344,23 @@ export function GameInfoPanel({
             <div className="game-info-actions">
               {isActiveGame ? (
                 <>
-                  <button className="game-info-btn game-info-btn--resume" onClick={onResume}>
-                    <PlayCircle size={15} /> {t("gameInfo.resumeStream")}
+                  <button
+                    type="button"
+                    className="game-info-btn game-info-btn--resume"
+                    onClick={onResume}
+                    title={t("gameInfo.resumeStream")}
+                    aria-label={t("gameInfo.resumeStream")}
+                  >
+                    <PlayCircle size={15} fill="currentColor" aria-hidden="true" />
                   </button>
-                  <button className="game-info-btn game-info-btn--quit" onClick={onTerminate}>
-                    <Square size={13} /> {t("gameInfo.endStream")}
+                  <button
+                    type="button"
+                    className="game-info-btn game-info-btn--quit"
+                    onClick={onTerminate}
+                    title={t("gameInfo.endStream")}
+                    aria-label={t("gameInfo.endStream")}
+                  >
+                    <Pause size={13} fill="currentColor" aria-hidden="true" />
                   </button>
                 </>
               ) : (

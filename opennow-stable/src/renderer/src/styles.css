@@ -14322,3 +14322,156 @@ button.game-card-store-chip.owned.active:hover {
   background: #f8fafc;
   border-color: #e2e8f0;
 }
+
+/* ======================================================
+   FINAL UI PERFORMANCE PASS
+   One-shot reveal only; no scroll-timeline, blur, 3D or
+   persistent compositor layers on catalog/detail surfaces.
+   ====================================================== */
+.scroll-anim-wrapper {
+  contain: style;
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+
+.scroll-anim-wrapper[data-scroll-reveal="pending"] {
+  opacity: 0.82;
+  transform: translateY(7px);
+}
+
+.scroll-anim-wrapper[data-scroll-reveal="visible"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.card-batch-anim {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-anim-wrapper,
+  .card-batch-anim {
+    animation: none;
+    transition: none;
+    transform: none;
+    opacity: 1;
+  }
+}
+
+[data-perf-mode="low"] .scroll-anim-wrapper,
+[data-perf-mode="low"] .card-batch-anim {
+  animation: none;
+  transition: none;
+  transform: none;
+  opacity: 1;
+}
+
+/* Keep the full rounded detail dialog visible instead of filling the viewport. */
+.game-info-panel {
+  width: min(520px, calc(100vw - 40px));
+  max-height: min(82vh, 680px);
+  will-change: auto;
+}
+
+.game-info-scroll {
+  height: min(620px, calc(82vh - 34px));
+  max-height: calc(82vh - 34px);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scroll-behavior: auto;
+  contain: style;
+}
+
+.game-info-backdrop {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.game-info-cover {
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.14);
+}
+
+/* Active-session controls stay icon-led: play to resume, red pause to end. */
+.navbar-streaming-btn--terminate,
+.game-card-quit-btn,
+.game-info-btn--quit {
+  color: #dc2626;
+  animation: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.navbar-streaming-btn--terminate:hover,
+.game-card-quit-btn:hover,
+.game-info-btn--quit:hover {
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.1);
+}
+
+.navbar-streaming-label {
+  min-width: 0;
+  max-width: min(28vw, 300px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-card-resume-btn,
+.game-card-quit-btn,
+.game-info-btn--resume,
+.game-info-btn--quit {
+  transform: none;
+  transition: color 140ms ease, background 140ms ease, border-color 140ms ease;
+  will-change: auto;
+}
+
+/* Quick Menu and Ctrl+N are UI overlays; keep them crisp without blur/pulse/spring work. */
+.sv-sidebar {
+  will-change: auto;
+  box-shadow: 10px 0 26px rgba(0, 0, 0, 0.22);
+}
+
+.sv-sidebar-backdrop {
+  background: rgba(3, 3, 5, 0.52);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.sv-sidebar .sidebar-tabs {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.sv-stats {
+  will-change: auto;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.sv-stats-alert-dot,
+.sv-stats-net-alert,
+.sv-stats-advanced-body {
+  animation: none;
+  filter: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar-streaming-btn,
+  .navbar-streaming-pulse,
+  .navbar-brand--streaming .opennow-logo-mark,
+  .sv-stats-alert-dot,
+  .session-ring-pulse {
+    animation: none;
+    filter: none;
+  }
+}
+
+[data-perf-mode="low"] .navbar-streaming-btn,
+[data-perf-mode="low"] .navbar-streaming-pulse,
+[data-perf-mode="low"] .navbar-brand--streaming .opennow-logo-mark,
+[data-perf-mode="low"] .sv-stats-alert-dot,
+[data-perf-mode="low"] .session-ring-pulse {
+  animation: none;
+  filter: none;
+}

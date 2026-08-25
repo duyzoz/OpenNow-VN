@@ -1,8 +1,6 @@
 import type { JSX, ReactNode, Ref } from "react";
 import { X } from "lucide-react";
-import { m } from "motion/react";
 import { useTranslation } from "../i18n";
-import { panelSpring } from "./MotionProvider";
 
 interface SideBarProps {
   title?: string;
@@ -26,16 +24,12 @@ export default function SideBar({
   const sidebarTitle = title ?? t("sidebar.title");
 
   return (
-    <m.aside
+    <aside
       ref={elementRef}
       className={classNames}
       role="dialog"
       aria-modal="true"
       aria-label={sidebarTitle}
-      initial={{ opacity: 0, x: -28 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -28 }}
-      transition={panelSpring}
     >
       <div className="sidebar-header">
         <h3>{sidebarTitle}</h3>
@@ -55,6 +49,6 @@ export default function SideBar({
         {children}
       </div>
       {footer && <div className="sidebar-footer">{footer}</div>}
-    </m.aside>
+    </aside>
   );
 }

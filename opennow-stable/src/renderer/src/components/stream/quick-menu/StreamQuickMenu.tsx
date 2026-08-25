@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { useTranslation } from "../../../i18n";
 import type { Dispatch, JSX, RefObject, SetStateAction } from "react";
-import { AnimatePresence, m } from "motion/react";
 import { Bug, Gauge, Images, Keyboard, LogOut, Save, SlidersHorizontal, Trash2, X } from "lucide-react";
 import type {
   MicrophoneMode,
@@ -136,23 +135,15 @@ export function StreamQuickMenu({
 
   return (
     <>
-      <AnimatePresence>
-        {open && (
-          <m.div
-            key="quick-menu-backdrop"
-            className="sv-sidebar-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={onClose}
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {open && (
-          <SideBar
+      {open && (
+        <div
+          className="sv-sidebar-backdrop"
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={onClose}
+        />
+      )}
+      {open && (
+        <SideBar
             key="quick-menu-sidebar"
             title={t("stream.quickMenu.title")}
             className="sv-sidebar"
@@ -312,9 +303,8 @@ export function StreamQuickMenu({
                 editor={shortcutEditor}
               />
             )}
-          </SideBar>
-        )}
-      </AnimatePresence>
+        </SideBar>
+      )}
 
       {screenshotGallery.selectedScreenshot && (
         <div className="sv-shot-modal" role="dialog" aria-modal="true" aria-label={t("stream.screenshots.preview")}>
