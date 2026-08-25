@@ -1,7 +1,6 @@
 import { Cpu, Monitor, Radio, Wifi, X, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { JSX, Ref } from "react";
-import { m, useReducedMotion } from "motion/react";
 import {
   getPreferredSessionAdMediaUrl,
   getSessionAdItems,
@@ -12,9 +11,7 @@ import {
 import type { SessionAdInfo, SessionAdState } from "@shared/gfn";
 import { getStoreDisplayName, getStoreIconComponent } from "./GameCard";
 import { QueueAdPreview, type QueueAdPlaybackEvent, type QueueAdPreviewHandle } from "./QueueAdPreview";
-import { LazyShaderAtmosphere } from "./LazyShaderAtmosphere";
 import { useTranslation } from "../i18n";
-import { getStatusPulseMotion } from "./MotionProvider";
 import { getGameArtworkInitials } from "../lib/gameArtwork";
 
 type TranslateFunction = typeof import("../i18n").t;
@@ -142,17 +139,12 @@ export function StreamLoading({
   onCancel,
 }: StreamLoadingProps): JSX.Element {
   const { t } = useTranslation();
-  const reducedMotion = useReducedMotion();
-  const statusPulseMotion = getStatusPulseMotion(reducedMotion);
   const [mountedAt] = useState(() => Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [queueSamples, setQueueSamples] = useState<Array<{ position: number; at: number }>>([]);
   const [queueMovement, setQueueMovement] = useState(0);
   const [backdropArtwork, setBackdropArtwork] = useState(gameCover ?? gameLogo);
   const previousQueuePositionRef = useRef<number | null>(null);
-  const parallaxFrameRef = useRef<number | null>(null);
-  const parallaxElementRef = useRef<HTMLDivElement | null>(null);
-  const parallaxValueRef = useRef({ x: 0, y: 0 });
 
   const hasError = Boolean(error);
   const effectiveStartedAt = launchStartedAtMs ?? mountedAt;
@@ -212,46 +204,9 @@ export function StreamLoading({
     return () => window.clearInterval(timer);
   }, [effectiveStartedAt, hasError]);
 
-  useEffect(() => {
-    return () => {
-      if (parallaxFrameRef.current !== null) {
-        window.cancelAnimationFrame(parallaxFrameRef.current);
-      }
-    };
-  }, []);
-
-  const scheduleParallax = (element: HTMLDivElement, x: number, y: number): void => {
-    parallaxElementRef.current = element;
-    parallaxValueRef.current = { x, y };
-    if (parallaxFrameRef.current !== null) return;
-    parallaxFrameRef.current = window.requestAnimationFrame(() => {
-      const target = parallaxElementRef.current;
-      const value = parallaxValueRef.current;
-      if (target) {
-        target.style.setProperty("--sload-drift-x", `${value.x.toFixed(2)}px`);
-        target.style.setProperty("--sload-drift-y", `${value.y.toFixed(2)}px`);
-      }
-      parallaxFrameRef.current = null;
-    });
-  };
 
   return (
-    <div
-      className={`sload${hasError ? " sload--error" : ""}`}
-      onPointerMove={(event) => {
-        if (reducedMotion) return;
-        const element = event.currentTarget;
-        const rect = element.getBoundingClientRect();
-        const x = rect.width > 0 ? ((event.clientX - rect.left) / rect.width) * 100 : 50;
-        const y = rect.height > 0 ? ((event.clientY - rect.top) / rect.height) * 100 : 50;
-        const driftX = Math.max(-14, Math.min(14, ((x - 50) / 50) * 14));
-        const driftY = Math.max(-10, Math.min(10, ((y - 50) / 50) * 10));
-        scheduleParallax(element, driftX, driftY);
-      }}
-      onPointerLeave={(event) => {
-        scheduleParallax(event.currentTarget, 0, 0);
-      }}
-    >
+    <div className={`sload${hasError ? " sload--error" : ""}`}>
       <div className="sload-backdrop" />
       {backdropArtwork && (
         <img
@@ -269,7 +224,6 @@ export function StreamLoading({
         />
       )}
       <div className="sload-backdrop-mosaic" aria-hidden="true" />
-      {!hasError && <LazyShaderAtmosphere variant={status === "queue" ? "queue" : "connecting"} />}
       <div className="sload-backdrop-wash" />
 
       <div className="sload-content">
@@ -281,8 +235,8 @@ export function StreamLoading({
                 alt={`${gameTitle} — ảnh đại diện game`}
                 className="sload-cover-img"
                 loading="eager"
-                decoding="sync"
-                fetchPriority="high"
+                decoding="async"
+                fetchPriority="auto"
               />
             ) : (
               <div className="sload-cover-empty" aria-label={`${gameTitle} — ảnh đại diện game`}>
@@ -309,17 +263,9 @@ export function StreamLoading({
               const state = index < activeStage ? "completed" : index === activeStage ? "active" : "pending";
               return (
                 <div className={`sload-stage sload-stage--${state}`} key={stage.id}>
-                  <m.span
-                    className="sload-stage-icon"
-                    animate={state === "active"
-                      ? statusPulseMotion.animate
-                      : { opacity: 1, scale: 1 }}
-                    transition={state === "active"
-                      ? statusPulseMotion.transition
-                      : { duration: 0.2 }}
-                  >
+                  <span className="sload-stage-icon">
                     <StageIcon size={18} />
-                  </m.span>
+                  </span>
                   {index < launchStages.length - 1 && <span className="sload-stage-line" />}
                 </div>
               );
@@ -331,12 +277,7 @@ export function StreamLoading({
           {hasError ? (
             <XCircle size={24} className="sload-error-icon" />
           ) : (
-            <m.span
-              className="sload-live-dot"
-              aria-hidden="true"
-              animate={statusPulseMotion.animate}
-              transition={statusPulseMotion.transition}
-            />
+            <span className="sload-live-dot" aria-hidden="true" />
           )}
           <div className="sload-status-text">
             <p className="sload-message" role="status" aria-live="polite">{statusMessage}</p>

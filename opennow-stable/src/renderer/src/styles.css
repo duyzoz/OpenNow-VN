@@ -14475,3 +14475,113 @@ button.game-card-store-chip.owned.active:hover {
   animation: none;
   filter: none;
 }
+
+
+/* ======================================================
+   VN UI PERFORMANCE FALLBACK
+   Keep catalog controls legible and the queue artwork visible
+   without pointer-driven compositor work on weak machines.
+   ====================================================== */
+.game-card-corner-play-button,
+.game-card-corner-play-button--active {
+  background: #16a34a !important;
+  border: 1px solid rgba(255, 255, 255, 0.92) !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.24) !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
+}
+
+.game-card-corner-play-button:hover,
+.game-card-corner-play-button:focus-visible,
+.game-card-corner-play-button--active:hover,
+.game-card-corner-play-button--active:focus-visible {
+  background: #15803d !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 11px rgba(0, 0, 0, 0.28) !important;
+}
+
+[data-theme="light"] .game-card-corner-play-button,
+[data-theme="light"] .game-card-corner-play-button--active {
+  background: #16a34a !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .game-card-corner-play-button,
+[data-theme="dark"] .game-card-corner-play-button--active {
+  background: #22c55e !important;
+  color: #052e16 !important;
+  border-color: rgba(5, 46, 22, 0.92) !important;
+}
+
+[data-theme="dark"] .game-card-corner-play-button:hover,
+[data-theme="dark"] .game-card-corner-play-button:focus-visible,
+[data-theme="dark"] .game-card-corner-play-button--active:hover,
+[data-theme="dark"] .game-card-corner-play-button--active:focus-visible {
+  background: #4ade80 !important;
+  color: #052e16 !important;
+}
+
+.sload > .sload-backdrop-art {
+  opacity: 0.78 !important;
+  filter: none !important;
+  transform: none !important;
+  transition: none !important;
+  will-change: auto !important;
+}
+
+.sload > .sload-backdrop-mosaic,
+.sload > .shader-atmosphere {
+  display: none !important;
+}
+
+.sload > .sload-backdrop-wash {
+  background: linear-gradient(180deg, rgba(5, 10, 7, 0.08), rgba(5, 10, 7, 0.42)) !important;
+}
+
+.sload .sload-platform-icon,
+.sload .sload-stage-icon svg {
+  filter: none !important;
+}
+
+.sload .sload-label,
+.sload .sload-title,
+.sload .sload-platform,
+.sload .sload-message,
+.sload .sload-detail,
+.sload .sload-fact p,
+.sload .sload-fact strong,
+.sload .sload-stage-icon,
+.sload .sload-cancel {
+  text-shadow: none !important;
+}
+
+.sload .sload-stage-icon,
+.sload .sload-live-dot,
+.sload .sload-queue-sync-dot {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce), (max-width: 900px) {
+  .sload > .sload-backdrop-art,
+  .sload > .sload-backdrop-mosaic,
+  .sload > .shader-atmosphere {
+    transform: none !important;
+    transition: none !important;
+    will-change: auto !important;
+  }
+}
+
+[data-perf-mode="low"] .sload,
+[data-perf-mode="low"] .sload * {
+  animation: none !important;
+  transition: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  will-change: auto !important;
+}

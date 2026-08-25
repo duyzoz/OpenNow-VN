@@ -114,10 +114,16 @@ interface ZoneInfo {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+export interface QueueServerSelection {
+  routingUrl: string;
+  zoneId: string;
+  region: string;
+}
+
 interface Props {
   game: GameInfo;
   initialQueueData?: PrintedWasteQueueData | null;
-  onConfirm: (zoneUrl: string | null) => void;
+  onConfirm: (selection: QueueServerSelection | null) => void;
   onCancel: () => void;
 }
 
@@ -403,7 +409,13 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
       if (selected !== "auto") rememberServerSelection(selectedZone.zoneId);
     }
 
-    onConfirm(selectedZone?.routingUrl ?? null);
+    onConfirm(selectedZone
+      ? {
+          routingUrl: selectedZone.routingUrl,
+          zoneId: selectedZone.zoneId,
+          region: selectedZone.pwRegion,
+        }
+      : null);
   }, [selected, autoZone, closestZone, zones, onConfirm]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

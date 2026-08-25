@@ -99,13 +99,12 @@ import { SettingsPage } from "./components/SettingsPage";
 import { SettingsModalHost } from "./components/SettingsModalHost";
 import { StreamLoading } from "./components/StreamLoading";
 import { StreamView } from "./components/StreamView";
-import { QueueServerSelectModal } from "./components/QueueServerSelectModal";
+import { QueueServerSelectModal, type QueueServerSelection } from "./components/QueueServerSelectModal";
 import { ReleaseHighlightsModal } from "./components/ReleaseHighlightsModal";
 import { ErrorReportingConsentModal } from "./components/ErrorReportingConsentModal";
 import { FeedbackModal } from "./components/FeedbackModal";
 import { ModalSurface } from "./components/ui/ModalSurface";
 import { overlayMotion, pageTransition, streamRevealTransition } from "./components/MotionProvider";
-import { LazyShaderAtmosphere } from "./components/LazyShaderAtmosphere";
 import { syncRendererTelemetry } from "./telemetry/posthog";
 // Additive (v9+): cloud client dedicated components
 
@@ -248,6 +247,8 @@ export function App(): JSX.Element {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackSurfacePresent, setFeedbackSurfacePresent] = useState(false);
   const [consentSurfacePresent, setConsentSurfacePresent] = useState(false);
+  // UI-only fallback for Basic Rig while live diagnostics are still warming up.
+  const [selectedServerLabel, setSelectedServerLabel] = useState<string | null>(null);
   const activeSessionProxyUrl = useMemo(
     () => getEnabledSessionProxyUrl(settings),
     [settings.sessionProxyEnabled, settings.sessionProxyUrl],
@@ -484,6 +485,9 @@ export function App(): JSX.Element {
   const onBootstrapSettings = useCallback((loadedSettings: Settings, _sessionProxyUrl: string | undefined) => {
     setSettings(loadedSettings);
     setStatsMode(loadedSettings.showStatsOnLaunch ? "compact" : "off");
+    // This release has one persisted Anti-AFK switch. Keep the runtime badge and
+    // Quick Menu in sync with it without touching stream transport code.
+    setAntiAfkEnabled(Boolean(loadedSettings.showAntiAfkIndicator));
     setSettingsLoaded(true);
   }, []);
 
@@ -1369,7 +1373,13 @@ export function App(): JSX.Element {
         // ignore
       }
     }
-  }, []);
+    if (key === "showAntiAfkIndicator") {
+      setAntiAfkEnabled(value as boolean);
+      if (streamStatus === "streaming") {
+        setAntiAfkAckNonce((nonce) => nonce + 1);
+      }
+    }
+  }, [setAntiAfkEnabled, setAntiAfkAckNonce, streamStatus]);
 
   const updateSetting = useCallback(async <K extends keyof Settings>(key: K, value: Settings[K]): Promise<void> => {
     previewSetting(key, value);
@@ -2007,12 +2017,15 @@ export function App(): JSX.Element {
     void handlePlayGame(game);
   }, [subscriptionInfo, authSession, selectedProvider, settings.hideServerSelector, streamStatus, handlePlayGame, effectiveStreamingBaseUrl]);
 
-  const handleQueueModalConfirm = useCallback((zoneUrl: string | null) => {
+  const handleQueueModalConfirm = useCallback((selection: QueueServerSelection | null) => {
     const game = queueModalGame;
     setQueueModalGame(null);
     setQueueModalData(null);
+    setSelectedServerLabel(selection?.zoneId ?? null);
     if (!game) return;
-    void handlePlayGame(game, { streamingBaseUrl: zoneUrl ?? undefined });
+    // Keep the original routing URL as the launch payload; the zone label is
+    // retained only for the Basic Rig/HUD fallback while diagnostics warm up.
+    void handlePlayGame(game, { streamingBaseUrl: selection?.routingUrl ?? undefined });
   }, [queueModalGame, handlePlayGame]);
 
   const handleQueueModalCancel = useCallback(() => {
@@ -2588,7 +2601,9 @@ export function App(): JSX.Element {
     : streamStatus === "streaming"
       ? "connecting"
       : toLoadingStatus(streamStatus);
-  const showCatalogAtmosphere = mainPage === "home" || mainPage === "library";
+  // Catalog shader/canvas work is intentionally disabled: it was the remaining
+  // persistent frame cost while scrolling Home/Library on weak machines.
+  const showCatalogAtmosphere = false;
   const shellBlocked = showLaunchOverlay
     || streamSurfacePresent
     || launchSurfacePresent
@@ -2618,13 +2633,6 @@ export function App(): JSX.Element {
         inert={shellBlocked ? true : undefined}
         aria-hidden={shellBlocked || undefined}
       >
-      {showCatalogAtmosphere && (
-        <LazyShaderAtmosphere
-          variant="controller"
-          className="catalog-atmosphere"
-          active={catalogSurfaceActive}
-        />
-      )}
       <AnimatePresence>
         {startupRefreshNotice && (
           <m.div
@@ -2814,7 +2822,7 @@ export function App(): JSX.Element {
                 recording: shortcuts.recording.canonical,
               }}
               hideStreamButtons={settings.hideStreamButtons}
-              serverRegion={session?.serverIp}
+              serverRegion={session?.zone?.trim() || selectedServerLabel || session?.serverIp}
               antiAfkEnabled={antiAfkEnabled}
               antiAfkAckNonce={antiAfkAckNonce}
               showAntiAfkIndicator={settings.showAntiAfkIndicator}
