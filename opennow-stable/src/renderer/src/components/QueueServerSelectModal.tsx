@@ -148,6 +148,29 @@ interface Props {
   onCancel: () => void;
 }
 
+const AUTO_PING_WEIGHT = 0.75;
+const AUTO_QUEUE_WEIGHT = 0.25;
+
+/** Upstream Auto selection: live ping first, queue second, no local history. */
+function chooseUpstreamAutoZone(zones: readonly ZoneInfo[]): ZoneInfo | null {
+  if (zones.length === 0) return null;
+  const withPing = zones.filter((zone) => zone.pingMs !== null);
+  const pool = withPing.length > 0 ? withPing : zones;
+  const maxPing = Math.max(...pool.map((zone) => zone.pingMs ?? 999), 1);
+  const maxQueue = Math.max(...pool.map((zone) => zone.queuePosition), 1);
+
+  return pool.reduce((best, zone) => {
+    const score = ((zone.pingMs ?? maxPing) / maxPing) * AUTO_PING_WEIGHT
+      + (zone.queuePosition / maxQueue) * AUTO_QUEUE_WEIGHT;
+    const bestScore = ((best.pingMs ?? maxPing) / maxPing) * AUTO_PING_WEIGHT
+      + (best.queuePosition / maxQueue) * AUTO_QUEUE_WEIGHT;
+    if (score === bestScore && zone.pingMs !== null && best.pingMs !== null) {
+      return zone.pingMs < best.pingMs ? zone : best;
+    }
+    return score < bestScore ? zone : best;
+  }, pool[0]!);
+}
+
 export function QueueServerSelectModal({ game, initialQueueData = null, onConfirm, onCancel }: Props): JSX.Element {
   const { t } = useTranslation();
   const [queueData,  setQueueData]  = useState<PrintedWasteQueueData | null>(initialQueueData);
@@ -379,14 +402,8 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
 
   // ── Recommendations ───────────────────────────────────────────────────────
 
-  // Auto mode uses the same deterministic score as the visible server list.
-  // This keeps the top recommendation explainable and prevents a crowded
-  // low-ping region from winning on latency alone.
-  const rankedZones = useMemo(
-    () => sortServerCandidates(zones, Date.now(), selectionPreferences),
-    [selectionPreferences, zones],
-  );
-  const autoZone = rankedZones[0] ?? null;
+  // Keep Auto exactly aligned with upstream: 75% live ping + 25% queue.
+  const autoZone = useMemo(() => chooseUpstreamAutoZone(zones), [zones]);
 
   // Closest: lowest latency. Only available after pings complete.
   const closestZone = useMemo<ZoneInfo | null>(() => {
