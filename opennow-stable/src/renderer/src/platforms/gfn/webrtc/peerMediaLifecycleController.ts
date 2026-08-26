@@ -15,9 +15,6 @@ export class PeerMediaLifecycleController {
   private audioRoutingGeneration = 0;
   private videoFrameCallbackId: number | null = null;
   private videoFrameGeneration = 0;
-  // Keep the active video track by identity so the per-frame callback does not
-  // allocate a fresh getVideoTracks() array on every rendered frame.
-  private activeVideoTrack: MediaStreamTrack | null = null;
   private outputVolume = 1;
 
   constructor(private readonly dependencies: PeerMediaLifecycleDependencies) {
@@ -28,18 +25,17 @@ export class PeerMediaLifecycleController {
   }
 
   getVideoTrack(): MediaStreamTrack | null {
-    return this.activeVideoTrack;
+    return this.videoStream.getVideoTracks()[0] ?? null;
   }
 
   attachTrack(track: MediaStreamTrack): void {
     if (track.kind === "video") {
       this.stopVideoFrameCallback();
       this.replaceTrackInStream(this.videoStream, track);
-      this.activeVideoTrack = track;
       const video = this.dependencies.videoElement;
       const generation = this.videoFrameGeneration;
       const frameCallback = () => {
-        if (generation !== this.videoFrameGeneration || this.activeVideoTrack !== track) {
+        if (generation !== this.videoFrameGeneration || this.getVideoTrack() !== track) {
           return;
         }
         this.dependencies.onRenderFrame();
@@ -152,7 +148,6 @@ export class PeerMediaLifecycleController {
     for (const track of this.videoStream.getTracks()) {
       this.videoStream.removeTrack(track);
     }
-    this.activeVideoTrack = null;
     for (const track of this.audioStream.getTracks()) {
       this.audioStream.removeTrack(track);
     }

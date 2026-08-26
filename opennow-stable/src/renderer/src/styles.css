@@ -14587,57 +14587,114 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 /* ======================================================
-   CATALOG RESTORE — hover-only controls, native scrolling
-   Keep the approved v0.5.3-vn.2 visual hierarchy: cards stay
-   static while scrolling and corner Play appears on interaction.
+   CATALOG — compositor-friendly hover + scroll-driven entrance
+   The shell owns the scroll animation so the card keeps a separate
+   hover transform. This prevents the top border from being clipped or
+   losing its lift when a card enters the viewport.
    ====================================================== */
+.game-card-scroll-shell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  isolation: isolate;
+}
+
+.game-card-scroll-shell > .game-card {
+  width: 100%;
+  height: 100%;
+}
+
 .game-card {
-  transform: none !important;
-  will-change: auto !important;
+  transform: translate3d(0, 0, 0);
+  transform-origin: center bottom;
+  will-change: auto;
 }
+
 .game-card:hover {
-  transform: none !important;
+  transform: translate3d(0, -8px, 0);
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--panel-border));
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28), 0 0 0 1px color-mix(in srgb, var(--brand) 32%, transparent);
+  z-index: 10;
 }
+
+.game-card:active {
+  transform: translate3d(0, -4px, 0) scale(0.985);
+}
+
 .game-card-image,
 .game-card:hover .game-card-image {
-  transform: none !important;
-  will-change: auto !important;
+  will-change: auto;
 }
+
 .game-card-corner-play-button,
 .game-card-corner-play-button--active {
-  background: var(--accent) !important;
-  border: 1px solid color-mix(in srgb, var(--accent) 72%, white 12%) !important;
-  color: var(--accent-on) !important;
+  background: #a7f3d0 !important;
+  border: 1px solid #6ee7b7 !important;
+  color: #14532d !important;
   opacity: 0 !important;
-  transform: translateY(-4px) scale(0.94) !important;
-  box-shadow: 0 6px 14px var(--accent-glow) !important;
+  transform: translate3d(0, -4px, 0) scale(0.94) !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2) !important;
   filter: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   text-shadow: none !important;
-  transition: opacity 140ms ease, transform 140ms ease, background 140ms ease, border-color 140ms ease !important;
+  transition: opacity 140ms ease, transform 140ms ease, background-color 140ms ease, border-color 140ms ease !important;
 }
+
 .game-card:hover .game-card-corner-play-button,
 .game-card:focus-within .game-card-corner-play-button,
 .game-card-corner-play-button.launching,
 .game-card-corner-play-button--active {
   opacity: 1 !important;
-  transform: translateY(0) scale(1) !important;
+  transform: translate3d(0, 0, 0) scale(1) !important;
 }
+
 .game-card-corner-play-button:hover,
 .game-card-corner-play-button:focus-visible,
 .game-card-corner-play-button--active:hover,
 .game-card-corner-play-button--active:focus-visible {
-  background: var(--accent-hover) !important;
-  color: var(--accent-on) !important;
-  box-shadow: 0 7px 16px var(--accent-glow) !important;
+  background: #d1fae5 !important;
+  border-color: #34d399 !important;
+  color: #064e3b !important;
+  transform: translate3d(0, -1px, 0) scale(1.04) !important;
+  box-shadow: 0 5px 14px rgba(16, 185, 129, 0.26) !important;
 }
-@media (prefers-reduced-motion: reduce) {
-  .game-card-corner-play-button,
-  .game-card-corner-play-button--active {
-    transition: none !important;
+
+@keyframes game-card-swoopy-n-blur {
+  from {
+    opacity: 0.72;
+    transform: translate3d(0, 18px, 0) scale(0.975);
+    filter: blur(4px);
+  }
+  58% {
+    opacity: 1;
+    transform: translate3d(0, -2px, 0) scale(1.002);
+    filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: blur(0);
   }
 }
+
+@supports (animation-timeline: view()) and (animation-range: entry 0% entry 100%) {
+  @media (prefers-reduced-motion: no-preference) and (min-width: 901px) {
+    .game-grid > .game-card-scroll-shell {
+      animation: game-card-swoopy-n-blur linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 180%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce), (max-width: 900px) {
+  .game-card-scroll-shell {
+    animation: none;
+    filter: none;
+  }
+}
+
 @media (hover: none) {
   .game-card-corner-play-button,
   .game-card-corner-play-button--active {
@@ -14645,15 +14702,7 @@ button.game-card-store-chip.owned.active:hover {
     transform: none !important;
   }
 }
-.scroll-anim-wrapper,
-.card-batch-anim {
-  animation: none !important;
-  filter: none !important;
-  opacity: 1 !important;
-  transform: none !important;
-  transition: none !important;
-  will-change: auto !important;
-}
+
 [data-theme="dark"] .home-page,
 [data-theme="dark"] .library-page,
 [data-theme="dark"] .favorites-page,
@@ -14751,4 +14800,132 @@ button.game-card-store-chip.owned.active:hover {
 .queue-server-select-modal button,
 .queue-server-select-modal select {
   -webkit-font-smoothing: antialiased;
+}
+
+
+/* ======================================================
+   SETTINGS — compact desktop density without changing behavior
+   Keep navigation and content as separate scroll regions; this only
+   reduces spacing and prevents avoidable label wrapping.
+   ====================================================== */
+@media (min-width: 801px) {
+  .settings-page .settings-layout {
+    gap: 14px;
+  }
+
+  .settings-page .settings-sidebar {
+    min-width: 0;
+  }
+
+  .settings-page .settings-nav {
+    gap: 8px;
+  }
+
+  .settings-page .settings-nav-group-label {
+    padding: 0 8px 4px;
+    font-size: 0.6rem;
+  }
+
+  .settings-page .settings-nav-item {
+    gap: 8px;
+    min-height: 34px;
+    padding: 0 10px 0 12px;
+    font-size: 0.82rem;
+  }
+
+  .settings-page .settings-nav-item svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .settings-page .settings-content {
+    padding: 14px 18px 22px;
+    gap: 12px;
+    scrollbar-gutter: stable;
+  }
+
+  .settings-page .settings-section-header {
+    gap: 8px;
+    padding: 13px 16px 9px;
+  }
+
+  .settings-page .settings-section-header svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+  }
+
+  .settings-page .settings-section-header h2 {
+    font-size: 0.9rem;
+    line-height: 1.2;
+  }
+
+  .settings-page .settings-rows {
+    padding: 0 16px 12px;
+  }
+
+  .settings-page .settings-row {
+    --settings-label-col: clamp(9.5rem, 24vw, 12.5rem);
+    column-gap: 12px;
+    row-gap: 4px;
+    padding: 9px 0;
+  }
+
+  .settings-page .settings-row-control {
+    gap: 4px;
+  }
+
+  .settings-page .settings-label {
+    font-size: 0.86rem;
+    line-height: 1.22;
+  }
+
+  .settings-page .settings-label--with-icon {
+    gap: 6px;
+  }
+
+  .settings-page .settings-label-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .settings-page .settings-label-title {
+    gap: 4px;
+  }
+
+  .settings-page .settings-subtle-hint,
+  .settings-page .settings-input-hint,
+  .settings-page .settings-hint {
+    line-height: 1.25;
+  }
+
+  .settings-page .settings-toggle {
+    width: 42px;
+    min-width: 42px;
+  }
+
+  .settings-page .settings-native-capability-row {
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page .settings-nav-item,
+  .settings-page .settings-section,
+  .settings-page .settings-advanced-chevron {
+    transition: none;
+  }
+}
+
+[data-perf-mode="low"] .game-card-scroll-shell {
+  animation: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  will-change: auto !important;
+}
+
+.game-card-scroll-shell:has(> .game-card:hover),
+.game-card-scroll-shell:has(> .game-card:focus-within) {
+  z-index: 10;
 }

@@ -93,22 +93,24 @@ export const GameCardListItem = memo(function GameCardListItem({
     (id) => game.variants.some((v) => String(v.id) === String(id)) || String(game.launchAppId) === String(id),
   );
   return (
-    <GameCard
-      game={game}
-      isSelected={isSelected}
-      selectedVariantId={selectedVariantId}
-      surface={surface}
-      onSelect={handleSelect}
-      onPlay={handlePlay}
-      onSelectStore={handleSelectStore}
-      onOpenStore={handleOpenStore}
-      isActiveGame={isActiveGame}
-      isFavorite={favState}
-      onResume={handleResume}
-      onTerminate={handleTerminate}
-      onShowInfo={handleShowInfo}
-      onToggleFavorite={handleToggleFavorite}
-    />
+    <div className="game-card-scroll-shell">
+      <GameCard
+        game={game}
+        isSelected={isSelected}
+        selectedVariantId={selectedVariantId}
+        surface={surface}
+        onSelect={handleSelect}
+        onPlay={handlePlay}
+        onSelectStore={handleSelectStore}
+        onOpenStore={handleOpenStore}
+        isActiveGame={isActiveGame}
+        isFavorite={favState}
+        onResume={handleResume}
+        onTerminate={handleTerminate}
+        onShowInfo={handleShowInfo}
+        onToggleFavorite={handleToggleFavorite}
+      />
+    </div>
   );
 }, gameCardListItemPropsAreEqual);
 
