@@ -12,15 +12,6 @@ export interface StreamDiagnosticsStore {
 export function createStreamDiagnosticsStore(initial: StreamDiagnostics): StreamDiagnosticsStore {
   let current = initial;
   const listeners = new Set<() => void>();
-  const areSnapshotsEqual = (previous: StreamDiagnostics, next: StreamDiagnostics): boolean => {
-    const previousKeys = Object.keys(previous) as Array<keyof StreamDiagnostics>;
-    if (previousKeys.length !== Object.keys(next).length) {
-      return false;
-    }
-    return previousKeys.every((key) =>
-      Object.prototype.hasOwnProperty.call(next, key) && Object.is(previous[key], next[key]),
-    );
-  };
 
   const emit = () => {
     for (const listener of listeners) {
@@ -36,7 +27,7 @@ export function createStreamDiagnosticsStore(initial: StreamDiagnostics): Stream
       return () => listeners.delete(listener);
     },
     set: (value) => {
-      if (Object.is(value, current) || areSnapshotsEqual(current, value)) {
+      if (Object.is(value, current)) {
         return;
       }
       current = value;

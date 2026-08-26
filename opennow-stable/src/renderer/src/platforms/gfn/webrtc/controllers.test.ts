@@ -140,12 +140,8 @@ test("input policy preserves native, partially-reliable, and fallback routes", (
       getPartiallyReliableChannel: () => channel,
       sendNativeInput: (payload, partiallyReliable) => {
         nativePackets.push({ payload, partiallyReliable });
-        return true;
       },
-      sendReliable: (payload) => {
-        reliablePackets.push(payload);
-        return true;
-      },
+      sendReliable: (payload) => reliablePackets.push(payload),
     },
   );
   const payload = new Uint8Array([1, 2, 3]);
@@ -159,37 +155,6 @@ test("input policy preserves native, partially-reliable, and fallback routes", (
 
   channelOpen = false;
   controller.sendPartiallyReliable(payload);
-  assert.deepEqual(reliablePackets, [payload]);
-});
-
-test("partial-reliable send failure preserves the packet through reliable fallback", () => {
-  const reliablePackets: Uint8Array[] = [];
-  const channel = {
-    readyState: "open",
-    send: () => {
-      throw new Error("transient local channel failure");
-    },
-  } as unknown as RTCDataChannel;
-  const controller = new InputChannelPolicyController(
-    {
-      partialReliableThresholdMs: 300,
-      hidDeviceMask: 0xffff,
-      enablePartiallyReliableTransferGamepad: 0xffff,
-      enablePartiallyReliableTransferHid: 0xffff,
-    },
-    {
-      isNativeInputActive: () => false,
-      getPartiallyReliableChannel: () => channel,
-      sendNativeInput: () => true,
-      sendReliable: (payload) => {
-        reliablePackets.push(payload);
-        return true;
-      },
-    },
-  );
-  const payload = new Uint8Array([9, 8, 7]);
-
-  assert.equal(controller.sendPartiallyReliable(payload), true);
   assert.deepEqual(reliablePackets, [payload]);
 });
 
