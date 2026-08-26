@@ -1,4 +1,4 @@
-import { Clock, Heart, Info, Monitor, Play, PlayCircle, Square } from "lucide-react";
+import { Clock, Heart, Info, Monitor, Pause, Play, PlayCircle } from "lucide-react";
 import { getPlaytimeStat } from "../lib/playtimeStats";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
@@ -346,18 +346,24 @@ export const GameCard = memo(function GameCard({
           {isActiveGame && (
             <div className="game-card-active-actions">
               <button
+                type="button"
                 className="game-card-resume-btn"
                 onClick={(e) => { e.stopPropagation(); onResume?.(); }}
                 tabIndex={-1}
+                title={t("gameCard.resumeStream")}
+                aria-label={t("gameCard.resumeStream")}
               >
-                <PlayCircle size={14} /> {t("gameCard.resumeStream")}
+                <PlayCircle size={16} aria-hidden="true" />
               </button>
               <button
+                type="button"
                 className="game-card-quit-btn"
                 onClick={(e) => { e.stopPropagation(); onTerminate?.(); }}
                 tabIndex={-1}
+                title={t("gameCard.endStream")}
+                aria-label={t("gameCard.endStream")}
               >
-                <Square size={12} /> {t("gameCard.endStream")}
+                <Pause size={15} aria-hidden="true" />
               </button>
             </div>
           )}

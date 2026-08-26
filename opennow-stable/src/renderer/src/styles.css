@@ -14593,6 +14593,7 @@ button.game-card-store-chip.owned.active:hover {
    losing its lift when a card enters the viewport.
    ====================================================== */
 .game-card-scroll-shell {
+  --_animation: game-card-swoopy-n-blur;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -14680,10 +14681,12 @@ button.game-card-store-chip.owned.active:hover {
 
 @supports (animation-timeline: view()) and (animation-range: entry 0% entry 100%) {
   @media (prefers-reduced-motion: no-preference) and (min-width: 901px) {
-    .game-grid > .game-card-scroll-shell {
-      animation: game-card-swoopy-n-blur linear both;
+    .home-grid-area .game-card-scroll-shell,
+    .library-grid-area .game-card-scroll-shell,
+    .favorites-grid-area .game-card-scroll-shell {
+      animation: var(--_animation) linear both;
       animation-timeline: view();
-      animation-range: entry 0% entry 180%;
+      animation-range: entry 0% entry 200%;
     }
   }
 }
@@ -14928,4 +14931,120 @@ button.game-card-store-chip.owned.active:hover {
 .game-card-scroll-shell:has(> .game-card:hover),
 .game-card-scroll-shell:has(> .game-card:focus-within) {
   z-index: 10;
+}
+
+
+/* ======================================================
+   V1.0 — COMPACT ACTIVE SESSION CONTROLS
+   Keep action buttons icon-only; the game title remains the only text label.
+   ====================================================== */
+.navbar-streaming-indicator {
+  gap: 4px;
+  min-width: 0;
+}
+
+.navbar-streaming-btn {
+  gap: 7px;
+  min-height: 30px;
+  padding: 4px 8px;
+  max-width: min(32vw, 300px);
+}
+
+.navbar-streaming-btn--terminate {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+.navbar-streaming-label {
+  max-width: min(24vw, 220px);
+}
+
+.navbar-streaming-action {
+  display: none !important;
+}
+
+.game-card-overlay {
+  overflow: visible;
+}
+
+.game-card-active-actions {
+  flex-direction: row;
+  gap: 7px;
+}
+
+.game-card-resume-btn,
+.game-card-quit-btn {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  font-size: 0;
+  line-height: 0;
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.game-card-resume-btn {
+  background: #bbf7d0;
+  color: #166534;
+  border-color: #86efac;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+}
+
+.game-card-quit-btn {
+  background: rgba(254, 226, 226, 0.96);
+  color: #b91c1c;
+  border-color: rgba(248, 113, 113, 0.75);
+  box-shadow: 0 3px 10px rgba(220, 38, 38, 0.18);
+}
+
+.game-card-resume-btn:hover,
+.game-card-resume-btn:focus-visible,
+.game-card-quit-btn:hover,
+.game-card-quit-btn:focus-visible {
+  transform: translateY(-1px) scale(1.04);
+}
+
+.game-card-resume-btn:hover,
+.game-card-resume-btn:focus-visible {
+  background: #dcfce7;
+  border-color: #4ade80;
+  color: #14532d;
+}
+
+.game-card-quit-btn:hover,
+.game-card-quit-btn:focus-visible {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-card-resume-btn,
+  .game-card-quit-btn {
+    transition: none;
+  }
+
+  .game-card-resume-btn:hover,
+  .game-card-resume-btn:focus-visible,
+  .game-card-quit-btn:hover,
+  .game-card-quit-btn:focus-visible {
+    transform: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .navbar-streaming-label {
+    display: none;
+  }
+
+  .navbar-streaming-btn {
+    max-width: none;
+  }
 }

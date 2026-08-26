@@ -325,10 +325,16 @@ export function Navbar({
                     ? t("session.resumeActiveCloudSessionTitle", { title: activeSessionTitle })
                     : t("session.resumeActiveCloudSession")
               }
+              aria-label={
+                !activeSession.serverIp
+                  ? t("session.activeSessionMissingServerAddress")
+                  : activeSessionTitle
+                    ? t("session.resumeActiveCloudSessionTitle", { title: activeSessionTitle })
+                    : t("session.resumeActiveCloudSession")
+              }
             >
-              <span className="navbar-streaming-pulse" />
-              {isResumingSession ? <MotionSpinner size={13} label={t("app.actions.resume")} /> : <Radio size={13} />}
-              <span className="navbar-streaming-action">{t("app.actions.resume")}</span>
+              <span className="navbar-streaming-pulse" aria-hidden="true" />
+              {isResumingSession ? <MotionSpinner size={13} label={t("app.actions.resume")} /> : <Radio size={13} aria-hidden="true" />}
               <span className="navbar-streaming-label">{activeSessionTitle || t("navigation.streamingNow")}</span>
             </button>
             <button
@@ -339,8 +345,7 @@ export function Navbar({
               title={t("session.endActiveCloudSession")}
               aria-label={t("session.endActiveCloudSession")}
             >
-              {isTerminatingSession ? <MotionSpinner size={13} label={t("session.endActiveCloudSession")} /> : <X size={13} />}
-              <span>{t("app.actions.end")}</span>
+              {isTerminatingSession ? <MotionSpinner size={13} label={t("session.endActiveCloudSession")} /> : <X size={13} aria-hidden="true" />}
             </button>
           </div>
         )}
