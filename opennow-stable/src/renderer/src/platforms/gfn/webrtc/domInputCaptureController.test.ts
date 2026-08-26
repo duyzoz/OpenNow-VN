@@ -137,9 +137,13 @@ function installMouseHarness(options: {
       recordSchedulingDelay: () => {},
       refreshClipboardAvailability: async () => false,
       sendReliableSingleInput: (payload) => reliableSinglePayloads.push(payload),
-      sendReliable: (payload) => reliablePayloads.push(payload),
+      sendReliable: (payload) => {
+        reliablePayloads.push(payload);
+        return true;
+      },
       sendInputPacket: (_payload, inputType) => {
         sentInputTypes.push(inputType);
+        return true;
       },
       onGamepadConnected: () => {},
       onGamepadDisconnected: () => {},

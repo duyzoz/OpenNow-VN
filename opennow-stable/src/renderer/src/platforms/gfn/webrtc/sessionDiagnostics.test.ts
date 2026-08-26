@@ -79,6 +79,33 @@ test("prefers parsed location metadata over a raw CloudMatch zone URL", () => {
   );
 });
 
+test("uses the selected server fallback for generic or opaque live metadata", () => {
+  assert.equal(
+    getStreamServerLocationLabel({
+      serverLocation: "",
+      serverRegion: "",
+      serverZone: "prod",
+    }, "Japan · TYO-01"),
+    "Japan · TYO-01",
+  );
+  assert.equal(
+    getStreamServerLocationLabel({
+      serverLocation: "203.0.113.10",
+      serverRegion: "",
+      serverZone: "unknown-zone",
+    }, "Europe · EU-01"),
+    "Europe · EU-01",
+  );
+  assert.equal(
+    getStreamServerLocationLabel({
+      serverLocation: "Amsterdam",
+      serverRegion: "",
+      serverZone: "prod",
+    }, "Japan · TYO-01"),
+    "Amsterdam",
+  );
+});
+
 test("formats partner hostnames and zone ids like the official client", () => {
   assert.equal(
     formatServerLocation("prod", "npa-yes-kul-01.yes.geforcenow.nvidiagrid.net"),

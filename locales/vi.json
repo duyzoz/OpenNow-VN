@@ -487,7 +487,7 @@
       "on": "Bật",
       "unknownValue": "Không rõ",
       "advancedTiming": "Thời gian: giải mã {{decode}} ms · kết xuất {{render}} ms · bộ đệm jitter {{jitterBuffer}} ms · jitter {{jitter}} ms",
-      "advancedInputQueue": "Hàng đợi đầu vào: {{buffered}} KB đang chờ · đỉnh {{peak}} KB · bỏ {{drops}} · trễ lịch {{scheduling}} ms · sai số chuột {{residual}}",
+      "advancedInputQueue": "Hàng đợi đầu vào: {{buffered}} KB đang chờ · đỉnh {{peak}} KB · lỗi gửi cục bộ {{drops}} · trễ lịch {{scheduling}} ms · sai số chuột {{residual}}",
       "advancedMouseFlush": "Gửi chuột: mỗi {{interval}} ms · {{rate}} gói/giây · kênh tin cậy một phần {{partiallyReliable}}",
       "advancedGstreamerEnabled": "Native Stream: đã bật ({{state}})",
       "advancedGstreamerDisabled": "Native Stream: đã tắt; video dùng bộ giải mã trình duyệt",

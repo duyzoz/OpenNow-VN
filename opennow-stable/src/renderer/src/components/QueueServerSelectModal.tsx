@@ -129,6 +129,8 @@ export interface QueueServerSelection {
   routingUrl: string;
   zoneId: string;
   region: string;
+  /** Human-readable label captured at selection time for Basic Rig / Ctrl+N. */
+  displayLabel?: string;
 }
 
 interface Props {
@@ -425,9 +427,10 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
           routingUrl: selectedZone.routingUrl,
           zoneId: selectedZone.zoneId,
           region: selectedZone.pwRegion,
+          displayLabel: `${getRegionLabel(selectedZone.pwRegion, t)} · ${selectedZone.zoneId}`,
         }
       : null);
-  }, [selected, autoZone, closestZone, zones, onConfirm]);
+  }, [selected, autoZone, closestZone, zones, onConfirm, t]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Escape") onCancel();

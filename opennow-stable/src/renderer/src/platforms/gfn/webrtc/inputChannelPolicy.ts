@@ -38,8 +38,8 @@ export function canUsePartiallyReliableInput(
 interface InputChannelPolicyControllerDependencies {
   isNativeInputActive: () => boolean;
   getPartiallyReliableChannel: () => RTCDataChannel | null;
-  sendNativeInput: (payload: Uint8Array, partiallyReliable: boolean) => void;
-  sendReliable: (payload: Uint8Array) => void;
+  sendNativeInput: (payload: Uint8Array, partiallyReliable: boolean) => boolean;
+  sendReliable: (payload: Uint8Array) => boolean;
 }
 
 export class InputChannelPolicyController {
@@ -79,10 +79,9 @@ export class InputChannelPolicyController {
     );
   }
 
-  sendPartiallyReliable(payload: Uint8Array): void {
+  sendPartiallyReliable(payload: Uint8Array): boolean {
     if (this.dependencies.isNativeInputActive()) {
-      this.dependencies.sendNativeInput(payload, true);
-      return;
+      return this.dependencies.sendNativeInput(payload, true);
     }
 
     const channel = this.dependencies.getPartiallyReliableChannel();
@@ -90,17 +89,23 @@ export class InputChannelPolicyController {
       const view = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
         ? payload
         : payload.slice();
-      channel.send(view as unknown as ArrayBufferView<ArrayBuffer>);
-      return;
+      try {
+        channel.send(view as unknown as ArrayBufferView<ArrayBuffer>);
+        return true;
+      } catch {
+        // A local RTCDataChannel send can fail during a state transition or
+        // transient buffer pressure. Preserve the packet through the existing
+        // reliable channel; negotiated partial-reliability policy is unchanged.
+        return this.dependencies.sendReliable(payload);
+      }
     }
-    this.dependencies.sendReliable(payload);
+    return this.dependencies.sendReliable(payload);
   }
 
-  sendInput(payload: Uint8Array, inputType: number): void {
+  sendInput(payload: Uint8Array, inputType: number): boolean {
     if (this.canSendInput(inputType)) {
-      this.sendPartiallyReliable(payload);
-      return;
+      return this.sendPartiallyReliable(payload);
     }
-    this.dependencies.sendReliable(payload);
+    return this.dependencies.sendReliable(payload);
   }
 }

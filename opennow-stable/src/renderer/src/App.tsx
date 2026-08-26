@@ -84,6 +84,7 @@ import {
 } from "./lib/sessionState";
 import { isStreamPointerLocked } from "./lib/pointerLock";
 import { defaultDiagnostics } from "./lib/streamDiagnostics";
+import { AntiAfkPulseScheduler } from "./components/stream/antiAfkPulseScheduler";
 import { selectRecoveryCandidate } from "./lib/streamRecoveryDecisions";
 import { applyAccentColor, applyTheme, applyTranslucentUI } from "./lib/uiCustomization";
 import { useTranslation } from "./i18n";
@@ -1191,16 +1192,17 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     if (!antiAfkEnabled || streamStatus !== "streaming") return;
-    // Send first pulse immediately on stream start, then every 60s.
-    // 60s is well within GFN's ~5min idle timeout, ensuring the session
-    // never auto-disconnects while the app is running.
-    clientRef.current?.sendAntiAfkPulse();
 
-    const interval = window.setInterval(() => {
-      clientRef.current?.sendAntiAfkPulse();
-    }, 60000); // 60 seconds — aggressive keep-alive
+    // Wait for the input handshake/native bridge to be ready before sending
+    // F13. A false result is local readiness feedback only, never a server ACK.
+    // Keep the existing 60s cadence once a pulse is accepted locally.
+    const scheduler = new AntiAfkPulseScheduler(
+      window,
+      () => clientRef.current?.sendAntiAfkPulse() ?? false,
+    );
+    scheduler.start();
 
-    return () => clearInterval(interval);
+    return () => scheduler.stop();
   }, [antiAfkEnabled, streamStatus]);
 
   // Periodically re-sync subscription playtime from backend while streaming.
@@ -2021,7 +2023,7 @@ export function App(): JSX.Element {
     const game = queueModalGame;
     setQueueModalGame(null);
     setQueueModalData(null);
-    setSelectedServerLabel(selection?.zoneId ?? null);
+    setSelectedServerLabel(selection?.displayLabel ?? selection?.zoneId ?? null);
     if (!game) return;
     // Keep the original routing URL as the launch payload; the zone label is
     // retained only for the Basic Rig/HUD fallback while diagnostics warm up.
@@ -2822,7 +2824,7 @@ export function App(): JSX.Element {
                 recording: shortcuts.recording.canonical,
               }}
               hideStreamButtons={settings.hideStreamButtons}
-              serverRegion={session?.zone?.trim() || selectedServerLabel || session?.serverIp}
+              serverRegion={selectedServerLabel || session?.zone?.trim() || session?.serverIp}
               antiAfkEnabled={antiAfkEnabled}
               antiAfkAckNonce={antiAfkAckNonce}
               showAntiAfkIndicator={settings.showAntiAfkIndicator}

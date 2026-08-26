@@ -164,12 +164,26 @@ export function getStreamServerLocationLabel(
   diagnostics: Pick<StreamSessionDiagnostics, "serverLocation" | "serverRegion" | "serverZone">,
   fallbackRegion = "",
 ): string {
-  return formatServerLocation(
-    diagnostics.serverZone,
-    diagnostics.serverLocation.trim()
-      || diagnostics.serverRegion.trim()
-      || fallbackRegion.trim(),
-  );
+  const serverLocation = diagnostics.serverLocation.trim();
+  const serverRegion = diagnostics.serverRegion.trim();
+  const primaryInput = serverLocation || serverRegion;
+  const primaryLabel = formatServerLocation(diagnostics.serverZone, primaryInput);
+  const normalizedPrimaryInput = normalizeServerRegion(primaryInput).toUpperCase();
+  const normalizedZone = normalizeServerRegion(diagnostics.serverZone).toUpperCase();
+  const primaryLooksLikeOpaqueHost = /[.:/]/.test(primaryInput)
+    || (primaryInput.length > 0 && !/[a-z]/i.test(primaryInput));
+  const primaryIsRawOrGeneric = primaryLabel === "--"
+    || primaryLabel.toUpperCase() === normalizedZone
+    || primaryLabel.toUpperCase() === "PROD"
+    || primaryLooksLikeOpaqueHost;
+
+  // A selected queue label is a safer human-readable fallback than exposing
+  // prod, an opaque hostname, or -- while live session metadata warms up.
+  if (fallbackRegion.trim() && primaryIsRawOrGeneric) {
+    const fallbackLabel = formatServerLocation("", fallbackRegion.trim());
+    if (fallbackLabel !== "--") return fallbackLabel;
+  }
+  return primaryLabel;
 }
 
 export function deriveStreamSessionDiagnostics(
