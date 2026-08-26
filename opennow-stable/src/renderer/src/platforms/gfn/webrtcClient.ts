@@ -1014,7 +1014,6 @@ export class GfnWebRtcClient {
     let inboundVideo: Record<string, unknown> | null = null;
     let activePair: Record<string, unknown> | null = null;
     const codecs = new Map<string, Record<string, unknown>>();
-    const statsEntries: Record<string, unknown>[] = [];
     let framesReceived = 0;
     let framesDecoded = 0;
     let framesDropped = 0;
@@ -1027,8 +1026,6 @@ export class GfnWebRtcClient {
 
     for (const entry of report.values()) {
       const stats = entry as unknown as Record<string, unknown>;
-      statsEntries.push(stats);
-
       if (entry.type === "inbound-rtp" && stats.kind === "video") {
         inboundVideo = stats;
       }
@@ -1040,7 +1037,9 @@ export class GfnWebRtcClient {
       }
     }
 
-    const iceTransport = extractActiveIceTransportStats(statsEntries);
+    const iceTransport = extractActiveIceTransportStats(
+      report.values() as unknown as Iterable<Record<string, unknown>>,
+    );
     activePair = iceTransport.activePair;
     this.diagnostics.transportType = iceTransport.transportType;
     this.diagnostics.localCandidateType = iceTransport.localCandidateType;
