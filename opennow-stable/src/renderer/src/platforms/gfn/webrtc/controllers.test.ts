@@ -31,7 +31,7 @@ test("decoder recovery waits for three pressure polls and clears after six stabl
     requestSignalingKeyframe: async () => {
       keyframeRequests++;
     },
-    setMaxBitrateKbps: async () => {},
+    setMaxBitrateKbps: async () => true,
     onStateChange: (state) => states.push(state),
     now: () => 2_000,
   });
@@ -62,6 +62,60 @@ test("decoder recovery waits for three pressure polls and clears after six stabl
   });
 });
 
+test("decoder recovery preserves bitrate state when no wire update is applied", async () => {
+  const states: DecoderPressureState[] = [];
+  const logs: string[] = [];
+  const requestedBitrates: number[] = [];
+  let updateApplied = false;
+  let now = 2_000;
+  const peerConnection = {
+    localDescription: { type: "answer", sdp: "v=0\r\n" },
+    getSenders: () => [],
+  } as unknown as RTCPeerConnection;
+  const controller = new DecoderPressureController({
+    log: (message) => logs.push(message),
+    getPeerConnection: () => peerConnection,
+    getControlChannel: () => null,
+    requestSignalingKeyframe: async () => {
+      throw new Error("unavailable");
+    },
+    setMaxBitrateKbps: async (kbps) => {
+      requestedBitrates.push(kbps);
+      return updateApplied;
+    },
+    onStateChange: (state) => states.push(state),
+    now: () => now,
+  });
+  controller.initializeBitrate(10_000);
+
+  await controller.recover(pressureSignal);
+  await controller.recover(pressureSignal);
+  await controller.recover(pressureSignal);
+
+  assert.deepEqual(requestedBitrates, [8_500]);
+  assert.deepEqual(states.at(-1), {
+    active: true,
+    recoveryAttempts: 0,
+    recoveryAction: "none",
+  });
+  assert.equal(logs.some((message) => message.includes("bitrate ceiling stepped down")), false);
+
+  updateApplied = true;
+  now = 4_000;
+  await controller.recover(pressureSignal);
+
+  assert.deepEqual(requestedBitrates, [8_500, 8_500]);
+  assert.deepEqual(states.at(-1), {
+    active: true,
+    recoveryAttempts: 1,
+    recoveryAction: "bitrate_step_down",
+  });
+  assert.equal(
+    logs.some((message) => message.includes("bitrate ceiling stepped down 10000 -> 8500 kbps")),
+    true,
+  );
+});
+
 test("input policy preserves native, partially-reliable, and fallback routes", () => {
   const nativePackets: Array<{ payload: Uint8Array; partiallyReliable: boolean }> = [];
   const reliablePackets: Uint8Array[] = [];
@@ -86,8 +140,12 @@ test("input policy preserves native, partially-reliable, and fallback routes", (
       getPartiallyReliableChannel: () => channel,
       sendNativeInput: (payload, partiallyReliable) => {
         nativePackets.push({ payload, partiallyReliable });
+        return true;
       },
-      sendReliable: (payload) => reliablePackets.push(payload),
+      sendReliable: (payload) => {
+        reliablePackets.push(payload);
+        return true;
+      },
     },
   );
   const payload = new Uint8Array([1, 2, 3]);
@@ -101,6 +159,37 @@ test("input policy preserves native, partially-reliable, and fallback routes", (
 
   channelOpen = false;
   controller.sendPartiallyReliable(payload);
+  assert.deepEqual(reliablePackets, [payload]);
+});
+
+test("partial-reliable send failure preserves the packet through reliable fallback", () => {
+  const reliablePackets: Uint8Array[] = [];
+  const channel = {
+    readyState: "open",
+    send: () => {
+      throw new Error("transient local channel failure");
+    },
+  } as unknown as RTCDataChannel;
+  const controller = new InputChannelPolicyController(
+    {
+      partialReliableThresholdMs: 300,
+      hidDeviceMask: 0xffff,
+      enablePartiallyReliableTransferGamepad: 0xffff,
+      enablePartiallyReliableTransferHid: 0xffff,
+    },
+    {
+      isNativeInputActive: () => false,
+      getPartiallyReliableChannel: () => channel,
+      sendNativeInput: () => true,
+      sendReliable: (payload) => {
+        reliablePackets.push(payload);
+        return true;
+      },
+    },
+  );
+  const payload = new Uint8Array([9, 8, 7]);
+
+  assert.equal(controller.sendPartiallyReliable(payload), true);
   assert.deepEqual(reliablePackets, [payload]);
 });
 

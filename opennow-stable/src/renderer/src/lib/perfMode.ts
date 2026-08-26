@@ -45,7 +45,10 @@ export function getStoredPerfMode(): PerfMode {
   } catch {
     /* ignore */
   }
-  return "auto";
+  // The weak/strong device picker was removed from the VN UI. Keep the
+  // preference reader for backwards compatibility, but use the full visual
+  // experience when no legacy value exists.
+  return "high";
 }
 
 export function setPerfMode(mode: PerfMode): void {
@@ -57,11 +60,13 @@ export function setPerfMode(mode: PerfMode): void {
   applyPerfMode();
 }
 
-/** Resolves "auto" against the hardware heuristic. */
-export function resolvePerfMode(mode: PerfMode = getStoredPerfMode()): "high" | "low" {
-  if (mode === "low") return "low";
-  if (mode === "high") return "high";
-  return detectLowEndDevice() ? "low" : "high";
+/**
+ * The VN client no longer exposes a weak/strong PC choice. Always retain the
+ * original full visual treatment; this only affects renderer CSS and never the
+ * WebRTC/Native Stream session.
+ */
+export function resolvePerfMode(_mode: PerfMode = "high"): "high" {
+  return "high";
 }
 
 /** Writes data-perf-mode on <html> so CSS can react. */

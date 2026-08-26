@@ -27,7 +27,7 @@ test("discordRpcActivityPayload sends game artwork as the large presence image",
     startTimestamp: startedAt,
   }), {
     details: "7 Days to Die",
-    state: "Streaming via OpenNow",
+    state: "Streamed via OpenNow",
     startTimestamp: startedAt,
     largeImageKey: "https://example.com/7-days-to-die.jpg",
     largeImageText: "7 Days to Die",

@@ -1,5 +1,5 @@
 export const POINTER_LOCK_ESCAPE_FULLSCREEN_GRACE_MS = 1000;
-/** Match native Internal Escape-hold timing (gstreamer_platform.rs). */
+/** Match the stream platform Escape-hold timing. */
 export const ESCAPE_HOLD_TO_EXIT_FULLSCREEN_MS = 1500;
 
 export interface EscapeKeyInput {
@@ -53,11 +53,12 @@ export function shouldCaptureEscapeFullscreenInput(
   input: EscapeKeyInput,
   state: EscapeFullscreenGuardState,
 ): boolean {
-  if (!isEscapeKeyDownInput(input) || state.allowEscapeToExitFullscreen) {
+  const activeStream = state.streamInputActive;
+  if (!isEscapeKeyDownInput(input) || (state.allowEscapeToExitFullscreen && !activeStream)) {
     return false;
   }
 
-  if (state.pointerLockActive) {
+  if (activeStream) {
     return true;
   }
 
@@ -70,21 +71,40 @@ export function shouldCaptureEscapeFullscreenInput(
     return true;
   }
 
-  return state.windowFullscreen && state.nowMs <= state.pointerLockEscapeCaptureUntilMs;
+  return (
+    (state.windowFullscreen || state.rendererControlledFullscreen)
+    && state.nowMs <= state.pointerLockEscapeCaptureUntilMs
+  );
 }
 
 /**
- * Electron Internal/web path: Escape tap → game, hold → exit fullscreen.
- * Mirrors native Internal RawInput hold timing without sending a tap after hold.
+ * Electron web path: while a stream is active, Escape is always a game tap.
+ * Fullscreen/pointer-lock exit remains an explicit F8/shortcut action so a normal
+ * in-game Escape cannot unexpectedly release the cursor.
  */
 export function resolveEscapeHoldCaptureAction(
   input: EscapeKeyInput,
   guardState: EscapeFullscreenGuardState,
   holdState: EscapeHoldCaptureState,
 ): { action: EscapeHoldCaptureAction; nextHoldState: EscapeHoldCaptureState } {
-  if (guardState.allowEscapeToExitFullscreen || !isEscapeKeyInput(input)) {
+  // Chromium can emit pointer-lock loss before Electron delivers the Escape
+  // key event. Treat the short post-loss grace as stream-active so a normal
+  // in-game Escape is still captured and forwarded instead of releasing the
+  // cursor permanently. Intentional releases (Quick Menu, blur, recovery)
+  // suppress this grace through nextPointerLockEscapeCaptureUntilMs().
+  // Grace may arm the fullscreen hold guard after an unexpected pointer-lock
+  // loss, but it must not turn an unrelated window into an active stream.
+  const activeStream = guardState.streamInputActive;
+  if ((guardState.allowEscapeToExitFullscreen && !activeStream) || !isEscapeKeyInput(input)) {
     return {
       action: "ignore",
+      nextHoldState: { keyDownCaptured: false, holdFired: false },
+    };
+  }
+
+  if (activeStream && isEscapeKeyDownInput(input)) {
+    return {
+      action: "tap",
       nextHoldState: { keyDownCaptured: false, holdFired: false },
     };
   }

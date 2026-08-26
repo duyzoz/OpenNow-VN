@@ -1,13 +1,14 @@
-import { Play, Monitor, PlayCircle, Square, Heart } from "lucide-react";
-import { isFavorite } from "../lib/gamePreferences";
+import { Clock, Heart, Info, Monitor, Pause, Play, PlayCircle } from "lucide-react";
+import { getPlaytimeStat } from "../lib/playtimeStats";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { JSX } from "react";
-import { m } from "motion/react";
 import { normalizeGameStore } from "@shared/gfn";
 import type { GameInfo } from "@shared/gfn";
 import { getActiveGameAvailabilityBadge } from "../lib/gameCardStatus";
 import { getStoreOptions as getGameCardStoreOptions } from "../lib/gameCardStores";
 import { useTranslation } from "../i18n";
+import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
+import { preloadGameBoxArt, preloadGameHeroArt } from "../lib/gameArtwork";
 
 interface GameCardProps {
   game: GameInfo;
@@ -17,6 +18,7 @@ interface GameCardProps {
   onSelect: () => void;
   selectedVariantId?: string;
   onSelectStore?: (variantId: string) => void;
+  onOpenStore?: (variantId: string) => void;
   isActiveGame?: boolean;
   isFavorite?: boolean;
   onResume?: () => void;
@@ -156,6 +158,7 @@ function gameCardPropsAreEqual(prev: GameCardProps, next: GameCardProps): boolea
     && prev.onPlay === next.onPlay
     && prev.onSelect === next.onSelect
     && prev.onSelectStore === next.onSelectStore
+    && prev.onOpenStore === next.onOpenStore
     && prev.isActiveGame === next.isActiveGame
     && prev.isFavorite === next.isFavorite
     && prev.onResume === next.onResume
@@ -173,6 +176,7 @@ export const GameCard = memo(function GameCard({
   onSelect,
   selectedVariantId,
   onSelectStore,
+  onOpenStore,
   isActiveGame = false,
   isFavorite: isFav = false,
   onResume,
@@ -193,6 +197,8 @@ export const GameCard = memo(function GameCard({
     () => getActiveGameAvailabilityBadge(game, selectedVariantId),
     [game, selectedVariantId],
   );
+  const lastPlayedAt = getPlaytimeStat(game.id).lastPlayedAt ?? game.lastPlayed;
+  const accessLabel = lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : null;
 
   const fallbackAspectPct = GAME_CARD_FALLBACK_ASPECT[surface];
   const [aspectPct, setAspectPct] = useState(
@@ -230,11 +236,25 @@ export const GameCard = memo(function GameCard({
   const handleStoreClick = (event: React.MouseEvent, variantId: string): void => {
     event.stopPropagation();
     onSelectStore?.(variantId);
+    onOpenStore?.(variantId);
+  };
+
+  const warmGameArtwork = useCallback((): void => {
+    preloadGameBoxArt(game);
+    preloadGameHeroArt(game);
+  }, [game]);
+
+  const handleShowInfo = (event: React.MouseEvent): void => {
+    event.stopPropagation();
+    warmGameArtwork();
+    onShowInfo?.();
   };
 
   return (
     <div
       className={`game-card ${isSelected ? "selected" : ""}`}
+      onPointerEnter={warmGameArtwork}
+      onFocus={warmGameArtwork}
       onClick={onSelect}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) {
@@ -250,7 +270,7 @@ export const GameCard = memo(function GameCard({
       aria-label={t("gameCard.selectGame", { title: game.title })}
     >
       <div
-        className="game-card-image-wrapper" onClick={(e) => { if (onShowInfo) { e.stopPropagation(); onShowInfo(); } }}
+        className="game-card-image-wrapper" onClick={handleShowInfo}
         style={
           aspectPct
             ? (({ ["--game-aspect" as any]: `${aspectPct}%` } as unknown) as React.CSSProperties)
@@ -273,46 +293,79 @@ export const GameCard = memo(function GameCard({
 
         <div className="game-card-overlay">
           <div className="game-card-gradient" />
-          {onToggleFavorite && (
+          <div className="game-card-corner-actions">
+            {onToggleFavorite && (
+              <button
+                className={`game-card-fav-btn${isFav ? " active" : ""}`}
+                onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+                tabIndex={-1}
+                title={isFav ? t("gameCard.favoriteRemove") : t("gameCard.favoriteAdd")}
+                aria-label={isFav ? t("gameCard.favoriteRemove") : t("gameCard.favoriteAdd")}
+              >
+                <Heart size={15} fill={isFav ? "currentColor" : "none"} />
+              </button>
+            )}
+            {isActiveGame ? (
+              <button
+                className="game-card-corner-play-button game-card-corner-play-button--active"
+                onClick={(e) => { e.stopPropagation(); onResume?.(); }}
+                tabIndex={-1}
+                title={t("gameCard.resumeStream")}
+                aria-label={t("gameCard.resumeStream")}
+              >
+                <PlayCircle size={19} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                className={`game-card-corner-play-button${isLaunching ? " launching" : ""}`}
+                onClick={handlePlayClick}
+                aria-label={t("gameCard.playGame", { title: game.title })}
+                title={t("gameCard.playGame", { title: game.title })}
+                tabIndex={-1}
+              >
+                {isLaunching ? (
+                  <span className="game-card-play-spinner game-card-play-spinner--small" />
+                ) : (
+                  <Play size={18} fill="currentColor" />
+                )}
+              </button>
+            )}
+          </div>
+          {onShowInfo && (
             <button
-              className={`game-card-fav-btn${isFav ? " active" : ""}`}
-              onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+              type="button"
+              className="game-card-details-button"
+              onClick={handleShowInfo}
               tabIndex={-1}
-              title={isFav ? t("gameCard.favoriteRemove") : t("gameCard.favoriteAdd")}
+              aria-label={t("gameCard.viewDetailsFor", { title: game.title })}
             >
-              <Heart size={14} fill={isFav ? "currentColor" : "none"} />
+              <Info size={14} aria-hidden="true" />
+              <span>{t("gameCard.viewDetails")}</span>
             </button>
           )}
-          {isActiveGame ? (
+          {isActiveGame && (
             <div className="game-card-active-actions">
               <button
+                type="button"
                 className="game-card-resume-btn"
                 onClick={(e) => { e.stopPropagation(); onResume?.(); }}
                 tabIndex={-1}
+                title={t("gameCard.resumeStream")}
+                aria-label={t("gameCard.resumeStream")}
               >
-                <PlayCircle size={14} /> {t("gameCard.resume")}
+                <PlayCircle size={16} aria-hidden="true" />
               </button>
               <button
+                type="button"
                 className="game-card-quit-btn"
                 onClick={(e) => { e.stopPropagation(); onTerminate?.(); }}
                 tabIndex={-1}
+                title={t("gameCard.endStream")}
+                aria-label={t("gameCard.endStream")}
               >
-                <Square size={12} /> {t("gameCard.quit")}
+                <Pause size={15} aria-hidden="true" />
               </button>
             </div>
-          ) : (
-            <button
-              className={`game-card-play-button${isLaunching ? " launching" : ""}`}
-              onClick={handlePlayClick}
-              aria-label={t("gameCard.playGame", { title: game.title })}
-              tabIndex={-1}
-            >
-              {isLaunching ? (
-                <span className="game-card-play-spinner" />
-              ) : (
-                <Play size={24} fill="currentColor" />
-              )}
-            </button>
           )}
         </div>
 
@@ -370,6 +423,12 @@ export const GameCard = memo(function GameCard({
                   })}
                 </div>
               )}
+            </div>
+          )}
+          {accessLabel && (
+            <div className="game-card-access-time" title={accessLabel}>
+              <Clock size={12} aria-hidden="true" />
+              <span>{accessLabel}</span>
             </div>
           )}
           <h3 className="game-card-title" title={game.title}>

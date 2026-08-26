@@ -11,13 +11,17 @@ export interface StreamDiagnostics {
   // Video stats
   resolution: string;
   codec: string;
+  requestedCodec: string;
   hardwareAcceleration: string;
   colorCodec: string;
   isHdr: boolean;
   bitrateKbps: number;
   targetBitrateKbps: number;
+  availableBitrateKbps: number;
   decodeFps: number;
+  receiveFps: number;
   renderFps: number;
+  gameFps?: number;
 
   // Network stats
   packetsLost: number;
@@ -25,6 +29,8 @@ export interface StreamDiagnostics {
   packetLossPercent: number;
   jitterMs: number;
   rttMs: number;
+  transportType: "udp" | "tcp" | "unknown";
+  localCandidateType: string;
 
   // Frame counters
   framesReceived: number;
@@ -49,18 +55,17 @@ export interface StreamDiagnostics {
   mousePacketsPerSecond: number;
   mouseResidualMagnitude: number;
   mouseAdaptiveFlushActive: boolean;
-  mouseBatchAgeMs?: number;
-
-  // Presentation telemetry (optional for backwards-compatible fixtures)
-  frameAgeMs?: number;
-  framePacingVarianceMs?: number;
 
   lagReason: StreamLagReason;
   lagReasonDetail: string;
 
   // System info
   gpuType: string;
+  serverGpuType: string;
+  sessionId: string;
   serverRegion: string;
+  serverZone: string;
+  serverLocation: string;
 
   // Decoder recovery status
   decoderPressureActive: boolean;
@@ -75,16 +80,6 @@ export interface StreamDiagnostics {
   nativeTransitionSummary?: string;
   nativeRequestedStreamingFeaturesSummary?: string;
   nativeFinalizedStreamingFeaturesSummary?: string;
-
-  // Audio/video timing telemetry (optional for backwards-compatible native fixtures)
-  audioOutputMode?: "direct" | "audio_context";
-  audioContextState?: AudioContextState | "none";
-  audioContextBaseLatencyMs?: number;
-  audioContextOutputLatencyMs?: number;
-  audioSampleRate?: number;
-  audioCurrentTime?: number;
-  videoCurrentTime?: number;
-  videoAudioOffsetMs?: number;
 
   // Microphone state
   micState: MicState;

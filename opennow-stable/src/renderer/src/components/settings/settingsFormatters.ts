@@ -68,7 +68,6 @@ export const APP_LANGUAGE_LABELS: Record<string, string> = {
   ko: "한국어",
   nl: "Nederlands",
   ro: "Română",
-  vi: "Tiếng Việt",
 };
 
 export const accentColorOptions = getAccentColorOptions();
@@ -122,13 +121,13 @@ export function getAvailableNativeCodecLabels(backend: NativeVideoBackendCapabil
 export function formatGstreamerRuntimeLabel(status: NativeStreamerStatus | null): string {
   switch (status?.gstreamerRuntime.source) {
     case "bundled":
-      return status.gstreamerAvailable ? "Runtime đi kèm (đang dùng)" : "Runtime đi kèm (đã tìm thấy)";
+      return status.gstreamerAvailable ? "Bundled Runtime Used" : "Bundled Runtime Found";
     case "system":
-      return "Runtime hệ thống";
+      return "System Runtime";
     case "missing":
-      return "Runtime bị thiếu";
+      return "Runtime Missing";
     default:
-      return "Runtime không xác định";
+      return "Runtime Unknown";
   }
 }
 
@@ -195,7 +194,7 @@ const runtimePlatform = resolveRuntimePlatform(navigator.platform);
 const platformShortcutDefaults = createPlatformShortcutDefaults(runtimePlatform);
 
 export const isMac = runtimePlatform === "darwin";
-export const shortcutExamples = "Examples: F3, Ctrl+Shift+Q, Ctrl+Shift+K";
+export const shortcutExamples = "Examples: Ctrl+N, Ctrl+Shift+Q, Ctrl+Shift+K";
 export const shortcutDefaults = platformShortcutDefaults.bindings;
 
 /** Canonical shortcut for toggling the stream sidebar (must match StreamView key handler). */

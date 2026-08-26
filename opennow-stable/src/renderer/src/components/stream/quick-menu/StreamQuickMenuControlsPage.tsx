@@ -3,20 +3,21 @@ import type { MicrophoneMode, VideoShaderSettings } from "@shared/gfn";
 import { DEFAULT_VIDEO_SHADER_SETTINGS } from "@shared/gfn";
 import type { StreamDiagnosticsStore } from "../../../utils/streamDiagnosticsStore";
 import { SidebarMicMutedBadge } from "../StreamEmptyStates";
+import { useTranslation } from "../../../i18n";
 
 const MICROPHONE_MODES = [
-  { value: "disabled" as MicrophoneMode, label: "Disabled", description: "No microphone input" },
-  { value: "push-to-talk" as MicrophoneMode, label: "Push-to-Talk", description: "Hold a key to talk" },
-  { value: "voice-activity" as MicrophoneMode, label: "Voice Activity", description: "Always listen" },
-];
+  { value: "disabled" as MicrophoneMode, labelKey: "disabled", descriptionKey: "disabledDescription" },
+  { value: "push-to-talk" as MicrophoneMode, labelKey: "pushToTalk", descriptionKey: "pushToTalkDescription" },
+  { value: "voice-activity" as MicrophoneMode, labelKey: "voiceActivity", descriptionKey: "voiceActivityDescription" },
+] as const;
 
 const VIDEO_FILTER_CONTROLS = [
-  { key: "sharpen", label: "Sharpen", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%`, hint: "Contrast-adaptive sharpening. Counters stream compression blur." },
-  { key: "saturation", label: "Saturation", min: 0, max: 200, neutral: 100, format: (value: number) => `${value}%` },
-  { key: "contrast", label: "Contrast", min: 50, max: 150, neutral: 100, format: (value: number) => `${value}%` },
-  { key: "brightness", label: "Brightness", min: 50, max: 150, neutral: 100, format: (value: number) => `${value}%` },
-  { key: "vibrance", label: "Vibrance", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%`, hint: "Boosts muted colors without oversaturating." },
-  { key: "filmGrain", label: "Film Grain", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%` },
+  { key: "sharpen", labelKey: "sharpen", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%`, hintKey: "sharpenHint" },
+  { key: "saturation", labelKey: "saturation", min: 0, max: 200, neutral: 100, format: (value: number) => `${value}%` },
+  { key: "contrast", labelKey: "contrast", min: 50, max: 150, neutral: 100, format: (value: number) => `${value}%` },
+  { key: "brightness", labelKey: "brightness", min: 50, max: 150, neutral: 100, format: (value: number) => `${value}%` },
+  { key: "vibrance", labelKey: "vibrance", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%`, hintKey: "vibranceHint" },
+  { key: "filmGrain", labelKey: "filmGrain", min: 0, max: 100, neutral: 0, format: (value: number) => `${value}%` },
 ] as const;
 
 interface StreamQuickMenuControlsPageProps {
@@ -48,22 +49,26 @@ export function StreamQuickMenuControlsPage({
   micTrack,
   micMeterRef,
 }: StreamQuickMenuControlsPageProps): JSX.Element {
+  const { t } = useTranslation();
+  const controlText = (key: string): string => t(`stream.quickMenu.controls.filters.${key}`);
+  const microphoneText = (key: string): string => t(`stream.quickMenu.controls.microphone.${key}`);
+
   return (
     <div className="sidebar-page" role="tabpanel">
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Mouse Preferences</span>
-          <span className="sidebar-section-sub">Fine-tune cursor movement.</span>
+          <span>{t("stream.quickMenu.controls.mousePreferences")}</span>
+          <span className="sidebar-section-sub">{t("stream.quickMenu.controls.mousePreferencesHint")}</span>
         </div>
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Mouse Sensitivity</span>
+            <span className="sidebar-label">{t("stream.quickMenu.controls.mouseSensitivity")}</span>
             <span className="settings-value-badge">{mouseSensitivity.toFixed(2)}x</span>
           </div>
           <input
             type="range"
             name="mouse-sensitivity"
-            aria-label="Mouse sensitivity"
+            aria-label={t("stream.quickMenu.controls.mouseSensitivityAria")}
             className="settings-slider"
             min={0.1}
             max={4}
@@ -76,17 +81,17 @@ export function StreamQuickMenuControlsPage({
               }
             }}
           />
-          <span className="sidebar-hint">Multiplier applied to mouse movement (1.00 = default).</span>
+          <span className="sidebar-hint">{t("stream.quickMenu.controls.mouseSensitivityHint")}</span>
         </div>
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Mouse Accelerator</span>
+            <span className="sidebar-label">{t("stream.quickMenu.controls.mouseAcceleration")}</span>
             <span className="settings-value-badge">{Math.round(mouseAcceleration)}%</span>
           </div>
           <input
             type="range"
             name="mouse-acceleration"
-            aria-label="Mouse accelerator"
+            aria-label={t("stream.quickMenu.controls.mouseAccelerationAria")}
             className="settings-slider"
             min={1}
             max={150}
@@ -99,27 +104,27 @@ export function StreamQuickMenuControlsPage({
               }
             }}
           />
-          <span className="sidebar-hint">Dynamic turn boost strength (1% = off-like, 150% = strongest).</span>
+          <span className="sidebar-hint">{t("stream.quickMenu.controls.mouseAccelerationHint")}</span>
         </div>
       </section>
       <div className="sidebar-separator" aria-hidden="true" />
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Video Filters</span>
-          <span className="sidebar-section-sub">GPU shaders applied to the stream.</span>
+          <span>{t("stream.quickMenu.controls.videoFilters")}</span>
+          <span className="sidebar-section-sub">{t("stream.quickMenu.controls.videoFiltersHint")}</span>
         </div>
         {gstreamerEnabled ? (
-          <span className="sidebar-hint">Video filters are unavailable while the native streamer renders the video.</span>
+          <span className="sidebar-hint">{t("stream.quickMenu.controls.nativeVideoFiltersUnavailable")}</span>
         ) : (
           <>
             <div className="sidebar-row sidebar-row--aligned">
-              <span className="sidebar-label">Enable Filters</span>
-              <label className="sidebar-mini-toggle" title="Enable GPU post-processing filters" tabIndex={0}>
+<span className="sidebar-label">{t("stream.quickMenu.controls.enableFilters")}</span>
+                  <label className="sidebar-mini-toggle" title={t("stream.quickMenu.controls.enableFiltersTitle")} tabIndex={0}>
                 <input
                   type="checkbox"
                   name="enable-video-filters"
                   checked={videoShader.enabled}
-                  aria-label="Enable video filters"
+                  aria-label={t("stream.quickMenu.controls.enableFiltersAria")}
                   onChange={(event) => onVideoShaderChange({ ...videoShader, enabled: event.target.checked })}
                 />
                 <span className="sidebar-mini-toggle-track" />
@@ -130,13 +135,13 @@ export function StreamQuickMenuControlsPage({
                 {VIDEO_FILTER_CONTROLS.map((control) => (
                   <div key={control.key} className="sidebar-row sidebar-row--column">
                     <div className="sidebar-row-top">
-                      <span className="sidebar-label">{control.label}</span>
+                      <span className="sidebar-label">{controlText(control.labelKey)}</span>
                       <span className="settings-value-badge">{control.format(videoShader[control.key])}</span>
                     </div>
                     <input
                       type="range"
                       name={`video-filter-${control.key}`}
-                      aria-label={`${control.label} video filter`}
+                      aria-label={t("stream.quickMenu.controls.videoFilterAria", { filter: controlText(control.labelKey) })}
                       className="settings-slider"
                       min={control.min}
                       max={control.max}
@@ -153,17 +158,17 @@ export function StreamQuickMenuControlsPage({
                       }}
                       onDoubleClick={() => onVideoShaderChange({ ...videoShader, [control.key]: control.neutral })}
                     />
-                    {"hint" in control && control.hint && <span className="sidebar-hint">{control.hint}</span>}
+                    {"hintKey" in control && control.hintKey && <span className="sidebar-hint">{controlText(control.hintKey)}</span>}
                   </div>
                 ))}
                 <div className="sidebar-row sidebar-row--aligned">
-                  <span className="sidebar-label">Reset Filters</span>
+                  <span className="sidebar-label">{t("stream.quickMenu.controls.resetFilters")}</span>
                   <button
                     type="button"
                     className="sidebar-button"
                     onClick={() => onVideoShaderChange({ ...DEFAULT_VIDEO_SHADER_SETTINGS, enabled: true })}
                   >
-                    <span>Reset</span>
+                    <span>{t("stream.quickMenu.controls.reset")}</span>
                   </button>
                 </div>
               </>
@@ -174,14 +179,14 @@ export function StreamQuickMenuControlsPage({
       <div className="sidebar-separator" aria-hidden="true" />
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>Audio</span>
-          <span className="sidebar-section-sub">Configure microphone handling.</span>
+          <span>{t("stream.quickMenu.controls.audio")}</span>
+          <span className="sidebar-section-sub">{t("stream.quickMenu.controls.audioHint")}</span>
         </div>
         <div className="sidebar-row sidebar-row--column">
           <div className="sidebar-row-top">
-            <span className="sidebar-label">Microphone Mode</span>
+            <span className="sidebar-label">{t("stream.quickMenu.controls.microphone.mode")}</span>
             <span className="settings-value-badge">
-              {MICROPHONE_MODES.find((option) => option.value === microphoneMode)?.label ?? microphoneMode}
+              {(() => { const option = MICROPHONE_MODES.find((candidate) => candidate.value === microphoneMode); return option ? microphoneText(option.labelKey) : microphoneMode; })()}
             </span>
           </div>
           <div className="sidebar-chip-row">
@@ -192,26 +197,26 @@ export function StreamQuickMenuControlsPage({
                 className={`sidebar-chip${microphoneMode === option.value ? " sidebar-chip--active" : ""}`}
                 onClick={() => onMicrophoneModeChange(option.value)}
               >
-                <span>{option.label}</span>
+                <span>{microphoneText(option.labelKey)}</span>
               </button>
             ))}
           </div>
           <span className="sidebar-hint">
-            {MICROPHONE_MODES.find((option) => option.value === microphoneMode)?.description ?? ""}
+            {(() => { const option = MICROPHONE_MODES.find((candidate) => candidate.value === microphoneMode); return option ? microphoneText(option.descriptionKey) : ""; })()}
           </span>
         </div>
         {microphoneMode !== "disabled" && (
           <div className="sidebar-row sidebar-row--column">
             <div className="sidebar-row-top">
-              <span className="sidebar-label">Send level</span>
+              <span className="sidebar-label">{t("stream.quickMenu.controls.microphone.sendLevel")}</span>
               <SidebarMicMutedBadge diagnosticsStore={diagnosticsStore} micTrack={micTrack} />
             </div>
             <canvas
               ref={micMeterRef}
               className="mic-meter-canvas"
-              aria-label="Microphone send level (what others hear)"
+              aria-label={t("stream.quickMenu.controls.microphone.sendLevelAria")}
             />
-            {!micTrack && <span className="sidebar-hint">Mic not active — check mode and permissions.</span>}
+            {!micTrack && <span className="sidebar-hint">{t("stream.quickMenu.controls.microphone.notActive")}</span>}
           </div>
         )}
       </section>

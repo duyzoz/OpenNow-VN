@@ -2,6 +2,13 @@ import { BrowserWindow, nativeImage, net } from "electron";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { lookupGameImageUrl, lookupGameTitle } from "../gameTitleCache";
+import {
+  ESCAPE_HOLD_TO_EXIT_FULLSCREEN_MS,
+  markEscapeHoldFired,
+  resolveEscapeHoldCaptureAction,
+  type EscapeHoldCaptureState,
+} from "../escapeFullscreenGuard";
+import { IPC_CHANNELS } from "@shared/ipc";
 import type { StreamWindowOpenRequest, StreamWindowOpenResult } from "@shared/gfn";
 
 // NOTE (v9, additive-only module): this file is brand new. It is never
@@ -14,6 +21,10 @@ export interface CreateStreamWindowDeps {
   getStreamWindow(): BrowserWindow | null;
   setStreamWindow(window: BrowserWindow | null): void;
   notifyStreamWindowClosed(): void;
+  getAllowEscapeToExitFullscreen(): boolean;
+  getPointerLockActive(): boolean;
+  getRendererControlledFullscreen(): boolean;
+  getPointerLockEscapeCaptureUntilMs(): number;
 }
 
 /**
@@ -102,6 +113,58 @@ export async function openOrFocusStreamWindow(
 
   deps.setStreamWindow(window);
 
+  // The cloud game runs in this secondary BrowserWindow. Escape must therefore
+  // be intercepted here, not only on the main window; otherwise Chromium can
+  // release pointer lock before the renderer forwards Escape to the game.
+  let escapeHoldState: EscapeHoldCaptureState = { keyDownCaptured: false, holdFired: false };
+  let escapeHoldTimer: NodeJS.Timeout | null = null;
+  const clearEscapeHoldTimer = (): void => {
+    if (escapeHoldTimer !== null) {
+      clearTimeout(escapeHoldTimer);
+      escapeHoldTimer = null;
+    }
+  };
+  window.webContents.on("before-input-event", (event, input) => {
+    const resolved = resolveEscapeHoldCaptureAction(
+      input,
+      {
+        allowEscapeToExitFullscreen: deps.getAllowEscapeToExitFullscreen(),
+        streamInputActive:
+          deps.getPointerLockActive()
+          || deps.getRendererControlledFullscreen()
+          || window.isFullScreen(),
+        pointerLockActive: deps.getPointerLockActive(),
+        rendererControlledFullscreen: deps.getRendererControlledFullscreen(),
+        windowFullscreen: window.isFullScreen(),
+        pointerLockEscapeCaptureUntilMs: deps.getPointerLockEscapeCaptureUntilMs(),
+        nowMs: Date.now(),
+      },
+      escapeHoldState,
+    );
+    escapeHoldState = resolved.nextHoldState;
+    if (resolved.action === "ignore") return;
+
+    event.preventDefault();
+    if (resolved.action === "arm-hold") {
+      clearEscapeHoldTimer();
+      escapeHoldTimer = setTimeout(() => {
+        escapeHoldTimer = null;
+        if (window.isDestroyed()) return;
+        if (!window.isFullScreen() && !deps.getRendererControlledFullscreen()) return;
+        escapeHoldState = markEscapeHoldFired(escapeHoldState);
+        window.webContents.send(IPC_CHANNELS.EXIT_FULLSCREEN);
+      }, ESCAPE_HOLD_TO_EXIT_FULLSCREEN_MS);
+      return;
+    }
+
+    if (resolved.action === "tap") {
+      clearEscapeHoldTimer();
+      window.webContents.send(IPC_CHANNELS.EXTERNAL_ESCAPE);
+    } else if (resolved.action === "hold-consumed-keyup") {
+      clearEscapeHoldTimer();
+    }
+  });
+
   window.webContents.on("render-process-gone", (_event, details) => {
     console.error("[StreamWindow] Renderer process gone:", details);
   });
@@ -113,6 +176,7 @@ export async function openOrFocusStreamWindow(
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
   window.on("closed", () => {
+    clearEscapeHoldTimer();
     deps.setStreamWindow(null);
     deps.notifyStreamWindowClosed();
   });

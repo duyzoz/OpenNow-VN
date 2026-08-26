@@ -52,31 +52,25 @@ export function combineSingleInputPackets(
     return packet;
   }
 
-  let totalBodyLength = 0;
+  const combinedBodies: number[] = [];
   for (const payload of payloads) {
     if (
       payload.length >= WRAPPER_SINGLE_BODY_OFFSET
       && payload[0] === WRAPPER_VERSION_MARKER
       && payload[WRAPPER_VERSION_HEADER_BYTES] === WRAPPER_SINGLE_INPUT
     ) {
-      totalBodyLength += 1 + (payload.length - WRAPPER_SINGLE_BODY_OFFSET);
-    } else {
-      return null;
+      combinedBodies.push(WRAPPER_SINGLE_INPUT);
+      combinedBodies.push(...payload.subarray(WRAPPER_SINGLE_BODY_OFFSET));
+      continue;
     }
+    return null;
   }
 
-  const bytes = new Uint8Array(WRAPPER_VERSION_HEADER_BYTES + totalBodyLength);
+  const bytes = new Uint8Array(WRAPPER_VERSION_HEADER_BYTES + combinedBodies.length);
   const view = new DataView(bytes.buffer);
   bytes[0] = WRAPPER_VERSION_MARKER;
   writeSessionTimestamp(view, 1, sendTimestampUsValue);
-
-  let offset = WRAPPER_VERSION_HEADER_BYTES;
-  for (const payload of payloads) {
-    bytes[offset++] = WRAPPER_SINGLE_INPUT;
-    const body = payload.subarray(WRAPPER_SINGLE_BODY_OFFSET);
-    bytes.set(body, offset);
-    offset += body.length;
-  }
+  bytes.set(combinedBodies, WRAPPER_VERSION_HEADER_BYTES);
   return bytes;
 }
 

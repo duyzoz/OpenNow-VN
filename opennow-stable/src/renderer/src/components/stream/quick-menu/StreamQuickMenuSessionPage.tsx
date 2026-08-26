@@ -14,6 +14,7 @@ import { useTranslation } from "../../../i18n";
 
 interface StreamQuickMenuSessionPageProps {
   gameTitle: string;
+  antiAfkEnabled: boolean;
   platformName: string;
   PlatformIcon: (() => JSX.Element) | null;
   subscriptionInfo: SubscriptionInfo | null;
@@ -36,6 +37,7 @@ interface StreamQuickMenuSessionPageProps {
 
 export function StreamQuickMenuSessionPage({
   gameTitle,
+  antiAfkEnabled,
   platformName,
   PlatformIcon,
   subscriptionInfo,
@@ -59,28 +61,16 @@ export function StreamQuickMenuSessionPage({
 
   return (
     <div className="sidebar-page sidebar-page--session" role="tabpanel">
-      <section className="sidebar-session-card" aria-label={t("sidebar.title")}>
+      <section className="sidebar-session-card" aria-label={t("stream.quickMenu.session.currentStreamSession")}>
         <div className="sidebar-session-card-head">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span className="sidebar-session-kicker">{t("sidebar.nowStreaming") !== "sidebar.nowStreaming" ? t("sidebar.nowStreaming") : "Đang phát trực tuyến"}</span>
-            <span style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 4,
-              padding: "2px 6px",
-              borderRadius: 4,
-              background: "rgba(88, 217, 138, 0.15)",
-              color: "#58d98a",
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: "0.04em",
-              border: "1px solid rgba(88, 217, 138, 0.3)"
-            }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#58d98a" }} />
-              ANTI-AFK ON
+          <span className="sidebar-session-kicker">{t("stream.quickMenu.session.nowStreaming")}</span>
+          <div className="sidebar-session-title-row">
+            <strong className="sidebar-session-title">{gameTitle}</strong>
+            <span className={`sidebar-session-afk${antiAfkEnabled ? " sidebar-session-afk--on" : " sidebar-session-afk--off"}`}>
+              <span className="sidebar-session-afk-dot" aria-hidden />
+              {antiAfkEnabled ? t("stream.view.afkOnShort") : t("stream.view.afkOffShort")}
             </span>
           </div>
-          <strong className="sidebar-session-title">{gameTitle}</strong>
           {PlatformIcon && platformName && (
             <span className="sidebar-session-platform" title={platformName}>
               <span className="sidebar-session-platform-icon"><PlatformIcon /></span>
@@ -89,9 +79,9 @@ export function StreamQuickMenuSessionPage({
           )}
         </div>
       </section>
-      <section className="sidebar-session-metrics" aria-label={t("sidebar.sessionTimeRemaining")}>
+      <section className="sidebar-session-metrics" aria-label={t("stream.quickMenu.session.sessionTime")}>
         <div className="sidebar-metric">
-          <span>{t("sidebar.totalPlaytimeLeft") !== "sidebar.totalPlaytimeLeft" ? t("sidebar.totalPlaytimeLeft") : "Thời gian còn lại"}</span>
+          <span>{t("stream.quickMenu.session.totalPlaytimeLeft")}</span>
           <RemainingPlaytimeIndicator
             subscriptionInfo={subscriptionInfo}
             startedAtMs={sessionStartedAtMs}
@@ -111,22 +101,22 @@ export function StreamQuickMenuSessionPage({
       </section>
       <section className="sidebar-section">
         <div className="sidebar-section-header">
-          <span>{t("sidebar.sessionControls") !== "sidebar.sessionControls" ? t("sidebar.sessionControls") : "Điều khiển phiên"}</span>
-          <span className="sidebar-section-sub">{t("sidebar.manageActiveStream") !== "sidebar.manageActiveStream" ? t("sidebar.manageActiveStream") : "Quản lý luồng phát đang hoạt động."}</span>
+          <span>{t("stream.quickMenu.session.sessionControls")}</span>
+          <span className="sidebar-section-sub">{t("stream.quickMenu.session.sessionControlsHint")}</span>
         </div>
         <div className="sidebar-quick-actions">
           <button type="button" className="sidebar-action-card" onClick={onToggleFullscreen}>
             {isFullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
-            <span>{isFullscreen ? t("stream.controls.exitFullscreen") : t("stream.controls.enterFullscreen")}</span>
+            <span>{isFullscreen ? t("stream.quickMenu.session.windowed") : t("stream.quickMenu.session.fullscreen")}</span>
           </button>
           <button type="button" className="sidebar-action-card" onClick={onTogglePointerLock}>
             <MousePointer2 size={16} />
-            <span>{isPointerLocked ? (t("stream.controls.releaseMouse") !== "stream.controls.releaseMouse" ? t("stream.controls.releaseMouse") : "Nhả chuột") : (t("stream.controls.captureMouse") !== "stream.controls.captureMouse" ? t("stream.controls.captureMouse") : "Khóa chuột")}</span>
+            <span>{isPointerLocked ? t("stream.quickMenu.session.releaseMouse") : t("stream.quickMenu.session.captureMouse")}</span>
           </button>
           {onToggleMicrophone && (
             <button type="button" className="sidebar-action-card" onClick={onToggleMicrophone}>
               <Mic size={16} />
-              <span>{t("stream.controls.toggleMicrophone") !== "stream.controls.toggleMicrophone" ? t("stream.controls.toggleMicrophone") : "Bật/Tắt Mic"}</span>
+              <span>{t("stream.quickMenu.session.toggleMic")}</span>
             </button>
           )}
           <button
@@ -136,15 +126,15 @@ export function StreamQuickMenuSessionPage({
             disabled={isSavingScreenshot || !screenshotApiAvailable}
           >
             <Camera size={16} />
-            <span>{isSavingScreenshot ? "Capturing" : "Screenshot"}</span>
+            <span>{isSavingScreenshot ? t("stream.quickMenu.session.capturing") : t("stream.quickMenu.session.screenshot")}</span>
           </button>
         </div>
       </section>
       {sessionTimeRemainingText !== null && (
         <label className="sidebar-setting-card sidebar-mini-toggle" tabIndex={0}>
           <span>
-            <strong>Show time in stats</strong>
-            <small>Keep session time visible in the performance overlay.</small>
+            <strong>{t("stream.quickMenu.session.showTimeInStats")}</strong>
+            <small>{t("stream.quickMenu.session.showTimeInStatsHint")}</small>
           </span>
           <input
             type="checkbox"
@@ -157,7 +147,7 @@ export function StreamQuickMenuSessionPage({
         </label>
       )}
       <div className="sidebar-open-shortcuts">
-        <span><kbd>{sidebarToggleShortcutDisplay}</kbd> Keyboard</span>
+        <span><kbd>{sidebarToggleShortcutDisplay}</kbd> {t("stream.quickMenu.session.keyboard")}</span>
         <span><Gamepad2 size={14} /> {controllerSidebarShortcutDisplay}</span>
       </div>
     </div>

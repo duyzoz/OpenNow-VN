@@ -143,6 +143,7 @@ export const HomePage = memo(function HomePage({
     onPlayGame,
     onSelectGame,
     onSelectGameVariant,
+    onOpenStore: onBuyGame ? (game, variantId) => onBuyGame(game, variantId) : undefined,
     onResumeGame,
     onTerminateGame,
     onShowGameInfo: setGameInfoGame,
@@ -212,53 +213,9 @@ export const HomePage = memo(function HomePage({
     [games, currentPage]
   );
 
-  // nerdy.dev 3D swoopy-n-blur scroll animation (smooth 60 FPS)
-  useEffect(() => {
-    const cards = document.querySelectorAll(".home-page .scroll-anim-wrapper");
-    if (cards.length === 0) return undefined;
-
-    let rafId: number | null = null;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (rafId !== null) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          entries.forEach((entry) => {
-            const ratio = entry.intersectionRatio;
-            const el = entry.target as HTMLElement;
-            if (ratio >= 0.65) {
-              el.style.filter = "blur(0px)";
-              el.style.opacity = "1";
-              el.style.transform = "perspective(1000px) rotateX(0deg) scale(1) translateY(0)";
-            } else if (ratio >= 0.35) {
-              el.style.filter = "blur(5px)";
-              el.style.opacity = "0.78";
-              el.style.transform = "perspective(1000px) rotateX(10deg) scale(0.96) translateY(4px)";
-            } else {
-              el.style.filter = "blur(14px)";
-              el.style.opacity = "0.32";
-              el.style.transform = "perspective(1000px) rotateX(22deg) scale(0.88) translateY(14px)";
-            }
-          });
-        });
-      },
-      { threshold: [0, 0.2, 0.4, 0.65, 0.85, 1.0] }
-    );
-
-    cards.forEach((c) => observer.observe(c));
-    return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      observer.disconnect();
-    };
-  }, [current64Games]);
-
   const gameGridItems = useMemo(
-    () => current64Games.map((game, index) => (
-      <div
-        key={`${game.id}-p${currentPage}`}
-        className="scroll-anim-wrapper card-batch-anim"
-        style={{ "--card-i": index } as React.CSSProperties}
-      >
+    () => current64Games.map((game) => (
+      <div key={`${game.id}-p${currentPage}`}>
         <GameCardListItem
           game={game}
           isSelected={game.id === selectedGameId}

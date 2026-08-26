@@ -155,7 +155,7 @@ export class MouseDeltaFilter {
     const dtMs = tsMs - this.lastTsMs;
     const directionReversalCosineThreshold = this.relaxedForRawInput ? 0.89 : 0.81;
     if (dtMs < 0.95 && dot < 0 && magPrev !== 0 && dot * dot > directionReversalCosineThreshold * magIncoming * magPrev) {
-      const ratio = Math.sqrt(magIncoming / magPrev);
+      const ratio = Math.sqrt(magIncoming) / Math.sqrt(magPrev);
       let distToInt = Math.abs(ratio - Math.trunc(ratio));
       if (distToInt > 0.5) {
         distToInt = 1 - distToInt;

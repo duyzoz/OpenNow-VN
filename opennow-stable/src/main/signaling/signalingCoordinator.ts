@@ -34,22 +34,6 @@ export class SignalingCoordinator {
   private nativeStreamerContext: NativeStreamerSessionContext | null = null;
   private nativeStreamerFallbackSessionId: string | null = null;
 
-  /**
-   * PERF: probing the native streamer spawns the GStreamer helper process and
-   * walks the bundled runtime directory. That work took ~1s and made the whole
-   * Settings > Native streamer tab freeze every time it was opened, because the
-   * renderer awaited it before painting and every re-open re-probed from zero.
-   *
-   * We now serve the last known status instantly and refresh in the background,
-   * and we de-duplicate concurrent probes so rapid tab switching can only ever
-   * have one probe in flight.
-   */
-  private nativeStreamerStatusCache: NativeStreamerStatus | null = null;
-  private nativeStreamerStatusCachedAt = 0;
-  private nativeStreamerStatusInFlight: Promise<NativeStreamerStatus> | null = null;
-
-  private static readonly NATIVE_STATUS_TTL_MS = 60_000;
-
   constructor(private readonly deps: SignalingCoordinatorDeps) {}
 
   registerIpcHandlers(): void {
@@ -171,7 +155,7 @@ export class SignalingCoordinator {
     ipcMain.handle(
       IPC_CHANNELS.NATIVE_STREAMER_STATUS,
       async (): Promise<NativeStreamerStatus> => {
-        return this.getNativeStreamerStatusCached();
+        return this.getNativeStreamerManager().probeStatus();
       },
     );
 
@@ -184,69 +168,6 @@ export class SignalingCoordinator {
       );
       return capabilities;
     });
-  }
-
-  /**
-   * Returns a native streamer status without ever blocking the caller on a cold
-   * probe more than once. Behaviour:
-   *  - fresh cache -> returned synchronously (no probe at all)
-   *  - stale cache -> returned immediately, refreshed in the background
-   *  - no cache    -> awaits the probe, but shares it with concurrent callers
-   */
-  private async getNativeStreamerStatusCached(): Promise<NativeStreamerStatus> {
-    const age = Date.now() - this.nativeStreamerStatusCachedAt;
-    const isFresh = this.nativeStreamerStatusCache !== null
-      && age < SignalingCoordinator.NATIVE_STATUS_TTL_MS;
-
-    if (isFresh) {
-      return this.nativeStreamerStatusCache as NativeStreamerStatus;
-    }
-
-    if (this.nativeStreamerStatusCache !== null) {
-      // Stale: hand back the previous answer instantly, refresh behind the scenes.
-      void this.refreshNativeStreamerStatus();
-      return this.nativeStreamerStatusCache;
-    }
-
-    return this.refreshNativeStreamerStatus();
-  }
-
-  private refreshNativeStreamerStatus(): Promise<NativeStreamerStatus> {
-    this.nativeStreamerStatusInFlight ??= this.getNativeStreamerManager()
-      .probeStatus()
-      .then((status) => {
-        this.nativeStreamerStatusCache = status;
-        this.nativeStreamerStatusCachedAt = Date.now();
-        return status;
-      })
-      .finally(() => {
-        this.nativeStreamerStatusInFlight = null;
-      });
-
-    return this.nativeStreamerStatusInFlight;
-  }
-
-  /**
-   * Warm the native streamer status shortly after boot, while the user is still
-   * looking at the catalog. By the time Settings is opened the answer is already
-   * cached, so the tab paints instantly instead of stalling on a cold probe.
-   */
-  warmNativeStreamerStatus(delayMs = 8000): void {
-    const timer = setTimeout(() => {
-      void this.refreshNativeStreamerStatus().catch((error) => {
-        console.warn(
-          "[NativeStreamer] Background warm-up probe failed:",
-          (error as Error).message,
-        );
-      });
-    }, delayMs);
-    timer.unref?.();
-  }
-
-  /** Drop the cached status so the next read re-probes (e.g. after a settings change). */
-  invalidateNativeStreamerStatus(): void {
-    this.nativeStreamerStatusCache = null;
-    this.nativeStreamerStatusCachedAt = 0;
   }
 
   disconnectForShutdown(options: {
@@ -408,6 +329,22 @@ export class SignalingCoordinator {
   private emitToRenderer(event: MainToRendererSignalingEvent): void {
     const mainWindow = this.deps.getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
+      if (event.type === "native-stream-stats") {
+        const serverGpuType = event.stats.serverGpuType?.trim()
+          || this.nativeStreamerContext?.session.gpuType?.trim()
+          || undefined;
+        const serverLocation = event.stats.serverLocation?.trim()
+          || this.nativeStreamerContext?.session.serverLocation?.trim()
+          || undefined;
+        event = {
+          ...event,
+          stats: {
+            ...event.stats,
+            serverGpuType,
+            serverLocation,
+          },
+        };
+      }
       mainWindow.webContents.send(IPC_CHANNELS.SIGNALING_EVENT, event);
     }
   }

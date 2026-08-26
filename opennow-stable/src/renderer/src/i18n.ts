@@ -1,13 +1,13 @@
 import { useMemo, useSyncExternalStore } from "react";
 
-import fallbackTranslations from "../../../../locales/en.json";
+import fallbackTranslations from "../../../../locales/vi.json";
 
 type TranslationValue = string | number | boolean | null | undefined;
 type TranslationValues = Record<string, TranslationValue>;
 type TranslationLeaf = string;
 type TranslationTree = { [key: string]: TranslationLeaf | TranslationTree };
 
-const FALLBACK_LOCALE = "en";
+const FALLBACK_LOCALE = "vi";
 const LOCALE_STORAGE_KEY = "opennow.locale";
 
 const localeSources = import.meta.glob<string>("../../../../locales/*.json", {
@@ -90,7 +90,8 @@ function getBrowserLocaleCandidates(): string[] {
 }
 
 function getInitialLocale(): string {
-  return readStoredLocale() ?? getBrowserLocaleCandidates()[0] ?? FALLBACK_LOCALE;
+  // OpenNow-VN is intentionally Vietnamese-only; never follow browser/system locale.
+  return FALLBACK_LOCALE;
 }
 
 function parseLocaleJson(locale: string, raw: string): TranslationTree | null {
@@ -175,25 +176,18 @@ export function getLocale(): string {
 }
 
 export function getAvailableLocales(): string[] {
-  const locales = new Set<string>([FALLBACK_LOCALE]);
-  for (const path of Object.keys(localeSources)) {
-    const locale = localeFromPath(path);
-    if (locale) locales.add(locale);
-  }
-  return [...locales].sort();
+  return [FALLBACK_LOCALE];
 }
 
-export async function setLocale(locale: string): Promise<void> {
-  const normalized = normalizeLocale(locale);
-  const translations = loadTranslations(normalized);
-  writeStoredLocale(normalized);
-  setActiveTranslations(normalized, translations);
+export async function setLocale(_locale: string): Promise<void> {
+  const translations = loadTranslations(FALLBACK_LOCALE);
+  writeStoredLocale(FALLBACK_LOCALE);
+  setActiveTranslations(FALLBACK_LOCALE, translations);
 }
 
 export async function initializeLocale(): Promise<void> {
-  const initialLocale = getInitialLocale();
-  const translations = loadTranslations(initialLocale);
-  setActiveTranslations(initialLocale, translations);
+  const translations = loadTranslations(FALLBACK_LOCALE);
+  setActiveTranslations(FALLBACK_LOCALE, translations);
 }
 
 export function useTranslation(): {

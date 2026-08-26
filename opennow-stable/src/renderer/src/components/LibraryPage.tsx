@@ -1,4 +1,4 @@
-import { Library, Search, Clock, Gamepad2, ArrowUpDown, Filter, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Library, Search, Gamepad2, ArrowUpDown, Filter, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { JSX } from "react";
 import { AnimatePresence, m } from "motion/react";
@@ -16,7 +16,6 @@ import {
   type LibraryFilterOption,
 } from "../lib/libraryFilters";
 import { useTranslation } from "../i18n";
-import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 import { controllerButton, readControllerGamepadButtons } from "../utils/controllerGamepad";
 import { pageTransition } from "./MotionProvider";
 import { GameInfoPanel } from "./GameInfoPanel";
@@ -124,6 +123,7 @@ export const LibraryPage = memo(function LibraryPage({
     onPlayGame,
     onSelectGame,
     onSelectGameVariant,
+    onOpenStore: onBuyGame ? (game, variantId) => onBuyGame(game, variantId) : undefined,
     onResumeGame,
     onTerminateGame,
     onShowGameInfo: setGameInfoGame,
@@ -274,45 +274,6 @@ export const LibraryPage = memo(function LibraryPage({
     () => visibleLibraryGames.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
     [visibleLibraryGames, currentPage]
   );
-
-  useEffect(() => {
-    const cards = document.querySelectorAll(".library-grid-area .scroll-anim-wrapper");
-    if (cards.length === 0) return undefined;
-
-    let rafId: number | null = null;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (rafId !== null) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          entries.forEach((entry) => {
-            const ratio = entry.intersectionRatio;
-            const el = entry.target as HTMLElement;
-            if (ratio >= 0.65) {
-              el.style.filter = "blur(0px)";
-              el.style.opacity = "1";
-              el.style.transform = "perspective(1000px) rotateX(0deg) scale(1) translateY(0)";
-            } else if (ratio >= 0.35) {
-              el.style.filter = "blur(5px)";
-              el.style.opacity = "0.78";
-              el.style.transform = "perspective(1000px) rotateX(10deg) scale(0.96) translateY(4px)";
-            } else {
-              el.style.filter = "blur(14px)";
-              el.style.opacity = "0.32";
-              el.style.transform = "perspective(1000px) rotateX(22deg) scale(0.88) translateY(14px)";
-            }
-          });
-        });
-      },
-      { threshold: [0, 0.2, 0.4, 0.65, 0.85, 1.0] }
-    );
-
-    cards.forEach((c) => observer.observe(c));
-    return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      observer.disconnect();
-    };
-  }, [current64LibraryGames]);
 
   const toggleLibraryFilter = (filterId: string): void => {
     setSelectedLibraryFilterIds((previous) => (
@@ -652,10 +613,8 @@ export const LibraryPage = memo(function LibraryPage({
   }, [controllerMode, controllerSearchOpen, onNextControllerPage, onPreviousControllerPage, surfaceActive]);
 
   const libraryGridItems = useMemo(
-    () => current64LibraryGames.map((game) => {
-      const lastPlayedAt = playtimeData[game.id]?.lastPlayedAt ?? game.lastPlayed;
-      return (
-      <div key={game.id} className="scroll-anim-wrapper">
+    () => current64LibraryGames.map((game) => (
+      <div key={game.id}>
         <GameCardListItem
           game={game}
           isSelected={game.id === selectedGameId}
@@ -663,16 +622,8 @@ export const LibraryPage = memo(function LibraryPage({
           surface="library"
           actionsRef={catalogActionsRef}
         />
-        <div
-          className={`library-last-played${lastPlayedAt ? "" : " library-last-played--empty"}`}
-          aria-hidden={lastPlayedAt ? undefined : true}
-        >
-          <Clock size={12} />
-          <span>{lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : "—"}</span>
-        </div>
       </div>
-      );
-    }),
+    )),
     [catalogActionsRef, current64LibraryGames, playtimeData, selectedGameId, selectedVariantByGameId],
   );
 
@@ -961,7 +912,9 @@ export const LibraryPage = memo(function LibraryPage({
           <GameInfoPanel
             game={gameInfoGame}
             isActiveGame={activeSessionAppIds.some(
-              (id) => (gameInfoGame.variants ?? []).some((v) => String(v.id) === String(id)),
+              (id) =>
+                String(gameInfoGame.launchAppId ?? "") === String(id)
+                || (gameInfoGame.variants ?? []).some((v) => String(v.id) === String(id)),
             )}
             onResume={onResumeGame}
             onTerminate={onTerminateGame}

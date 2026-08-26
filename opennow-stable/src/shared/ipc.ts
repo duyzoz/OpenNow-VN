@@ -12,6 +12,10 @@ export const IPC_CHANNELS = {
   AUTH_GET_SAVED_ACCOUNTS: "auth:get-saved-accounts",
   AUTH_SWITCH_ACCOUNT: "auth:switch-account",
   AUTH_REMOVE_ACCOUNT: "auth:remove-account",
+  CONSOLE_PIN_GET_STATUS: "console:pin-get-status",
+  CONSOLE_PIN_SET: "console:pin-set",
+  CONSOLE_PIN_CLEAR: "console:pin-clear",
+  CONSOLE_PIN_VERIFY: "console:pin-verify",
   PING_REGIONS: "gfn:ping-regions",
   SUBSCRIPTION_FETCH: "subscription:fetch",
   PERSISTENT_STORAGE_LOCATIONS_FETCH: "persistent-storage:locations:fetch",
@@ -53,6 +57,8 @@ export const IPC_CHANNELS = {
   TOGGLE_POINTER_LOCK: "window:toggle-pointer-lock",
   POINTER_LOCK_CHANGE: "window:pointer-lock-change",
   EXTERNAL_ESCAPE: "app:external-escape",
+  STREAM_SHORTCUT_ACTION: "app:stream-shortcut-action",
+  STREAM_SHORTCUT_INTERCEPTION_CHANGE: "app:stream-shortcut-interception-change",
   OPEN_EXTERNAL_URL: "app:open-external-url",
   DIRECT_LAUNCH_GET_PENDING: "app:direct-launch:get-pending",
   DIRECT_LAUNCH_REQUEST: "app:direct-launch:request",
@@ -72,6 +78,7 @@ export const IPC_CHANNELS = {
   MICROPHONE_PERMISSION_GET: "microphone:permission:get",
   LOGS_EXPORT: "logs:export",
   LOGS_GET_RENDERER: "logs:get-renderer",
+  BUG_REPORT_SUBMIT: "bug-report:submit",
   SCREENSHOT_SAVE: "screenshot:save",
   SCREENSHOT_LIST: "screenshot:list",
   SCREENSHOT_DELETE: "screenshot:delete",
@@ -105,13 +112,13 @@ export const IPC_CHANNELS = {
   RELEASE_HIGHLIGHTS_GET: "release-highlights:get",
   RELEASE_HIGHLIGHTS_ACK: "release-highlights:ack",
   RELEASE_HIGHLIGHTS_SHOW: "release-highlights:show",
-  // Secondary "cloud client" stream window (additive, v9 - does not replace
-  // or alter any existing channel above).
+  // Secondary stream window retained by the Remake shell.
   STREAM_WINDOW_OPEN: "stream-window:open",
   STREAM_WINDOW_CLOSED: "stream-window:closed",
-  // Custom in-app close prompt (replaces the native OS confirm dialog).
+  // Custom in-app close prompt retained by the Remake shell.
   MAIN_WINDOW_REQUEST_CLOSE_CHOICE: "main-window:request-close-choice",
   MAIN_WINDOW_CLOSE_CHOICE_RESPONSE: "main-window:close-choice-response",
+  GPU_GET_INFO: "gpu:get-info",
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

@@ -1,4 +1,4 @@
-import { Heart, Search, X, Gamepad2, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { Heart, Search, X, Gamepad2, ChevronLeft, ChevronRight } from "lucide-react";
 import { memo, useEffect, useMemo, useState, useRef, useCallback, useSyncExternalStore, type JSX } from "react";
 import type { GameInfo } from "@shared/gfn";
 import { useTranslation } from "../i18n";
@@ -6,7 +6,6 @@ import { GameCardListItem, useCatalogCardActionsRef } from "./GameCardListItem";
 import { GameInfoPanel } from "./GameInfoPanel";
 import { SearchSuggestions } from "./SearchSuggestions";
 import { getGameSearchSuggestions, type PlaytimeData } from "../lib/gameCatalog";
-import { formatCatalogAccessTime } from "../utils/lastPlayedFormat";
 import { clearRecentGames, loadRecentGames, rememberRecentGame, type RecentGame } from "../lib/recentGames";
 import { MotionSpinner } from "./MotionSpinner";
 import { AnimatePresence } from "motion/react";
@@ -22,6 +21,7 @@ export interface FavoritesPageProps {
   /** True while the catalog is still being fetched. */
   isCatalogLoading?: boolean;
   onPlayGame: (game: GameInfo) => void;
+  onBuyGame?: (game: GameInfo, selectedVariantId?: string) => void;
   selectedGameId: string;
   onSelectGame: (id: string) => void;
   selectedVariantByGameId: Record<string, string>;
@@ -36,6 +36,7 @@ export const FavoritesPage = memo(function FavoritesPage({
   playtimeData = {},
   isCatalogLoading = false,
   onPlayGame,
+  onBuyGame,
   selectedGameId,
   onSelectGame,
   selectedVariantByGameId,
@@ -59,6 +60,7 @@ export const FavoritesPage = memo(function FavoritesPage({
     onPlayGame,
     onSelectGame,
     onSelectGameVariant,
+    onOpenStore: onBuyGame ? (game, variantId) => onBuyGame(game, variantId) : undefined,
     onResumeGame,
     onTerminateGame,
     onShowGameInfo: setInfoGame,
@@ -183,44 +185,6 @@ export const FavoritesPage = memo(function FavoritesPage({
     [visibleGames, currentPage]
   );
 
-  useEffect(() => {
-    const cards = document.querySelectorAll(".favorites-page .scroll-anim-wrapper");
-    if (cards.length === 0) return undefined;
-
-    let rafId: number | null = null;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (rafId !== null) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          entries.forEach((entry) => {
-            const ratio = entry.intersectionRatio;
-            const el = entry.target as HTMLElement;
-            if (ratio >= 0.65) {
-              el.style.filter = "blur(0px)";
-              el.style.opacity = "1";
-              el.style.transform = "perspective(1000px) rotateX(0deg) scale(1) translateY(0)";
-            } else if (ratio >= 0.35) {
-              el.style.filter = "blur(5px)";
-              el.style.opacity = "0.78";
-              el.style.transform = "perspective(1000px) rotateX(10deg) scale(0.96) translateY(4px)";
-            } else {
-              el.style.filter = "blur(14px)";
-              el.style.opacity = "0.32";
-              el.style.transform = "perspective(1000px) rotateX(22deg) scale(0.88) translateY(14px)";
-            }
-          });
-        });
-      },
-      { threshold: [0, 0.2, 0.4, 0.65, 0.85, 1.0] }
-    );
-
-    cards.forEach((c) => observer.observe(c));
-    return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      observer.disconnect();
-    };
-  }, [current64FavoriteGames]);
 
   const activeInfoGame = infoGame
     ? {
@@ -366,12 +330,8 @@ export const FavoritesPage = memo(function FavoritesPage({
         <div className="favorites-grid-area">
           <div style={{ position: "relative", width: "100%" }}>
             <div className="game-grid">
-              {current64FavoriteGames.map((game, index) => (
-                <div
-                  key={`${game.id}-p${currentPage}`}
-                  className="scroll-anim-wrapper card-batch-anim"
-                  style={{ "--card-i": index } as React.CSSProperties}
-                >
+              {current64FavoriteGames.map((game) => (
+                <div key={`${game.id}-p${currentPage}`}>
                   <GameCardListItem
                     game={game}
                     selectedVariantId={selectedVariantByGameId[game.id]}
@@ -379,15 +339,6 @@ export const FavoritesPage = memo(function FavoritesPage({
                     surface="home"
                     actionsRef={catalogActionsRef}
                   />
-                  {(() => {
-                    const lastPlayedAt = playtimeData[game.id]?.lastPlayedAt ?? game.lastPlayed;
-                    return (
-                      <div className={`library-last-played${lastPlayedAt ? "" : " library-last-played--empty"}`} aria-hidden={lastPlayedAt ? undefined : true}>
-                        <Clock size={12} />
-                        <span>{lastPlayedAt ? formatCatalogAccessTime(lastPlayedAt) : "—"}</span>
-                      </div>
-                    );
-                  })()}
                 </div>
               ))}
             </div>

@@ -8,7 +8,6 @@ import type {
   DirectLaunchRequest,
   GameInfo,
   LoginProvider,
-  NativeStreamerShortcutAction,
   ReleaseHighlightsPayload,
   SessionInfo,
   SessionStopRequest,
@@ -21,7 +20,6 @@ import type {
 } from "@shared/gfn";
 import { discordGameImageUrl } from "@shared/discord";
 import {
-  buildNativeStreamerSessionContext,
   createDefaultSettings,
   createPlatformShortcutDefaults,
   resolveEntitledStreamProfile,
@@ -29,7 +27,7 @@ import {
   SAFE_FALLBACK_STREAM_PROFILE,
 } from "@shared/gfn";
 import { formatShortcutForDisplay, isShortcutMatch, normalizeShortcut } from "./shortcuts";
-import { dispatchStreamShortcutAction } from "./streamShortcutActions";
+import { dispatchStreamShortcutAction, type StreamShortcutAction } from "./streamShortcutActions";
 import { useElapsedSeconds } from "./utils/useElapsedSeconds";
 import { useAuthSession } from "./hooks/useAuthSession";
 import { useCatalogData } from "./hooks/useCatalogData";
@@ -46,8 +44,15 @@ import {
 import { useQueueAdRuntime } from "./hooks/useQueueAdRuntime";
 import { usePlaytime } from "./utils/usePlaytime";
 import { createStreamDiagnosticsStore, useStreamDiagnosticsSelector } from "./utils/streamDiagnosticsStore";
+import { nextStatsOverlayMode } from "./utils/streamStatsHud";
 import type { StreamStatus } from "./lib/appTypes";
-import { loadStoredCodecResults, saveStoredCodecResults, testCodecSupport, type CodecTestResult } from "./lib/codecDiagnostics";
+import {
+  loadStoredCodecResults,
+  resolveEffectiveCodec,
+  saveStoredCodecResults,
+  testCodecSupport,
+  type CodecTestResult,
+} from "./lib/codecDiagnostics";
 import {
   createSyntheticDirectLaunchGame,
   findDirectLaunchTarget,
@@ -61,6 +66,7 @@ import {
   parseNumericId,
   sortLibraryGames,
 } from "./lib/gameCatalog";
+import { getGameBoxArtUrl, getGameHeroArtUrl } from "./lib/gameArtwork";
 import { resolveInstallToPlayStorageRegionUrl } from "./lib/launchOwnership";
 import { hasAnyEligiblePrintedWasteZone, isAllianceStreamingBaseUrl } from "./lib/printedWaste";
 import { normalizeMembershipTier } from "./lib/queueAds";
@@ -76,7 +82,9 @@ import {
   isStreamVideoReady,
   toLoadingStatus,
 } from "./lib/sessionState";
+import { isStreamPointerLocked } from "./lib/pointerLock";
 import { defaultDiagnostics } from "./lib/streamDiagnostics";
+import { AntiAfkPulseScheduler } from "./components/stream/antiAfkPulseScheduler";
 import { selectRecoveryCandidate } from "./lib/streamRecoveryDecisions";
 import { applyAccentColor, applyTheme, applyTranslucentUI } from "./lib/uiCustomization";
 import { useTranslation } from "./i18n";
@@ -92,14 +100,12 @@ import { SettingsPage } from "./components/SettingsPage";
 import { SettingsModalHost } from "./components/SettingsModalHost";
 import { StreamLoading } from "./components/StreamLoading";
 import { StreamView } from "./components/StreamView";
-import { QueueServerSelectModal } from "./components/QueueServerSelectModal";
+import { QueueServerSelectModal, type QueueServerSelection } from "./components/QueueServerSelectModal";
 import { ReleaseHighlightsModal } from "./components/ReleaseHighlightsModal";
 import { ErrorReportingConsentModal } from "./components/ErrorReportingConsentModal";
 import { FeedbackModal } from "./components/FeedbackModal";
 import { ModalSurface } from "./components/ui/ModalSurface";
 import { overlayMotion, pageTransition, streamRevealTransition } from "./components/MotionProvider";
-import { LazyShaderAtmosphere } from "./components/LazyShaderAtmosphere";
-import { PerfModePrompt } from "./components/PerfModePrompt";
 import { syncRendererTelemetry } from "./telemetry/posthog";
 // Additive (v9+): cloud client dedicated components
 
@@ -242,6 +248,8 @@ export function App(): JSX.Element {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackSurfacePresent, setFeedbackSurfacePresent] = useState(false);
   const [consentSurfacePresent, setConsentSurfacePresent] = useState(false);
+  // UI-only fallback for Basic Rig while live diagnostics are still warming up.
+  const [selectedServerLabel, setSelectedServerLabel] = useState<string | null>(null);
   const activeSessionProxyUrl = useMemo(
     () => getEnabledSessionProxyUrl(settings),
     [settings.sessionProxyEnabled, settings.sessionProxyUrl],
@@ -253,18 +261,18 @@ export function App(): JSX.Element {
     diagnosticsStoreRef.current ?? (diagnosticsStoreRef.current = createStreamDiagnosticsStore(defaultDiagnostics()));
   const diagnosticsVideoReady = useStreamDiagnosticsSelector(
     diagnosticsStore,
-    (stats) => stats.nativeRendererActive || stats.framesDecoded > 0,
+    (stats) => stats.framesDecoded > 0,
   );
 
   const { runtime: streamRuntime, recovery, snapshot } = useStreamSession();
   const {
     session, setSession,
     streamStatus, setStreamStatus,
-    showStatsOverlay, setShowStatsOverlay,
+    statsMode, setStatsMode,
     antiAfkEnabled, setAntiAfkEnabled,
+    nativeInputCaptureActive,
+    nativeStreamingRef,
     antiAfkAckNonce, setAntiAfkAckNonce,
-    nativeInputCaptureActive, setNativeInputCaptureActive,
-    nativeInputBridgeReady, setNativeInputBridgeReady,
     streamingGame, setStreamingGame,
     streamingStore, setStreamingStore,
     queuePosition, setQueuePosition,
@@ -277,6 +285,7 @@ export function App(): JSX.Element {
     queueModalGame, setQueueModalGame,
     queueModalData, setQueueModalData,
     sessionStartedAtMs, setSessionStartedAtMs,
+    launchStartedAtMs, setLaunchStartedAtMs,
     remoteStreamWarning, setRemoteStreamWarning,
     localSessionTimerWarning, setLocalSessionTimerWarning,
     streamVolume, setStreamVolume,
@@ -285,8 +294,6 @@ export function App(): JSX.Element {
     videoRef, audioRef, clientRef,
     previousFreeTierRemainingSecondsRef,
     navbarSessionActionInFlightRef,
-    nativeStreamingRef,
-    handleStreamShortcutActionRef,
     streamingGameRef,
     isStreamingRef,
     sessionRef,
@@ -298,7 +305,6 @@ export function App(): JSX.Element {
     launchAbortRef,
     discordStreamingActivitySessionRef,
     streamStatusRef,
-    nativeInputProtocolVersionRef,
     awaitingRecoveryRemoteIceRef,
     appUnloadingRef,
     signalingRecoveryRef,
@@ -331,8 +337,8 @@ export function App(): JSX.Element {
   }, [streamingGame]);
 
   const resetStatsOverlayToPreference = useCallback((): void => {
-    setShowStatsOverlay(settings.showStatsOnLaunch);
-  }, [settings.showStatsOnLaunch]);
+    setStatsMode(settings.showStatsOnLaunch ? "compact" : "off");
+  }, [setStatsMode, settings.showStatsOnLaunch]);
 
   const runCodecTest = useCallback(async (): Promise<void> => {
     if (codecTestPromiseRef.current) {
@@ -479,7 +485,10 @@ export function App(): JSX.Element {
 
   const onBootstrapSettings = useCallback((loadedSettings: Settings, _sessionProxyUrl: string | undefined) => {
     setSettings(loadedSettings);
-    setShowStatsOverlay(loadedSettings.showStatsOnLaunch);
+    setStatsMode(loadedSettings.showStatsOnLaunch ? "compact" : "off");
+    // This release has one persisted Anti-AFK switch. Keep the runtime badge and
+    // Quick Menu in sync with it without touching stream transport code.
+    setAntiAfkEnabled(Boolean(loadedSettings.showAntiAfkIndicator));
     setSettingsLoaded(true);
   }, []);
 
@@ -673,12 +682,11 @@ export function App(): JSX.Element {
     setSession(null);
     setStreamStatus("idle");
     setQueuePosition(undefined);
+    setLaunchStartedAtMs(null);
     setSessionStartedAtMs(null);
     setRemoteStreamWarning(null);
     setLocalSessionTimerWarning(null);
     resetStatsOverlayToPreference();
-    nativeStreamingRef.current = false;
-    window.openNow.notifyNativeInputModeChange(false, false);
     diagnosticsStore.set(defaultDiagnostics());
 
     if (!options?.keepStreamingContext) {
@@ -740,17 +748,13 @@ export function App(): JSX.Element {
       resolution: streamProfile.resolution,
       fps: streamProfile.fps,
       maxBitrateMbps: settings.maxBitrateMbps,
-      codec: settings.codec,
+      codec: resolveEffectiveCodec(settings.codec, codecResults),
       colorQuality: settings.colorQuality,
       keyboardLayout: settings.keyboardLayout,
       gameLanguage: settings.gameLanguage,
       enableL4S: settings.enableL4S,
       enableCloudGsync: settings.enableCloudGsync,
-      clientMode: settings.streamClientMode,
-      nativeStreamerBackend: "gstreamer",
-      transportMode: "webrtc",
-      nativeCloudGsyncMode: settings.nativeCloudGsyncMode,
-      nativeTransitionDiagnostics: settings.nativeTransitionDiagnostics,
+      clientMode: "web",
       appLaunchMode:
         settings.controllerMode || settings.launchInConsoleMode || directLaunchConsoleMode
           ? "gamepadFriendly"
@@ -758,6 +762,7 @@ export function App(): JSX.Element {
     };
   }, [
     settings.codec,
+    codecResults,
     settings.colorQuality,
     settings.controllerMode,
     directLaunchConsoleMode,
@@ -768,30 +773,9 @@ export function App(): JSX.Element {
     settings.keyboardLayout,
     settings.launchInConsoleMode,
     settings.maxBitrateMbps,
-    settings.nativeCloudGsyncMode,
-    settings.nativeTransitionDiagnostics,
     settings.resolution,
-    settings.streamClientMode,
     subscriptionInfo?.entitledResolutions,
   ]);
-
-  const warmNativeStreamerForLaunch = useCallback((): void => {
-    if (settings.streamClientMode !== "native") {
-      return;
-    }
-
-    void window.openNow.getNativeStreamerStatus()
-      .then((status) => {
-        if (status.detected) {
-          console.log("[NativeStreamer] Launch warm-up ready:", status.message);
-        } else {
-          console.warn("[NativeStreamer] Launch warm-up did not detect native streamer:", status.message);
-        }
-      })
-      .catch((error) => {
-        console.warn("[NativeStreamer] Launch warm-up failed:", error);
-      });
-  }, [settings.streamClientMode]);
 
   // Derived state
 
@@ -874,6 +858,7 @@ export function App(): JSX.Element {
     setQueuePosition,
     setSession,
     subscriptionInfo,
+
     t,
   });
 
@@ -967,6 +952,24 @@ export function App(): JSX.Element {
     return true;
   }, [authSession]);
 
+  const warmNativeStreamerForLaunch = useCallback((): void => {
+    if (settings.streamClientMode !== "native") {
+      return;
+    }
+
+    void window.openNow.getNativeStreamerStatus()
+      .then((status) => {
+        if (status.detected) {
+          console.log("[NativeStreamer] Launch warm-up ready:", status.message);
+        } else {
+          console.warn("[NativeStreamer] Launch warm-up did not detect native streamer:", status.message);
+        }
+      })
+      .catch((error) => {
+        console.warn("[NativeStreamer] Launch warm-up failed:", error);
+      });
+  }, [settings.streamClientMode]);
+
   useEffect(() => {
     if (!authSession || streamStatus !== "idle") {
       return;
@@ -1016,34 +1019,13 @@ export function App(): JSX.Element {
     settings.shortcutToggleRecording,
   ]);
 
-  const nativeStreamerShortcuts = useMemo(() => ({
-    toggleStats: shortcuts.toggleStats.canonical,
-    togglePointerLock: shortcuts.togglePointerLock.canonical,
-    toggleFullscreen: shortcuts.toggleFullscreen.canonical,
-    stopStream: shortcuts.stopStream.canonical,
-    toggleAntiAfk: shortcuts.toggleAntiAfk.canonical,
-    toggleMicrophone: shortcuts.toggleMicrophone.canonical,
-    screenshot: "",
-    toggleRecording: "",
-  }), [shortcuts]);
-
   const buildSignalingConnectRequest = useCallback((activeSession: SessionInfo): SignalingConnectRequest => {
-    const streamSettings = buildCurrentStreamSettings();
     return {
       sessionId: activeSession.sessionId,
       signalingServer: activeSession.signalingServer,
       signalingUrl: activeSession.signalingUrl,
-      nativeStreamer: buildNativeStreamerSessionContext(activeSession, streamSettings, nativeStreamerShortcuts),
     };
-  }, [buildCurrentStreamSettings, nativeStreamerShortcuts]);
-
-  // Propagate shortcut binding changes to native process during active session
-  useEffect(() => {
-    if (streamStatus !== "streaming" || !session || !nativeStreamingRef.current) {
-      return;
-    }
-    window.openNow.updateNativeShortcuts(nativeStreamerShortcuts);
-  }, [nativeStreamerShortcuts, session, streamStatus]);
+  }, [buildCurrentStreamSettings]);
 
   const setSessionFullscreen = useCallback(async (nextFullscreen: boolean) => {
     const canUseNativeFullscreen = typeof window.openNow?.setFullscreen === "function";
@@ -1128,7 +1110,7 @@ export function App(): JSX.Element {
       return;
     }
     window.openNow.setNativeInputPaused(paused);
-  }, [settings.streamClientMode]);
+  }, [nativeStreamingRef, settings.streamClientMode]);
 
   const resolveExitPrompt = useCallback((confirmed: boolean) => {
     const resolver = exitPromptResolverRef.current;
@@ -1210,19 +1192,18 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     if (!antiAfkEnabled || streamStatus !== "streaming") return;
-    if (nativeStreamingRef.current && !nativeInputBridgeReady) return;
 
-    // Send first pulse immediately on stream start, then every 60s.
-    // 60s is well within GFN's ~5min idle timeout, ensuring the session
-    // never auto-disconnects while the app is running.
-    clientRef.current?.sendAntiAfkPulse();
+    // Wait for the input handshake/native bridge to be ready before sending
+    // F13. A false result is local readiness feedback only, never a server ACK.
+    // Keep the existing 60s cadence once a pulse is accepted locally.
+    const scheduler = new AntiAfkPulseScheduler(
+      window,
+      () => clientRef.current?.sendAntiAfkPulse() ?? false,
+    );
+    scheduler.start();
 
-    const interval = window.setInterval(() => {
-      clientRef.current?.sendAntiAfkPulse();
-    }, 60000); // 60 seconds — aggressive keep-alive
-
-    return () => clearInterval(interval);
-  }, [antiAfkEnabled, nativeInputBridgeReady, streamStatus]);
+    return () => scheduler.stop();
+  }, [antiAfkEnabled, streamStatus]);
 
   // Periodically re-sync subscription playtime from backend while streaming.
   useEffect(() => {
@@ -1394,7 +1375,13 @@ export function App(): JSX.Element {
         // ignore
       }
     }
-  }, []);
+    if (key === "showAntiAfkIndicator") {
+      setAntiAfkEnabled(value as boolean);
+      if (streamStatus === "streaming") {
+        setAntiAfkAckNonce((nonce) => nonce + 1);
+      }
+    }
+  }, [setAntiAfkEnabled, setAntiAfkAckNonce, streamStatus]);
 
   const updateSetting = useCallback(async <K extends keyof Settings>(key: K, value: Settings[K]): Promise<void> => {
     previewSetting(key, value);
@@ -1576,9 +1563,6 @@ export function App(): JSX.Element {
 
     setSession(claimed);
     sessionRef.current = claimed;
-    nativeInputProtocolVersionRef.current = null;
-    setNativeInputBridgeReady(false);
-    setNativeInputCaptureActive(false);
     try {
       window.openNow.notifyPointerLockChange(false, true);
     } catch {
@@ -1609,8 +1593,6 @@ export function App(): JSX.Element {
         if (!existingSession.serverIp) {
           throw new Error("Active session is missing server address. Start the game again to create a new session.");
         }
-        warmNativeStreamerForLaunch();
-
         console.log("[Resume] claimAndConnectSession: invoking claimSession", {
           sessionId: existingSession.sessionId,
           serverIp: existingSession.serverIp,
@@ -1652,7 +1634,7 @@ export function App(): JSX.Element {
 
     claimResumePromisesRef.current.set(sid, resumePromiseHolder.promise);
     await resumePromiseHolder.promise;
-  }, [applyClaimedSessionAndConnect, authSession, buildCurrentStreamSettings, effectiveStreamingBaseUrl, findGameContextForSession, resolveResumeIdentity, resolveSessionClaimAppId, resolveSubscriptionInfoForLaunch, warmNativeStreamerForLaunch]);
+  }, [applyClaimedSessionAndConnect, authSession, buildCurrentStreamSettings, effectiveStreamingBaseUrl, findGameContextForSession, resolveResumeIdentity, resolveSessionClaimAppId, resolveSubscriptionInfoForLaunch]);
 
   const attemptSessionRecovery = useCallback(async (reason: string): Promise<boolean> => {
     const recoveryState = signalingRecoveryRef.current;
@@ -1860,6 +1842,7 @@ export function App(): JSX.Element {
     resolveSubscriptionInfoForLaunch,
     settings,
     startPlaytimeSession,
+    stopSessionByTarget,
     subscriptionInfo,
     t,
     variantByGameId,
@@ -2036,12 +2019,15 @@ export function App(): JSX.Element {
     void handlePlayGame(game);
   }, [subscriptionInfo, authSession, selectedProvider, settings.hideServerSelector, streamStatus, handlePlayGame, effectiveStreamingBaseUrl]);
 
-  const handleQueueModalConfirm = useCallback((zoneUrl: string | null) => {
+  const handleQueueModalConfirm = useCallback((selection: QueueServerSelection | null) => {
     const game = queueModalGame;
     setQueueModalGame(null);
     setQueueModalData(null);
+    setSelectedServerLabel(selection?.displayLabel ?? selection?.zoneId ?? null);
     if (!game) return;
-    void handlePlayGame(game, { streamingBaseUrl: zoneUrl ?? undefined });
+    // Keep the original routing URL as the launch payload; the zone label is
+    // retained only for the Basic Rig/HUD fallback while diagnostics warm up.
+    void handlePlayGame(game, { streamingBaseUrl: selection?.routingUrl ?? undefined });
   }, [queueModalGame, handlePlayGame]);
 
   const handleQueueModalCancel = useCallback(() => {
@@ -2291,20 +2277,19 @@ export function App(): JSX.Element {
     await handleStopStream();
   }, [handleStopStream, releasePointerLockIfNeeded, requestExitPrompt, streamStatus, streamingGame?.title, t]);
 
-  const handleStreamShortcutAction = useCallback((action: NativeStreamerShortcutAction): void => {
+  const handleStreamShortcutAction = useCallback((action: StreamShortcutAction): void => {
     switch (action) {
       case "toggleStats":
-        setShowStatsOverlay((prev) => !prev);
+        setStatsMode(nextStatsOverlayMode);
         return;
       case "togglePointerLock":
         if (nativeStreamingRef.current) {
-          // Native streamer toggles OS input capture locally in the renderer window.
           return;
         }
         {
           const targetVideo = videoRef.current;
           if (streamStatus === "streaming" && targetVideo) {
-            if (document.pointerLockElement === targetVideo) {
+            if (isStreamPointerLocked(targetVideo)) {
               clientRef.current?.suppressNextSyntheticEscapeOnPointerLockLoss();
               document.exitPointerLock();
             } else {
@@ -2334,16 +2319,12 @@ export function App(): JSX.Element {
         return;
       case "screenshot":
       case "toggleRecording":
-        if (streamStatus === "streaming" && !nativeStreamingRef.current) {
+        if (streamStatus === "streaming") {
           dispatchStreamShortcutAction(action);
         }
         return;
     }
-  }, [handlePromptedStopStream, requestPointerLockCapture, streamStatus, toggleSessionFullscreen]);
-
-  useEffect(() => {
-    handleStreamShortcutActionRef.current = handleStreamShortcutAction;
-  }, [handleStreamShortcutAction]);
+  }, [handlePromptedStopStream, nativeStreamingRef, requestPointerLockCapture, setStatsMode, streamStatus, toggleSessionFullscreen]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2485,8 +2466,26 @@ export function App(): JSX.Element {
     if (session?.sessionId === navbarActiveSession.sessionId && streamingGame?.title) {
       return streamingGame.title;
     }
+
+    // After a client restart the catalog may not expose the session app id in the
+    // same shape as the live session. Use the persisted game id only when the
+    // snapshot still points at this exact remote session/app; never invent a
+    // resumable session from local storage alone.
+    const snapshot = runtimeSnapshotRef.current;
+    const snapshotMatches = Boolean(
+      snapshot && (
+        snapshot.sessionId === navbarActiveSession.sessionId
+        || snapshot.sessionAppId === navbarActiveSession.appId
+      ),
+    );
+    if (snapshotMatches && snapshot?.streamingGameId) {
+      const snapshotGame = allKnownGames.find((game) =>
+        game.id === snapshot.streamingGameId || game.uuid === snapshot.streamingGameId,
+      );
+      if (snapshotGame?.title) return snapshotGame.title;
+    }
     return null;
-  }, [gameTitleByAppId, navbarActiveSession, session?.sessionId, streamingGame?.title]);
+  }, [allKnownGames, gameTitleByAppId, navbarActiveSession, session?.sessionId, streamingGame?.title]);
 
   const navigateControllerPage = useCallback((direction: -1 | 1): void => {
     const pages: AppPage[] = ["library", "home", "favorites", "settings"];
@@ -2604,7 +2603,9 @@ export function App(): JSX.Element {
     : streamStatus === "streaming"
       ? "connecting"
       : toLoadingStatus(streamStatus);
-  const showCatalogAtmosphere = mainPage === "home" || mainPage === "library";
+  // Catalog shader/canvas work is intentionally disabled: it was the remaining
+  // persistent frame cost while scrolling Home/Library on weak machines.
+  const showCatalogAtmosphere = false;
   const shellBlocked = showLaunchOverlay
     || streamSurfacePresent
     || launchSurfacePresent
@@ -2634,13 +2635,6 @@ export function App(): JSX.Element {
         inert={shellBlocked ? true : undefined}
         aria-hidden={shellBlocked || undefined}
       >
-      {showCatalogAtmosphere && (
-        <LazyShaderAtmosphere
-          variant="controller"
-          className="catalog-atmosphere"
-          active={catalogSurfaceActive}
-        />
-      )}
       <AnimatePresence>
         {startupRefreshNotice && (
           <m.div
@@ -2748,6 +2742,7 @@ export function App(): JSX.Element {
                   playtimeData={playtime}
                   isCatalogLoading={isLoadingCatalog}
                   onPlayGame={handleInitiatePlay}
+                  onBuyGame={handleBuyGame}
                   selectedGameId={selectedGameId}
                   onSelectGame={setSelectedGameId}
                   selectedVariantByGameId={variantByGameId}
@@ -2812,7 +2807,8 @@ export function App(): JSX.Element {
               videoRef={videoRef}
               audioRef={audioRef}
               diagnosticsStore={diagnosticsStore}
-              showStats={showStatsOverlay}
+              statsMode={statsMode}
+              statsPosition={settings.statsOverlayPosition}
               showNativeStats={settings.showNativeStreamerStats}
               nativeInputCaptureActive={nativeInputCaptureActive}
               gstreamerEnabled={settings.streamClientMode === "native"}
@@ -2828,10 +2824,12 @@ export function App(): JSX.Element {
                 recording: shortcuts.recording.canonical,
               }}
               hideStreamButtons={settings.hideStreamButtons}
-              serverRegion={session?.serverIp}
+              serverRegion={selectedServerLabel || session?.zone?.trim() || session?.serverIp}
               antiAfkEnabled={antiAfkEnabled}
               antiAfkAckNonce={antiAfkAckNonce}
               showAntiAfkIndicator={settings.showAntiAfkIndicator}
+              antiAfkReminderEveryMinutes={settings.antiAfkReminderEveryMinutes}
+              antiAfkReminderDurationSeconds={settings.antiAfkReminderDurationSeconds}
               exitPrompt={exitPrompt}
               sessionStartedAtMs={sessionStartedAtMs}
               sessionCounterEnabled={settings.sessionCounterEnabled}
@@ -2845,6 +2843,8 @@ export function App(): JSX.Element {
               streamRevealComplete={streamRevealComplete}
               isStreaming={isStreaming}
               recordingBitrateMbps={settings.recordingBitrateMbps}
+              recordingResolution={settings.recordingResolution}
+              recordingFps={settings.recordingFps}
               gameTitle={streamingGame?.title ?? t("app.labels.game")}
               platformStore={streamingStore ?? undefined}
               onToggleFullscreen={() => {
@@ -2855,6 +2855,7 @@ export function App(): JSX.Element {
               onEndSession={() => {
                 void handlePromptedStopStream();
               }}
+              onReportBug={() => setFeedbackOpen(true)}
               onToggleMicrophone={() => {
                 clientRef.current?.toggleMicrophone();
               }}
@@ -2869,6 +2870,15 @@ export function App(): JSX.Element {
               }}
               onRecordingShortcutChange={(value) => {
                 void updateSetting("shortcutToggleRecording", value);
+              }}
+              onRecordingResolutionChange={(value) => {
+                void updateSetting("recordingResolution", value);
+              }}
+              onRecordingFpsChange={(value) => {
+                void updateSetting("recordingFps", value);
+              }}
+              onRecordingBitrateMbpsChange={(value) => {
+                void updateSetting("recordingBitrateMbps", value);
               }}
               onShowSessionTimeRemainingInStatsOverlayChange={(value) => {
                 void updateSetting("showSessionTimeRemainingInStatsOverlay", value);
@@ -2912,9 +2922,11 @@ export function App(): JSX.Element {
           >
             <StreamLoading
               gameTitle={streamingGame?.title ?? t("app.labels.game")}
-              gameCover={streamingGame?.imageUrl}
+              gameCover={streamingGame ? getGameHeroArtUrl(streamingGame) : undefined}
+              gameLogo={streamingGame ? getGameBoxArtUrl(streamingGame) : undefined}
               platformStore={streamingStore ?? undefined}
               status={loadingStatus}
+              launchStartedAtMs={launchStartedAtMs ?? undefined}
               queuePosition={queuePosition}
               adState={effectiveAdState}
               activeAd={activeQueueAd}
@@ -2959,9 +2971,8 @@ export function App(): JSX.Element {
           onOpenFeedback={() => setFeedbackOpen(true)}
         />
       </SettingsModalHost>
-      {/* First-run "weak PC / strong PC" profile picker. Renders nothing after
-          the user has answered once, and costs zero paint work in the meantime. */}
-      <PerfModePrompt />
+      {/* The legacy weak/strong PC picker is intentionally removed. The UI keeps
+          the full visual effect budget; stream components remain unchanged. */}
       {logoutConfirmModal}
       {removeAccountConfirmModal}
       {queueModalGame && streamStatus === "idle" && (
