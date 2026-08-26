@@ -40,8 +40,8 @@ interface DomInputCaptureDependencies {
   recordSchedulingDelay: (delayMs: number) => void;
   refreshClipboardAvailability: () => Promise<boolean>;
   sendReliableSingleInput: (payload: Uint8Array) => void;
-  sendReliable: (payload: Uint8Array) => boolean;
-  sendInputPacket: (payload: Uint8Array, inputType: number) => boolean;
+  sendReliable: (payload: Uint8Array) => void;
+  sendInputPacket: (payload: Uint8Array, inputType: number) => void;
   onGamepadConnected: (event: GamepadEvent) => void;
   onGamepadDisconnected: (event: GamepadEvent) => void;
   log: (message: string) => void;
@@ -590,18 +590,6 @@ export class DomInputCaptureController {
       simulatedAbsY = Math.round((abs.y / abs.height) * serverHeight);
     };
 
-    const scheduleMouseRetry = (): void => {
-      if (this.mouseFlushTimer !== null || !hasPendingMouseMovement()) return;
-      this.mouseFlushTimer = window.setTimeout(() => {
-        this.mouseFlushTimer = null;
-        try {
-          flushMouse();
-        } catch (err) {
-          this.dependencies.log(`Mouse retry failed (non-fatal): ${String(err)}`);
-        }
-      }, Math.max(16, this.mouseFlushIntervalMs * 2));
-    };
-
     const flushMouse = (forceReliable = false): boolean => {
       const tickNow = performance.now();
       if (!this.dependencies.isInputReady() || !hasPendingMouseMovement()) {
@@ -649,26 +637,22 @@ export class DomInputCaptureController {
 
       if (this.pendingMouseAbs !== null) {
         const abs = this.pendingMouseAbs;
+        this.pendingMouseAbs = null;
         const payload = this.dependencies.inputEncoder.encodeMouseAbsolute({
           ...abs,
           timestampUs: batchTimestampUs,
         });
-        const sent = mixedBatch || forceReliable
-          ? this.dependencies.sendReliable(payload)
-          : this.dependencies.sendInputPacket(payload, INPUT_MOUSE_ABS);
-        if (!sent) {
-          scheduleMouseRetry();
-          return false;
+        if (mixedBatch || forceReliable) {
+          this.dependencies.sendReliable(payload);
+        } else {
+          this.dependencies.sendInputPacket(payload, INPUT_MOUSE_ABS);
         }
-        this.pendingMouseAbs = null;
         this.mousePacketsSentInWindow += 1;
         markServerCursorAt(abs);
         sentAny = true;
       }
 
       if (relPart !== null) {
-        const previousDx = this.pendingMouseDxFloat;
-        const previousDy = this.pendingMouseDyFloat;
         this.pendingMouseDxFloat = relPart.residualX;
         this.pendingMouseDyFloat = relPart.residualY;
 
@@ -677,24 +661,18 @@ export class DomInputCaptureController {
           dy: relPart.dyServer,
           timestampUs: batchTimestampUs,
         });
-        const sent = mixedBatch || forceReliable
-          ? this.dependencies.sendReliable(payload)
-          : this.dependencies.sendInputPacket(payload, INPUT_MOUSE_REL);
-        if (!sent) {
-          // Keep the original floating-point delta and retry it later. This is
-          // a local send failure, not evidence of server/network packet loss.
-          this.pendingMouseDxFloat = previousDx;
-          this.pendingMouseDyFloat = previousDy;
-          scheduleMouseRetry();
+        if (mixedBatch || forceReliable) {
+          this.dependencies.sendReliable(payload);
         } else {
-          this.mousePacketsSentInWindow += 1;
-
-          if (simulatedAbsX !== null && simulatedAbsY !== null) {
-            simulatedAbsX += relPart.dxServer;
-            simulatedAbsY += relPart.dyServer;
-          }
-          sentAny = true;
+          this.dependencies.sendInputPacket(payload, INPUT_MOUSE_REL);
         }
+        this.mousePacketsSentInWindow += 1;
+
+        if (simulatedAbsX !== null && simulatedAbsY !== null) {
+          simulatedAbsX += relPart.dxServer;
+          simulatedAbsY += relPart.dyServer;
+        }
+        sentAny = true;
       }
 
       if (!sentAny) {
@@ -703,10 +681,8 @@ export class DomInputCaptureController {
 
       const expectedSendAt = this.mouseFlushLastSendMs + this.mouseFlushIntervalMs;
       this.dependencies.recordSchedulingDelay(Math.max(0, tickNow - expectedSendAt));
-      if (!hasPendingMouseMovement()) {
-        this.pendingMouseTimestampUs = null;
-        this.mouseCoalescedBatchEntries = 0;
-      }
+      this.pendingMouseTimestampUs = null;
+      this.mouseCoalescedBatchEntries = 0;
       this.mouseFlushLastSendMs = tickNow;
       updateMousePacketRate();
       return true;

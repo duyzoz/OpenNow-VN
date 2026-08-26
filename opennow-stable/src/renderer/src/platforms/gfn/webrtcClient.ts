@@ -466,9 +466,9 @@ export class GfnWebRtcClient {
       {
         isNativeInputActive: () => this.nativeInputActive,
         getPartiallyReliableChannel: () => this.partiallyReliableInputChannel,
-        sendNativeInput: (payload, partiallyReliable) => (
-          this.sendNativeInput(payload, partiallyReliable)
-        ),
+        sendNativeInput: (payload, partiallyReliable) => {
+          this.sendNativeInput(payload, partiallyReliable);
+        },
         sendReliable: (payload) => this.sendReliable(payload),
       },
     );
@@ -1323,7 +1323,7 @@ export class GfnWebRtcClient {
     this.resetInputState();
     this.resetDiagnostics();
     this.gamepadController.reset();
-    this.inputSendFailureLogged = false;
+    this.reliableDropLogged = false;
     this.domInputController.reset();
     this.inputQueuePeakBufferedBytesWindow = 0;
     this.partiallyReliableInputQueuePeakBufferedBytesWindow = 0;
@@ -1487,12 +1487,12 @@ export class GfnWebRtcClient {
     return this.inputChannelPolicyController.canSendInput(inputType);
   }
 
-  private sendPartiallyReliable(payload: Uint8Array): boolean {
-    return this.inputChannelPolicyController.sendPartiallyReliable(payload);
+  private sendPartiallyReliable(payload: Uint8Array): void {
+    this.inputChannelPolicyController.sendPartiallyReliable(payload);
   }
 
-  private sendInputPacket(payload: Uint8Array, inputType: number): boolean {
-    return this.inputChannelPolicyController.sendInput(payload, inputType);
+  private sendInputPacket(payload: Uint8Array, inputType: number): void {
+    this.inputChannelPolicyController.sendInput(payload, inputType);
   }
 
   private isStreamInputBlocked(): boolean {
@@ -1751,7 +1751,7 @@ export class GfnWebRtcClient {
     };
   }
 
-  private inputSendFailureLogged = false;
+  private reliableDropLogged = false;
 
   /**
    * Send a reliable single-input packet immediately (official GFN Jc()->Tc()).
@@ -1771,52 +1771,31 @@ export class GfnWebRtcClient {
     this.sendReliable(packet);
   }
 
-  private sendNativeInput(payload: Uint8Array, partiallyReliable: boolean): boolean {
+  private sendNativeInput(payload: Uint8Array, partiallyReliable: boolean): void {
     const safePayload = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
       ? payload
       : payload.slice();
-    try {
-      window.openNow.sendNativeInput({
-        payload: safePayload,
-        partiallyReliable,
-      });
-      return true;
-    } catch (error) {
-      this.recordInputSendFailure(`native input bridge error: ${String(error)}`);
-      return false;
-    }
+    window.openNow.sendNativeInput({
+      payload: safePayload,
+      partiallyReliable,
+    });
   }
 
-  private recordInputSendFailure(reason: string): void {
-    this.inputQueueDropCount += 1;
-    if (!this.inputSendFailureLogged) {
-      this.inputSendFailureLogged = true;
-      this.log(`Input packet was not accepted locally (${reason})`);
-    }
-  }
-
-  public sendReliable(payload: Uint8Array): boolean {
+  public sendReliable(payload: Uint8Array): void {
     if (this.nativeInputActive) {
-      return this.sendNativeInput(payload, false);
+      this.sendNativeInput(payload, false);
+      return;
     }
 
     if (this.reliableInputChannel?.readyState === "open") {
       const view = payload.byteOffset === 0 && payload.byteLength === payload.buffer.byteLength
         ? payload
         : payload.slice();
-      try {
-        this.reliableInputChannel.send(view as unknown as ArrayBufferView<ArrayBuffer>);
-        return true;
-      } catch (error) {
-        this.recordInputSendFailure(`reliable channel send error: ${String(error)}`);
-        return false;
-      }
+      this.reliableInputChannel.send(view as unknown as ArrayBufferView<ArrayBuffer>);
+    } else if (!this.reliableDropLogged) {
+      this.reliableDropLogged = true;
+      this.log(`Reliable channel not open (state=${this.reliableInputChannel?.readyState ?? "null"}), dropping event (${payload.length} bytes)`);
     }
-
-    this.recordInputSendFailure(
-      `reliable channel not open (state=${this.reliableInputChannel?.readyState ?? "null"}, bytes=${payload.length})`,
-    );
-    return false;
   }
 
   public sendAntiAfkPulse(): boolean {

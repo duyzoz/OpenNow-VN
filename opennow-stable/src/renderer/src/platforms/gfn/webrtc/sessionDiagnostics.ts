@@ -1,7 +1,5 @@
 import type { SessionInfo } from "@shared/gfn";
 
-import { sanitizeReadableServerLabel } from "../../../utils/serverDisplayLabel";
-
 const SERVER_CITY_LABELS: Record<string, string> = {
   dal: "US Central",
   ash: "US East",
@@ -166,30 +164,12 @@ export function getStreamServerLocationLabel(
   diagnostics: Pick<StreamSessionDiagnostics, "serverLocation" | "serverRegion" | "serverZone">,
   fallbackRegion = "",
 ): string {
-  const serverLocation = diagnostics.serverLocation.trim();
-  const serverRegion = diagnostics.serverRegion.trim();
-  const primaryInput = serverLocation || serverRegion;
-  const primaryLabel = formatServerLocation(diagnostics.serverZone, primaryInput);
-  const normalizedZone = normalizeServerRegion(diagnostics.serverZone).toUpperCase();
-  const primaryLooksLikeOpaqueHost = /[.:/]/.test(primaryInput)
-    || (primaryInput.length > 0 && !/[a-z]/i.test(primaryInput));
-  const primaryIsUnsafePresentation = primaryInput.length > 0
-    && sanitizeReadableServerLabel(primaryInput) === null;
-  const primaryIsRawOrGeneric = primaryLabel === "--"
-    || primaryLabel.toUpperCase() === normalizedZone
-    || primaryLabel.toUpperCase() === "PROD"
-    || primaryLooksLikeOpaqueHost
-    || primaryIsUnsafePresentation;
-
-  // A selected queue label is a safer human-readable fallback than exposing
-  // prod, an opaque hostname, encoded metadata, or -- while live session
-  // metadata warms up. It is already presentation-ready, so do not run it
-  // through the hostname/zone formatter again.
-  if (fallbackRegion.trim() && primaryIsRawOrGeneric) {
-    const fallbackLabel = sanitizeReadableServerLabel(fallbackRegion);
-    if (fallbackLabel) return fallbackLabel;
-  }
-  return primaryLabel;
+  return formatServerLocation(
+    diagnostics.serverZone,
+    diagnostics.serverLocation.trim()
+      || diagnostics.serverRegion.trim()
+      || fallbackRegion.trim(),
+  );
 }
 
 export function deriveStreamSessionDiagnostics(

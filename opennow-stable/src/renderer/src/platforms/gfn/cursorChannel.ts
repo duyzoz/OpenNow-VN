@@ -207,7 +207,6 @@ export class GfnCursorOverlayController {
   private positionY = 0;
   private positionInitialized = false;
   private fallbackResolution: { width: number; height: number } | null = null;
-  private cachedViewport: StreamViewport | null = null;
   private imageLoadGeneration = 0;
 
   constructor(private readonly videoElement: HTMLVideoElement) {
@@ -359,8 +358,7 @@ export class GfnCursorOverlayController {
   }
 
   public refresh(): void {
-    const viewport = this.measureViewport();
-    this.cachedViewport = viewport;
+    const viewport = this.getViewport();
     if (!this.positionInitialized) {
       this.positionX = viewport.width / 2;
       this.positionY = viewport.height / 2;
@@ -431,10 +429,6 @@ export class GfnCursorOverlayController {
   }
 
   private getViewport(): StreamViewport {
-    return this.cachedViewport ?? this.measureViewport();
-  }
-
-  private measureViewport(): StreamViewport {
     const rect = this.videoElement.getBoundingClientRect();
     const parentRect = this.videoElement.parentElement?.getBoundingClientRect() ?? new DOMRect(0, 0, 0, 0);
     const clientWidth = rect.width || this.videoElement.clientWidth || this.fallbackResolution?.width || 1;

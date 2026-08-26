@@ -37,7 +37,6 @@ import {
   selectReadySessionToClaim,
 } from "../session/sessionSelection";
 import { discordActivityFromSession } from "../discordPresence";
-import { rememberGameTitle } from "../gameTitleCache";
 import type { DiscordActivityUpdate } from "@shared/discord";
 
 export interface SessionIpcHandlerDeps extends SessionConflictDialogDeps {
@@ -60,10 +59,6 @@ export function registerSessionIpcHandlers(deps: SessionIpcHandlerDeps): void {
   } = deps;
 
   const setLaunchPresence = (session: SessionInfo, gameName: string, gameImageUrl?: string): void => {
-    // Persist the mapping first so the background monitor never has to fall back
-    // to the numeric appId for this game again.
-    rememberGameTitle(session.appId, gameName, gameImageUrl);
-
     const activity = discordActivityFromSession(session, gameName, gameImageUrl);
     if (!settingsManager.get("discordRichPresence") || !activity) {
       return;
@@ -291,11 +286,9 @@ export function registerSessionIpcHandlers(deps: SessionIpcHandlerDeps): void {
 
   ipcMain.handle(
     IPC_CHANNELS.GET_ACTIVE_SESSIONS,
-    async (_event, token?: string, streamingBaseUrl?: string) => {
+    async (_event, token?: string, _streamingBaseUrl?: string) => {
       const jwt = await resolveJwt(token);
-      const baseUrl =
-        streamingBaseUrl ??
-        authService.getSelectedProvider().streamingServiceUrl;
+      const baseUrl = authService.getSelectedProvider().streamingServiceUrl;
       return getActiveSessions(jwt, baseUrl);
     },
   );
