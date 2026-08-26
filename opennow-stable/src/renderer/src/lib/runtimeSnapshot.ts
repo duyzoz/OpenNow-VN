@@ -89,6 +89,47 @@ export function buildRuntimeSnapshot({
   };
 }
 
+export function mergeRuntimeSnapshotContext(
+  snapshot: RuntimeSnapshot | null,
+  previousSnapshot: RuntimeSnapshot | null,
+): RuntimeSnapshot | null {
+  if (!snapshot || !previousSnapshot) return snapshot;
+
+  const snapshotSessionId = snapshot.sessionId ?? snapshot.resumeContext?.sessionId;
+  const previousSessionId = previousSnapshot.sessionId ?? previousSnapshot.resumeContext?.sessionId;
+  if (!snapshotSessionId || snapshotSessionId !== previousSessionId) {
+    return snapshot;
+  }
+
+  return {
+    ...snapshot,
+    // The server lookup restores the resumable session before catalog/game
+    // state is hydrated. Keep the last known presentation context until the
+    // user actually resumes or explicitly ends that session.
+    streamingGameId: snapshot.streamingGameId ?? previousSnapshot.streamingGameId,
+    streamingStore: snapshot.streamingStore ?? previousSnapshot.streamingStore,
+    recoveryAppId: snapshot.recoveryAppId ?? previousSnapshot.recoveryAppId,
+  };
+}
+
+export function shouldPreserveLoadedRuntimeSnapshot(
+  snapshot: RuntimeSnapshot | null,
+  streamStatus: StreamStatus,
+  hasLiveSession: boolean,
+  hasNavbarSession: boolean,
+): snapshot is RuntimeSnapshot {
+  // The first renderer effect runs before auth bootstrap restores the snapshot.
+  // Keep that already-loaded value so the startup refresh can discover the
+  // server-side session and expose the Continue action. Intentional resets set
+  // the ref to null before this predicate can preserve anything.
+  return Boolean(
+    snapshot
+      && streamStatus === "idle"
+      && !hasLiveSession
+      && !hasNavbarSession,
+  );
+}
+
 export function loadRuntimeSnapshot(): RuntimeSnapshot | null {
   try {
     const raw = localStorage.getItem(RUNTIME_SNAPSHOT_LOCALSTORAGE_KEY);

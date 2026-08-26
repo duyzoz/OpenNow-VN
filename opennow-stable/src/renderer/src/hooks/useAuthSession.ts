@@ -33,7 +33,10 @@ export interface UseAuthSessionInput {
     keepLaunchError?: boolean;
     keepStreamingContext?: boolean;
   }) => void;
-  refreshNavbarActiveSession: (sessionOverride?: AuthSession) => Promise<void>;
+  refreshNavbarActiveSession: (
+    sessionOverride?: AuthSession,
+    streamingBaseUrlOverride?: string,
+  ) => Promise<void>;
   onBootstrapSettings: (settings: Settings, sessionProxyUrl: string | undefined) => void;
   onBootstrapVariantSelections: (selections: Record<string, string>) => void;
   onBootstrapRuntimeSnapshot: (snapshot: RuntimeSnapshot | null) => void;
@@ -180,6 +183,16 @@ export function useAuthSession({
         const persistedRuntimeSnapshot = loadRuntimeSnapshot();
         onBootstrapRuntimeSnapshot(persistedRuntimeSnapshot);
 
+        // Refresh immediately after restoring the auth token and runtime
+        // snapshot. The App idle effect remains a periodic safety net, but the
+        // first Continue decision must not depend on React state timing.
+        if (persistedSession) {
+          await refreshNavbarActiveSession(
+            persistedSession,
+            loadedSettings.region.trim() ? loadedSettings.region : undefined,
+          );
+        }
+
         setProviders(providerList);
         setAuthSession(persistedSession);
         setSavedAccounts(accounts);
@@ -209,6 +222,7 @@ export function useAuthSession({
     loadSessionRuntimeData,
     onBootstrapRuntimeSnapshot,
     onBootstrapSettings,
+    refreshNavbarActiveSession,
     onBootstrapVariantSelections,
     t,
   ]);

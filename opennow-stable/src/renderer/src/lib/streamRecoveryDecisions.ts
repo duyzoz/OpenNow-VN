@@ -46,6 +46,49 @@ export function decideSignalingDisconnect({
   return "recover";
 }
 
+export interface NavbarActiveSessionSelection {
+  candidate: ActiveSessionInfo | null;
+  hasMatchingQueuedSession: boolean;
+}
+
+/**
+ * Select the server-confirmed session that may be shown as Continue after a
+ * renderer restart. Queued sessions stay pending: status 1 is deliberately
+ * not promoted to a claimable session because it has not passed the ready
+ * contract used by selectRecoveryCandidate.
+ */
+export function selectNavbarActiveSession(
+  activeSessions: readonly ActiveSessionInfo[],
+  persisted: RuntimeSnapshot | null,
+): NavbarActiveSessionSelection {
+  const resumableSessions = activeSessions.filter((entry) => (
+    Boolean(entry.serverIp) && (entry.status === 2 || entry.status === 3)
+  ));
+  const persistedSessionId = persisted?.sessionId ?? persisted?.resumeContext?.sessionId ?? null;
+  const persistedAppId = persisted?.sessionAppId
+    ?? persisted?.resumeContext?.appId
+    ?? null;
+  const matchingSessionId = persistedSessionId
+    ? resumableSessions.find((entry) => entry.sessionId === persistedSessionId)
+    : undefined;
+  const matchingAppId = persistedAppId !== null
+    ? resumableSessions.find((entry) => entry.appId === persistedAppId)
+    : undefined;
+  const candidate = matchingSessionId ?? matchingAppId ?? resumableSessions[0] ?? null;
+  const hasMatchingQueuedSession = Boolean(
+    persisted
+      && activeSessions.some((entry) => (
+        entry.status === 1
+        && (
+          (persistedSessionId !== null && entry.sessionId === persistedSessionId)
+          || (persistedAppId !== null && entry.appId === persistedAppId)
+        )
+      )),
+  );
+
+  return { candidate, hasMatchingQueuedSession };
+}
+
 export interface RecoveryCandidateResult {
   candidate: ActiveSessionInfo | null;
   source: "active-session" | "persisted-resume-context" | null;
