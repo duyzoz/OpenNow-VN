@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { JSX } from "react";
 import { m } from "motion/react";
-import type { GameInfo, PrintedWasteQueueData, PrintedWasteZone } from "@shared/gfn";
+import type {
+  GameInfo,
+  PrintedWasteQueueData,
+  PrintedWasteServerMapping,
+  PrintedWasteZone,
+} from "@shared/gfn";
 import { buildGfnZoneStreamingBaseUrl, isStandardGfnZone } from "@shared/gfn";
 import {
   loadStoredPrintedWastePingSnapshot,
@@ -24,6 +29,7 @@ import {
   sortServerCandidates,
 } from "./serverSelection";
 import { spinnerTransition } from "./MotionProvider";
+import { buildServerDisplayLabel } from "../utils/serverDisplayLabel";
 
 type Translate = typeof translate;
 
@@ -121,6 +127,8 @@ interface ZoneInfo {
   lastSelectedAtMs?: number;
   selectionCount?: number;
   routeQualityScore?: number;
+  /** Human-readable local server name; never contains routing URL or opaque zone ID. */
+  displayLabel: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -146,6 +154,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
   const [queueLoading, setQueueLoading] = useState(initialQueueData === null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [nukedZoneIds, setNukedZoneIds] = useState<Set<string> | null>(null);
+  const [serverMapping, setServerMapping] = useState<PrintedWasteServerMapping>({});
 
   // Ping state — populated after queue data loads
   const [zonePings,  setZonePings]  = useState<Map<string, number | null> | null>(null);
@@ -226,6 +235,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
       try {
         const mapping = await window.openNow.fetchPrintedWasteServerMapping();
         if (cancelled) return;
+        setServerMapping(mapping);
         const nextNuked = new Set<string>();
         for (const [zoneId, meta] of Object.entries(mapping)) {
           if (isStandardZone(zoneId) && meta.nuked === true) {
@@ -348,9 +358,15 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
           routeQualityScore: lastRouteTelemetry?.zoneId === zoneId
             ? lastRouteTelemetry.routeQualityScore
             : undefined,
+          displayLabel: buildServerDisplayLabel(
+            zoneId,
+            zone.Region,
+            serverMapping,
+            getRegionLabel(zone.Region, t),
+          ),
         };
       });
-  }, [lastRouteAdvice, lastRouteTelemetry, queueData, serverSelectionFrequency, zonePings, nukedZoneIds]);
+  }, [lastRouteAdvice, lastRouteTelemetry, queueData, serverMapping, serverSelectionFrequency, t, zonePings, nukedZoneIds]);
 
   // If queue refresh removes a previously selected manual zone, fall back to auto.
   useEffect(() => {
@@ -427,7 +443,7 @@ export function QueueServerSelectModal({ game, initialQueueData = null, onConfir
           routingUrl: selectedZone.routingUrl,
           zoneId: selectedZone.zoneId,
           region: selectedZone.pwRegion,
-          displayLabel: `${getRegionLabel(selectedZone.pwRegion, t)} · ${selectedZone.zoneId}`,
+          displayLabel: selectedZone.displayLabel,
         }
       : null);
   }, [selected, autoZone, closestZone, zones, onConfirm, t]);
@@ -752,7 +768,7 @@ function RecommendCard({ t, label, sublabel, zone, selected, accent, pinging, di
       ) : zone ? (
         <>
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)", marginBottom: 8 }}>
-            {regionMeta?.flag} {getRegionLabel(zone.pwRegion, t)} · {zone.zoneId}
+            {regionMeta?.flag} {zone.displayLabel}
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "nowrap", overflowX: "auto", scrollbarWidth: "none" }}>
             {zone.pingMs !== null && <Chip color={getPingColor(zone.pingMs)}>{zone.pingMs}ms</Chip>}
@@ -821,7 +837,7 @@ function ZoneRow({ t, zone, isAuto, isClosest, isPinging, selected, onClick }: Z
           textOverflow: "ellipsis",
           whiteSpace: "nowrap",
         }}>
-          {zone.zoneId}
+          {zone.displayLabel}
         </span>
         {isAuto && (
           <span style={{ fontSize: 10, background: "var(--accent-surface-strong)", color: "var(--accent)", borderRadius: 4, padding: "1px 5px", fontWeight: 700 }}>

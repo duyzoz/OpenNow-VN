@@ -614,15 +614,14 @@ export const LibraryPage = memo(function LibraryPage({
 
   const libraryGridItems = useMemo(
     () => current64LibraryGames.map((game) => (
-      <div key={game.id}>
-        <GameCardListItem
-          game={game}
-          isSelected={game.id === selectedGameId}
-          selectedVariantId={selectedVariantByGameId[game.id]}
-          surface="library"
-          actionsRef={catalogActionsRef}
-        />
-      </div>
+      <GameCardListItem
+        key={game.id}
+        game={game}
+        isSelected={game.id === selectedGameId}
+        selectedVariantId={selectedVariantByGameId[game.id]}
+        surface="library"
+        actionsRef={catalogActionsRef}
+      />
     )),
     [catalogActionsRef, current64LibraryGames, playtimeData, selectedGameId, selectedVariantByGameId],
   );

@@ -215,15 +215,14 @@ export const HomePage = memo(function HomePage({
 
   const gameGridItems = useMemo(
     () => current64Games.map((game) => (
-      <div key={`${game.id}-p${currentPage}`}>
-        <GameCardListItem
-          game={game}
-          isSelected={game.id === selectedGameId}
-          selectedVariantId={selectedVariantByGameId[game.id]}
-          surface="home"
-          actionsRef={catalogActionsRef}
-        />
-      </div>
+      <GameCardListItem
+        key={`${game.id}-p${currentPage}`}
+        game={game}
+        isSelected={game.id === selectedGameId}
+        selectedVariantId={selectedVariantByGameId[game.id]}
+        surface="home"
+        actionsRef={catalogActionsRef}
+      />
     )),
     [catalogActionsRef, current64Games, selectedGameId, selectedVariantByGameId, currentPage],
   );

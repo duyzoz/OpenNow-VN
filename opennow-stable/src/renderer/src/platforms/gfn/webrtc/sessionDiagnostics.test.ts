@@ -106,6 +106,31 @@ test("uses the selected server fallback for generic or opaque live metadata", ()
   );
 });
 
+test("prefers the selected readable label over encoded live server metadata", () => {
+  assert.equal(
+    getStreamServerLocationLabel(
+      {
+        serverLocation: "US West (BC%20...PN-PDX-01)",
+        serverRegion: "US West (BC%20...PN-PDX-01)",
+        serverZone: "prod",
+      },
+      "Oregon · US Northwest",
+    ),
+    "Oregon · US Northwest",
+  );
+});
+
+test("keeps a readable live location when no safer fallback is supplied", () => {
+  assert.equal(
+    getStreamServerLocationLabel({
+      serverLocation: "Oregon",
+      serverRegion: "Oregon",
+      serverZone: "prod",
+    }),
+    "Oregon",
+  );
+});
+
 test("formats partner hostnames and zone ids like the official client", () => {
   assert.equal(
     formatServerLocation("prod", "npa-yes-kul-01.yes.geforcenow.nvidiagrid.net"),

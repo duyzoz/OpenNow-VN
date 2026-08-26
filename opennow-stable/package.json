@@ -1,6 +1,6 @@
 {
   "name": "opennow-stable",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Electron-based OpenNOW stable client",
   "author": {
     "name": "zortos293",
@@ -27,7 +27,7 @@
     "lint": "oxlint src",
     "locales:check": "node scripts/check-translations.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.json",
-    "test": "node scripts/run-tests.mjs && node --test scripts/after-sign-mac.test.mjs scripts/windows-pe-imports.test.mjs"
+    "test": "node scripts/run-tests.mjs && node --test scripts/after-sign-mac.test.mjs scripts/windows-icon.test.mjs scripts/windows-pe-imports.test.mjs"
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.10.0",
@@ -95,7 +95,7 @@
         "repo": "OpenNOW"
       }
     ],
-    "icon": "../logo.png",
+    "icon": "build/icon.ico",
     "npmRebuild": false,
     "nodeGypRebuild": false,
     "buildDependenciesFromSource": false,
@@ -119,13 +119,16 @@
     ],
     "asar": true,
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis",
         "portable"
       ]
     },
     "nsis": {
-      "artifactName": "OpenNOW-v${version}-setup-${arch}.${ext}"
+      "artifactName": "OpenNOW-v${version}-setup-${arch}.${ext}",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     },
     "portable": {
       "artifactName": "OpenNOW-v${version}-portable-${arch}.${ext}"
