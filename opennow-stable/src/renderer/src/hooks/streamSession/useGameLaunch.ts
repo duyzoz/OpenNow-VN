@@ -226,7 +226,10 @@ export function useGameLaunch({
         token || undefined,
       );
       if (launchAbortRef.current) return;
-      const launchStreamingBaseUrl = i2pStorageRegionBaseUrl ?? options?.streamingBaseUrl ?? effectiveStreamingBaseUrl;
+      // An explicit server choice from QueueServerSelectModal must win over the
+      // install-to-play storage region. The latter is only a fallback; otherwise
+      // manual/auto zone selection is silently ignored for INSTALL_TO_PLAY games.
+      const launchStreamingBaseUrl = options?.streamingBaseUrl ?? i2pStorageRegionBaseUrl ?? effectiveStreamingBaseUrl;
       let existingSessionStrategy: ExistingSessionStrategy | undefined;
       let activeSessionGpuType: string | undefined;
 
