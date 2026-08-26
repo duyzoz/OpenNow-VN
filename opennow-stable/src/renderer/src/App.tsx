@@ -85,7 +85,7 @@ import {
 import { isStreamPointerLocked } from "./lib/pointerLock";
 import { defaultDiagnostics } from "./lib/streamDiagnostics";
 import { AntiAfkPulseScheduler } from "./components/stream/antiAfkPulseScheduler";
-import { selectRecoveryCandidate } from "./lib/streamRecoveryDecisions";
+import { selectNavbarActiveSession, selectRecoveryCandidate } from "./lib/streamRecoveryDecisions";
 import { applyAccentColor, applyTheme, applyTranslucentUI } from "./lib/uiCustomization";
 import { useTranslation } from "./i18n";
 
@@ -481,7 +481,10 @@ export function App(): JSX.Element {
     setVariantByGameId: (() => {}) as CatalogOps['setVariantByGameId'],
   });
   const resetLaunchRuntimeRef = useRef<(options?: { keepLaunchError?: boolean; keepStreamingContext?: boolean }) => void>(() => {});
-  const refreshNavbarActiveSessionRef = useRef<(sessionOverride?: AuthSession) => Promise<void>>(async () => {});
+  const refreshNavbarActiveSessionRef = useRef<(
+    sessionOverride?: AuthSession,
+    streamingBaseUrlOverride?: string,
+  ) => Promise<void>>(async () => {});
 
   const onBootstrapSettings = useCallback((loadedSettings: Settings, _sessionProxyUrl: string | undefined) => {
     setSettings(loadedSettings);
@@ -539,7 +542,9 @@ export function App(): JSX.Element {
     hydrateCatalogSnapshot: (session, proxyUrl) => catalogOpsRef.current.hydrateCatalogSnapshot(session, proxyUrl),
     clearSessionCatalog: (mode, options) => catalogOpsRef.current.clearSessionCatalog(mode, options),
     resetLaunchRuntime: (options) => resetLaunchRuntimeRef.current(options),
-    refreshNavbarActiveSession: (sessionOverride) => refreshNavbarActiveSessionRef.current(sessionOverride),
+    refreshNavbarActiveSession: (sessionOverride, streamingBaseUrlOverride) => (
+      refreshNavbarActiveSessionRef.current(sessionOverride, streamingBaseUrlOverride)
+    ),
     onBootstrapSettings,
     onBootstrapVariantSelections,
     onBootstrapRuntimeSnapshot,
@@ -882,17 +887,16 @@ export function App(): JSX.Element {
     try {
       const activeSessions = await window.openNow.getActiveSessions(token, streamingBaseUrl);
       const snapshot = runtimeSnapshotRef.current;
-      const resumableSessions = activeSessions.filter((entry) => entry.status === 3 || entry.status === 2);
-      const candidate =
-        (snapshot?.sessionId
-          ? resumableSessions.find((entry) => entry.sessionId === snapshot.sessionId)
-          : undefined) ??
-        (snapshot?.sessionAppId !== null && snapshot?.sessionAppId !== undefined
-          ? resumableSessions.find((entry) => entry.appId === snapshot.sessionAppId)
-          : undefined) ??
-        resumableSessions[0] ??
-        null;
-      setNavbarActiveSession(candidate);
+      const selection = selectNavbarActiveSession(activeSessions, snapshot);
+      setNavbarActiveSession(selection.candidate);
+
+      // This fetch completed successfully, so a missing matching ready/queued
+      // session is authoritative enough to retire the local restart marker.
+      // Network/auth failures stay in the catch path and deliberately keep it.
+      if (!selection.candidate && snapshot && !selection.hasMatchingQueuedSession) {
+        runtimeSnapshotRef.current = null;
+        clearRuntimeSnapshot();
+      }
     } catch (error) {
       console.warn("Failed to refresh active sessions:", error);
     }

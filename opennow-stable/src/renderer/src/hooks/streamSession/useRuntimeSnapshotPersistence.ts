@@ -3,7 +3,9 @@ import { useCallback, useEffect } from "react";
 import {
   buildRuntimeSnapshot,
   clearRuntimeSnapshot,
+  mergeRuntimeSnapshotContext,
   saveRuntimeSnapshot,
+  shouldPreserveLoadedRuntimeSnapshot,
 } from "../../lib/runtimeSnapshot";
 import type { StreamRuntimeState } from "./useStreamRuntimeState";
 
@@ -36,13 +38,36 @@ export function useRuntimeSnapshotPersistence(runtime: StreamRuntimeState) {
       streamingStore,
       recoveryAppId: signalingRecoveryRef.current.appId,
     });
-    runtimeSnapshotRef.current = snapshot;
-    if (snapshot) {
-      saveRuntimeSnapshot(snapshot);
+    const previousSnapshot = runtimeSnapshotRef.current;
+    const nextSnapshot = mergeRuntimeSnapshotContext(snapshot, previousSnapshot);
+    if (
+      !nextSnapshot
+      && previousSnapshot
+      && (
+        appUnloadingRef.current
+        || shouldPreserveLoadedRuntimeSnapshot(
+          previousSnapshot,
+          streamStatus,
+          session !== null,
+          navbarActiveSession !== null,
+        )
+      )
+    ) {
+      // On the first render auth bootstrap has not restored the snapshot yet.
+      // During app close React may also publish one final idle state. Preserve
+      // the known snapshot in both cases so Continue remains available.
+      runtimeSnapshotRef.current = previousSnapshot;
+      saveRuntimeSnapshot(previousSnapshot);
     } else {
-      clearRuntimeSnapshot();
+      runtimeSnapshotRef.current = nextSnapshot;
+      if (nextSnapshot) {
+        saveRuntimeSnapshot(nextSnapshot);
+      } else {
+        clearRuntimeSnapshot();
+      }
     }
   }, [
+    appUnloadingRef,
     navbarActiveSession,
     runtimeSnapshotRef,
     session,
@@ -61,13 +86,21 @@ export function useRuntimeSnapshotPersistence(runtime: StreamRuntimeState) {
       streamingStore,
       recoveryAppId: signalingRecoveryRef.current.appId,
     });
-    runtimeSnapshotRef.current = snapshot;
-    if (snapshot) {
-      saveRuntimeSnapshot(snapshot);
+    const previousSnapshot = runtimeSnapshotRef.current;
+    const nextSnapshot = mergeRuntimeSnapshotContext(snapshot, previousSnapshot);
+    if (!nextSnapshot && appUnloadingRef.current && previousSnapshot) {
+      runtimeSnapshotRef.current = previousSnapshot;
+      saveRuntimeSnapshot(previousSnapshot);
     } else {
-      clearRuntimeSnapshot();
+      runtimeSnapshotRef.current = nextSnapshot;
+      if (nextSnapshot) {
+        saveRuntimeSnapshot(nextSnapshot);
+      } else {
+        clearRuntimeSnapshot();
+      }
     }
   }, [
+    appUnloadingRef,
     navbarActiveSession,
     runtimeSnapshotRef,
     sessionRef,

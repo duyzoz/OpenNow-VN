@@ -14550,6 +14550,9 @@ button.game-card-store-chip.owned.active:hover {
   min-width: 0;
   min-height: 0;
   isolation: isolate;
+  /* Progressive fallback: older Chromium still gets a brief entrance instead
+     of silently showing no motion when view timelines are unavailable. */
+  animation: game-card-swoopy-n-blur 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .game-card-scroll-shell > .game-card {
@@ -14615,13 +14618,13 @@ button.game-card-store-chip.owned.active:hover {
 
 @keyframes game-card-swoopy-n-blur {
   from {
-    opacity: 0.72;
-    transform: translate3d(0, 18px, 0) scale(0.975);
-    filter: blur(4px);
+    opacity: 0.62;
+    transform: translate3d(0, 24px, 0) scale(0.965);
+    filter: blur(2px);
   }
   58% {
     opacity: 1;
-    transform: translate3d(0, -2px, 0) scale(1.002);
+    transform: translate3d(0, -3px, 0) scale(1.003);
     filter: blur(0);
   }
   to {
@@ -14631,14 +14634,19 @@ button.game-card-store-chip.owned.active:hover {
   }
 }
 
-@supports (animation-timeline: view()) and (animation-range: entry 0% entry 100%) {
+@supports (animation-timeline: view()) and (animation-range: entry 0% cover 38%) {
   @media (prefers-reduced-motion: no-preference) {
     .home-grid-area .game-grid > .game-card-scroll-shell,
     .library-grid-area .game-grid > .game-card-scroll-shell,
     .favorites-grid-area .game-grid > .game-card-scroll-shell {
-      animation: var(--_animation) linear both;
+      animation-name: game-card-swoopy-n-blur;
+      animation-duration: 1ms;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
       animation-timeline: view();
-      animation-range: entry 0% entry 200%;
+      /* nerdy.dev-style entry-to-cover interval, evaluated against the
+         nearest vertical scrollport (.home/.library/.favorites-grid-area). */
+      animation-range: entry 0% cover 38%;
     }
   }
 }
