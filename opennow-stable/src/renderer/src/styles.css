@@ -14477,54 +14477,6 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 
-/* ======================================================
-   VN UI PERFORMANCE FALLBACK
-   Keep catalog controls legible and the queue artwork visible
-   without pointer-driven compositor work on weak machines.
-   ====================================================== */
-.game-card-corner-play-button,
-.game-card-corner-play-button--active {
-  background: #16a34a !important;
-  border: 1px solid rgba(255, 255, 255, 0.92) !important;
-  color: #ffffff !important;
-  opacity: 1 !important;
-  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.24) !important;
-  filter: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  text-shadow: none !important;
-}
-
-.game-card-corner-play-button:hover,
-.game-card-corner-play-button:focus-visible,
-.game-card-corner-play-button--active:hover,
-.game-card-corner-play-button--active:focus-visible {
-  background: #15803d !important;
-  color: #ffffff !important;
-  box-shadow: 0 4px 11px rgba(0, 0, 0, 0.28) !important;
-}
-
-[data-theme="light"] .game-card-corner-play-button,
-[data-theme="light"] .game-card-corner-play-button--active {
-  background: #16a34a !important;
-  color: #ffffff !important;
-}
-
-[data-theme="dark"] .game-card-corner-play-button,
-[data-theme="dark"] .game-card-corner-play-button--active {
-  background: #22c55e !important;
-  color: #052e16 !important;
-  border-color: rgba(5, 46, 22, 0.92) !important;
-}
-
-[data-theme="dark"] .game-card-corner-play-button:hover,
-[data-theme="dark"] .game-card-corner-play-button:focus-visible,
-[data-theme="dark"] .game-card-corner-play-button--active:hover,
-[data-theme="dark"] .game-card-corner-play-button--active:focus-visible {
-  background: #4ade80 !important;
-  color: #052e16 !important;
-}
-
 .sload > .sload-backdrop-art {
   opacity: 0.78 !important;
   filter: none !important;
@@ -14680,10 +14632,10 @@ button.game-card-store-chip.owned.active:hover {
 }
 
 @supports (animation-timeline: view()) and (animation-range: entry 0% entry 100%) {
-  @media (prefers-reduced-motion: no-preference) and (min-width: 901px) {
-    .home-grid-area .game-card-scroll-shell,
-    .library-grid-area .game-card-scroll-shell,
-    .favorites-grid-area .game-card-scroll-shell {
+  @media (prefers-reduced-motion: no-preference) {
+    .home-grid-area .game-grid > .game-card-scroll-shell,
+    .library-grid-area .game-grid > .game-card-scroll-shell,
+    .favorites-grid-area .game-grid > .game-card-scroll-shell {
       animation: var(--_animation) linear both;
       animation-timeline: view();
       animation-range: entry 0% entry 200%;
@@ -14691,7 +14643,7 @@ button.game-card-store-chip.owned.active:hover {
   }
 }
 
-@media (prefers-reduced-motion: reduce), (max-width: 900px) {
+@media (prefers-reduced-motion: reduce) {
   .game-card-scroll-shell {
     animation: none;
     filter: none;
@@ -14715,51 +14667,6 @@ button.game-card-store-chip.owned.active:hover {
   background: var(--bg-a) !important;
 }
 
-
-/* ======================================================
-   WEAK-PC POLISH — pale Play hover + static scroll surfaces
-   ====================================================== */
-.game-card {
-  contain: layout style;
-}
-
-.game-card-corner-play-button,
-.game-card-corner-play-button--active {
-  background: #86efac !important;
-  border-color: #4ade80 !important;
-  color: #166534 !important;
-  box-shadow: 0 3px 10px rgba(34, 197, 94, 0.18) !important;
-  transition: opacity 120ms ease, transform 120ms ease, background-color 120ms ease !important;
-}
-
-.game-card-corner-play-button:hover,
-.game-card-corner-play-button:focus-visible,
-.game-card-corner-play-button--active:hover,
-.game-card-corner-play-button--active:focus-visible,
-.game-card .game-card-corner-play-button:hover,
-.game-card .game-card-corner-play-button--active:hover {
-  background: #bbf7d0 !important;
-  border-color: #4ade80 !important;
-  color: #14532d !important;
-  transform: translateY(-1px) scale(1.04) !important;
-  box-shadow: 0 4px 11px rgba(34, 197, 94, 0.22) !important;
-}
-
-.game-card-corner-play-button--active,
-.game-card:hover .game-card-corner-play-button--active {
-  background: #86efac !important;
-  color: #166534 !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .game-card-corner-play-button,
-  .game-card-corner-play-button--active,
-  .game-card-corner-play-button:hover,
-  .game-card-corner-play-button--active:hover {
-    transform: none !important;
-    transition: none !important;
-  }
-}
 
 /* Settings keeps its existing layout and controls, but avoids compositor work
    while the long settings pane is scrolled on low-power machines. */

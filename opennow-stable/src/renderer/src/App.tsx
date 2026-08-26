@@ -2023,7 +2023,7 @@ export function App(): JSX.Element {
     const game = queueModalGame;
     setQueueModalGame(null);
     setQueueModalData(null);
-    setSelectedServerLabel(selection?.displayLabel ?? selection?.zoneId ?? null);
+    setSelectedServerLabel(selection?.displayLabel ?? null);
     if (!game) return;
     // Keep the original routing URL as the launch payload; the zone label is
     // retained only for the Basic Rig/HUD fallback while diagnostics warm up.
@@ -2824,7 +2824,7 @@ export function App(): JSX.Element {
                 recording: shortcuts.recording.canonical,
               }}
               hideStreamButtons={settings.hideStreamButtons}
-              serverRegion={selectedServerLabel || session?.zone?.trim() || session?.serverIp}
+              serverRegion={selectedServerLabel || undefined}
               antiAfkEnabled={antiAfkEnabled}
               antiAfkAckNonce={antiAfkAckNonce}
               showAntiAfkIndicator={settings.showAntiAfkIndicator}

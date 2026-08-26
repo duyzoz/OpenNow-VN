@@ -331,15 +331,14 @@ export const FavoritesPage = memo(function FavoritesPage({
           <div style={{ position: "relative", width: "100%" }}>
             <div className="game-grid">
               {current64FavoriteGames.map((game) => (
-                <div key={`${game.id}-p${currentPage}`}>
-                  <GameCardListItem
-                    game={game}
-                    selectedVariantId={selectedVariantByGameId[game.id]}
-                    isSelected={selectedGameId === game.id}
-                    surface="home"
-                    actionsRef={catalogActionsRef}
-                  />
-                </div>
+                <GameCardListItem
+                  key={`${game.id}-p${currentPage}`}
+                  game={game}
+                  selectedVariantId={selectedVariantByGameId[game.id]}
+                  isSelected={selectedGameId === game.id}
+                  surface="home"
+                  actionsRef={catalogActionsRef}
+                />
               ))}
             </div>
 
