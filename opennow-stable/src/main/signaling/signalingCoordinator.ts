@@ -33,6 +33,7 @@ export class SignalingCoordinator {
   private nativeStreamerManager: NativeStreamerManager | null = null;
   private nativeStreamerContext: NativeStreamerSessionContext | null = null;
   private nativeStreamerFallbackSessionId: string | null = null;
+  private nativeStreamerResetPromise: Promise<void> | null = null;
 
   constructor(private readonly deps: SignalingCoordinatorDeps) {}
 
@@ -295,8 +296,11 @@ export class SignalingCoordinator {
     if (this.signalingClient) {
       this.signalingClient.disconnect();
     }
-    await this.resetNativeStreamerForSignalingReconnect();
-    await this.prepareNativeStreamerBeforeSignaling();
+    // Do not start/probe Native before signaling connects. Native startup can
+    // materialize a large GStreamer runtime and must never block the Play click.
+    // A stale Native process is torn down in the background; only the Native
+    // offer path waits for that teardown before reusing the manager.
+    this.nativeStreamerResetPromise = this.resetNativeStreamerForSignalingReconnect();
 
     this.signalingClient = new GfnSignalingClient(
       payload.signalingServer,
@@ -436,6 +440,12 @@ export class SignalingCoordinator {
     context: NativeStreamerSessionContext,
   ): Promise<void> {
     try {
+      await this.nativeStreamerResetPromise?.catch((error) => {
+        console.warn("[NativeStreamer] Previous session teardown failed; continuing with a fresh offer:", error);
+      });
+      if (this.nativeStreamerContext?.session.sessionId !== context.session.sessionId) {
+        return;
+      }
       await this.getNativeStreamerManager().handleOffer(sdp, context);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -467,40 +477,13 @@ export class SignalingCoordinator {
     if (
       !this.isNativeStreamerSelected() ||
       !this.nativeStreamerContext ||
+      this.nativeStreamerManager.isRunning() ||
       this.nativeStreamerManager.hasActiveSession()
     ) {
       await this.nativeStreamerManager.stop("signaling reconnect");
     }
   }
 
-  private async prepareNativeStreamerBeforeSignaling(): Promise<void> {
-    const context = this.nativeStreamerContext;
-    if (!this.isNativeStreamerSelected() || !context) {
-      return;
-    }
-
-    try {
-      this.emitToRenderer({
-        type: "log",
-        message: "Preparing native streamer before signaling attach.",
-      });
-      await this.getNativeStreamerManager().prepareForSession(context);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(
-        "[NativeStreamer] Pre-attach startup failed; falling back to web streamer:",
-        message,
-      );
-      this.nativeStreamerFallbackSessionId = context.session.sessionId;
-      await this.nativeStreamerManager
-        ?.stop("native streamer pre-attach fallback")
-        .catch(() => undefined);
-      this.emitToRenderer({
-        type: "error",
-        message: `Native streamer failed before signaling attach: ${message}. Falling back to web streamer.`,
-      });
-    }
-  }
 }
 
 export function registerSignalingIpcHandlers(

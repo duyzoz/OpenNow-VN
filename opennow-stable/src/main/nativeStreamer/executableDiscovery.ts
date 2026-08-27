@@ -22,6 +22,8 @@ export interface NativeStreamerExecutableDiscoveryOptions {
   envExecutablePath: string | undefined;
   getConfiguredPath(): string;
   cacheContext: PackagedNativeStreamerCacheContext;
+  /** Status probes must stay filesystem-only; startup keeps the default true. */
+  materializeCache?: boolean;
 }
 
 export function shouldIgnorePackagedExecutableOverride(
@@ -65,6 +67,10 @@ export async function resolveNativeStreamerExecutableCandidates(
   if (options.isPackaged) {
     for (const candidate of bundledCandidates) {
       if (!isExistingFile(candidate) || !hasBundledRuntimeNextToExecutable(candidate)) {
+        continue;
+      }
+      if (options.materializeCache === false) {
+        addCandidate(candidate);
         continue;
       }
       addCandidate(

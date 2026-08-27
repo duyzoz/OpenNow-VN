@@ -11,7 +11,11 @@ import type {
 
 import { getEnabledSessionProxyUrl } from "../lib/sessionProxy";
 import type { RuntimeSnapshot } from "../lib/runtimeSnapshot";
-import { loadRuntimeSnapshot } from "../lib/runtimeSnapshot";
+import {
+  clearRuntimeSnapshot,
+  isRuntimeSnapshotExpired,
+  loadRuntimeSnapshot,
+} from "../lib/runtimeSnapshot";
 import { VARIANT_SELECTION_LOCALSTORAGE_KEY } from "../lib/catalogPreferences";
 import type { CatalogClearMode, ClearSessionCatalogOptions } from "./useCatalogData";
 
@@ -40,6 +44,7 @@ export interface UseAuthSessionInput {
   onBootstrapSettings: (settings: Settings, sessionProxyUrl: string | undefined) => void;
   onBootstrapVariantSelections: (selections: Record<string, string>) => void;
   onBootstrapRuntimeSnapshot: (snapshot: RuntimeSnapshot | null) => void;
+  cleanupExpiredRuntimeSnapshot: (snapshot: RuntimeSnapshot, session: AuthSession) => Promise<boolean>;
   setCurrentPage: Dispatch<SetStateAction<"home" | "library" | "favorites" | "settings">>;
   setNavbarActiveSession: Dispatch<SetStateAction<import("@shared/gfn").ActiveSessionInfo | null>>;
   setIsResumingNavbarSession: Dispatch<SetStateAction<boolean>>;
@@ -92,6 +97,7 @@ export function useAuthSession({
   onBootstrapSettings,
   onBootstrapVariantSelections,
   onBootstrapRuntimeSnapshot,
+  cleanupExpiredRuntimeSnapshot,
   setCurrentPage,
   setNavbarActiveSession,
   setIsResumingNavbarSession,
@@ -180,7 +186,31 @@ export function useAuthSession({
           // ignore parse/storage errors
         }
 
-        const persistedRuntimeSnapshot = loadRuntimeSnapshot();
+        let persistedRuntimeSnapshot = loadRuntimeSnapshot({ includeExpired: true });
+        if (persistedRuntimeSnapshot && isRuntimeSnapshotExpired(persistedRuntimeSnapshot)) {
+          const resumeContext = persistedRuntimeSnapshot.resumeContext;
+          if (persistedSession && resumeContext?.zone && resumeContext.serverIp) {
+            try {
+              const stopped = await cleanupExpiredRuntimeSnapshot(
+                persistedRuntimeSnapshot,
+                persistedSession,
+              );
+              console.log(
+                `[Recovery] Expired abandoned session cleanup ${stopped ? "succeeded" : "was not accepted"}: ${resumeContext.sessionId}`,
+              );
+            } catch (error) {
+              console.warn("[Recovery] Expired abandoned session cleanup failed:", error);
+            }
+          } else {
+            console.warn(
+              "[Recovery] Expired snapshot has no authenticated session or CloudMatch zone; skipping remote cleanup.",
+            );
+          }
+          // Never offer Resume for a snapshot that has crossed the 60-minute
+          // abandoned-session limit, even when the server cleanup was best effort.
+          clearRuntimeSnapshot();
+          persistedRuntimeSnapshot = null;
+        }
         onBootstrapRuntimeSnapshot(persistedRuntimeSnapshot);
 
         // Refresh immediately after restoring the auth token and runtime
@@ -221,6 +251,7 @@ export function useAuthSession({
     hydrateCatalogSnapshot,
     loadSessionRuntimeData,
     onBootstrapRuntimeSnapshot,
+    cleanupExpiredRuntimeSnapshot,
     onBootstrapSettings,
     refreshNavbarActiveSession,
     onBootstrapVariantSelections,

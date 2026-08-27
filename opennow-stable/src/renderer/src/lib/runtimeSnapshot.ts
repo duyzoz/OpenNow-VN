@@ -3,6 +3,7 @@ import type { ActiveSessionInfo, SessionInfo } from "@shared/gfn";
 import type { StreamStatus } from "./appTypes";
 
 export const RUNTIME_SNAPSHOT_LOCALSTORAGE_KEY = "opennow.runtimeSnapshot.v1";
+export const ABANDONED_SESSION_TTL_MS = 60 * 60 * 1000;
 
 export interface RuntimeSnapshot {
   version: 1;
@@ -16,6 +17,8 @@ export interface RuntimeSnapshot {
   resumeContext: {
     sessionId: string;
     serverIp: string;
+    /** CloudMatch zone required by the stop-session endpoint. */
+    zone?: string;
     streamingBaseUrl?: string;
     signalingServer?: string;
     signalingUrl?: string;
@@ -66,6 +69,7 @@ export function buildRuntimeSnapshot({
       ? {
         sessionId: session.sessionId,
         serverIp: session.serverIp,
+        zone: session.zone,
         streamingBaseUrl: session.streamingBaseUrl,
         signalingServer: session.signalingServer,
         signalingUrl: session.signalingUrl,
@@ -104,11 +108,31 @@ export function mergeRuntimeSnapshotContext(
   return {
     ...snapshot,
     // The server lookup restores the resumable session before catalog/game
-    // state is hydrated. Keep the last known presentation context until the
-    // user actually resumes or explicitly ends that session.
+    // state is hydrated. Keep the last known presentation and stop-session
+    // context until the user actually resumes or explicitly ends that session.
     streamingGameId: snapshot.streamingGameId ?? previousSnapshot.streamingGameId,
     streamingStore: snapshot.streamingStore ?? previousSnapshot.streamingStore,
     recoveryAppId: snapshot.recoveryAppId ?? previousSnapshot.recoveryAppId,
+    resumeContext: snapshot.resumeContext && previousSnapshot.resumeContext
+      ? {
+        ...previousSnapshot.resumeContext,
+        ...snapshot.resumeContext,
+        zone: snapshot.resumeContext.zone ?? previousSnapshot.resumeContext.zone,
+        streamingBaseUrl:
+          snapshot.resumeContext.streamingBaseUrl ?? previousSnapshot.resumeContext.streamingBaseUrl,
+        signalingServer:
+          snapshot.resumeContext.signalingServer ?? previousSnapshot.resumeContext.signalingServer,
+        signalingUrl: snapshot.resumeContext.signalingUrl ?? previousSnapshot.resumeContext.signalingUrl,
+        appId: snapshot.resumeContext.appId ?? previousSnapshot.resumeContext.appId,
+        appLaunchMode:
+          snapshot.resumeContext.appLaunchMode ?? previousSnapshot.resumeContext.appLaunchMode,
+        enablePersistingInGameSettings:
+          snapshot.resumeContext.enablePersistingInGameSettings
+            ?? previousSnapshot.resumeContext.enablePersistingInGameSettings,
+        clientId: snapshot.resumeContext.clientId ?? previousSnapshot.resumeContext.clientId,
+        deviceId: snapshot.resumeContext.deviceId ?? previousSnapshot.resumeContext.deviceId,
+      }
+      : snapshot.resumeContext ?? previousSnapshot.resumeContext,
   };
 }
 
@@ -130,15 +154,36 @@ export function shouldPreserveLoadedRuntimeSnapshot(
   );
 }
 
-export function loadRuntimeSnapshot(): RuntimeSnapshot | null {
+export function isRuntimeSnapshotExpired(
+  snapshot: Pick<RuntimeSnapshot, "updatedAt"> | null,
+  now = Date.now(),
+): boolean {
+  return Boolean(
+    snapshot
+      && Number.isFinite(snapshot.updatedAt)
+      && now - snapshot.updatedAt >= ABANDONED_SESSION_TTL_MS,
+  );
+}
+
+export function loadRuntimeSnapshot(options: { includeExpired?: boolean } = {}): RuntimeSnapshot | null {
   try {
     const raw = localStorage.getItem(RUNTIME_SNAPSHOT_LOCALSTORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<RuntimeSnapshot>;
     if (parsed.version !== 1) return null;
+    const parsedUpdatedAt = typeof parsed.updatedAt === "number" && Number.isFinite(parsed.updatedAt)
+      ? parsed.updatedAt
+      : Date.now();
+    if (
+      !options.includeExpired
+      && isRuntimeSnapshotExpired({ updatedAt: parsedUpdatedAt })
+    ) {
+      localStorage.removeItem(RUNTIME_SNAPSHOT_LOCALSTORAGE_KEY);
+      return null;
+    }
     return {
       version: 1,
-      updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : Date.now(),
+      updatedAt: parsedUpdatedAt,
       streamStatus: (typeof parsed.streamStatus === "string" ? parsed.streamStatus : "idle") as StreamStatus,
       sessionId: typeof parsed.sessionId === "string" ? parsed.sessionId : null,
       sessionAppId: typeof parsed.sessionAppId === "number" ? parsed.sessionAppId : null,
@@ -153,6 +198,10 @@ export function loadRuntimeSnapshot(): RuntimeSnapshot | null {
           ? {
             sessionId: parsed.resumeContext.sessionId,
             serverIp: parsed.resumeContext.serverIp,
+            zone:
+              typeof parsed.resumeContext.zone === "string"
+                ? parsed.resumeContext.zone
+                : undefined,
             streamingBaseUrl:
               typeof parsed.resumeContext.streamingBaseUrl === "string"
                 ? parsed.resumeContext.streamingBaseUrl

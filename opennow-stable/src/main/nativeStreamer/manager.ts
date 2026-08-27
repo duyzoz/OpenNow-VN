@@ -217,14 +217,71 @@ export class NativeStreamerManager {
       return createUnsupportedNativeStreamerStatus();
     }
 
-    try {
-      await this.ensureProcess();
+    if (this.child && this.capabilities) {
       return createNativeStreamerStatus(
         this.capabilities,
         this.gstreamerRuntime,
         this.options.getVideoBackendPreference(),
         process.platform,
       );
+    }
+
+    try {
+      const backendPreference = this.options.getBackendPreference();
+      const [executablePath] = await resolveNativeStreamerExecutableCandidates({
+        platform: process.platform,
+        arch: process.arch,
+        resourcesPath: process.resourcesPath,
+        appPath: app.getAppPath(),
+        mainDir: this.options.mainDir,
+        isPackaged: app.isPackaged,
+        envExecutablePath: process.env.OPENNOW_NATIVE_STREAMER,
+        getConfiguredPath: () => this.options.getExecutablePathOverride(),
+        materializeCache: false,
+        cacheContext: {
+          appVersion: app.getVersion(),
+          isPackaged: app.isPackaged,
+          platform: process.platform,
+          resourcesPath: process.resourcesPath,
+          tempDirectory: tmpdir(),
+          userDataPath: app.getPath("userData"),
+        },
+      });
+
+      if (!executablePath) {
+        throw new Error("Native streamer executable was not found.");
+      }
+
+      const { runtimeStatus } = createNativeStreamerRuntimeEnvironment({
+        executablePath,
+        baseEnv: process.env,
+        platform: process.platform,
+        arch: process.arch,
+        userDataPath: app.getPath("userData"),
+        protocolVersion: NATIVE_STREAMER_PROTOCOL_VERSION,
+        backendPreference,
+        videoBackendPreference: this.options.getVideoBackendPreference(),
+        externalRendererEnabled: process.platform === "win32"
+          ? this.options.getExternalRendererEnabled()
+          : false,
+        linuxOzonePlatform: app.commandLine.getSwitchValue("ozone-platform")
+          || app.commandLine.getSwitchValue("ozone-platform-hint"),
+        cloudGsyncMode: this.options.getCloudGsyncMode(),
+        d3dFullscreenMode: this.options.getD3dFullscreenMode(),
+      });
+      this.gstreamerRuntime = runtimeStatus;
+
+      return {
+        detected: true,
+        gstreamerAvailable: runtimeStatus.bundled,
+        supportsOfferAnswer: false,
+        backend: backendPreference === "gstreamer" ? "gstreamer" : undefined,
+        videoBackends: [],
+        gstreamerRuntime: runtimeStatus,
+        message: runtimeStatus.bundled
+          ? "Native streamer and bundled GStreamer runtime found. Capabilities will be checked when a stream starts."
+          : "Native streamer executable found. GStreamer capabilities will be checked when a stream starts.",
+      };
     } catch (error) {
       return createNativeStreamerDetectionFailureStatus(
         error,

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ABANDONED_SESSION_TTL_MS,
+  isRuntimeSnapshotExpired,
   mergeRuntimeSnapshotContext,
   shouldPreserveLoadedRuntimeSnapshot,
   type RuntimeSnapshot,
@@ -40,6 +42,18 @@ test("startup persistence does not preserve a snapshot after live session hydrat
   );
 });
 
+test("the abandoned-session TTL expires exactly at the 60-minute boundary", () => {
+  const now = 10_000;
+  assert.equal(
+    isRuntimeSnapshotExpired({ updatedAt: now - ABANDONED_SESSION_TTL_MS + 1 }, now),
+    false,
+  );
+  assert.equal(
+    isRuntimeSnapshotExpired({ updatedAt: now - ABANDONED_SESSION_TTL_MS }, now),
+    true,
+  );
+});
+
 test("intentional reset with no loaded snapshot is never resurrected", () => {
   assert.equal(
     shouldPreserveLoadedRuntimeSnapshot(null, "idle", false, false),
@@ -61,6 +75,7 @@ test("matching server session keeps the last known game presentation context", (
 
   const merged = mergeRuntimeSnapshotContext(refreshedSnapshot, snapshot);
   assert.equal(merged?.streamingGameId, "game-1");
+  assert.equal(merged?.resumeContext?.zone, undefined);
   assert.equal(merged?.streamingStore, "steam");
   assert.equal(merged?.recoveryAppId, 101);
 });

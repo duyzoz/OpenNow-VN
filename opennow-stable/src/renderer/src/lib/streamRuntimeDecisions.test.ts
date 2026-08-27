@@ -46,6 +46,7 @@ test("runtime snapshot prefers the live session and preserves resume identity", 
     resumeContext: {
       sessionId: "live-session",
       serverIp: "10.0.0.2",
+      zone: "prod",
       streamingBaseUrl: undefined,
       signalingServer: "signal.example",
       signalingUrl: "wss://signal.example",

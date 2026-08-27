@@ -14963,3 +14963,61 @@ button.game-card-store-chip.owned.active:hover {
     max-width: none;
   }
 }
+
+
+/* ======================================================
+   V1.0.3 HOTFIX — RECTANGULAR GAME DETAIL PANEL
+   UI-only rules; no stream, input, or transport selectors.
+   ====================================================== */
+@media (min-width: 681px) {
+  .game-info-panel {
+    width: min(860px, calc(100vw - 48px));
+    max-height: min(900px, calc(100vh - 48px));
+  }
+
+  .game-info-scroll {
+    height: min(900px, calc(100vh - 48px));
+    max-height: min(900px, calc(100vh - 48px));
+  }
+}
+
+.game-info-desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  max-height: calc(1.55em * 4);
+  overflow: hidden;
+}
+
+.game-info-desc.is-expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  max-height: none;
+  overflow: visible;
+}
+
+.game-info-membership-warning {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.28);
+  border-color: rgba(248, 113, 113, 0.72);
+}
+
+.game-info-membership-warning strong {
+  color: #fca5a5;
+}
+
+.game-info-membership-icon {
+  color: #f87171;
+}
+
+@media (max-width: 680px) {
+  .game-info-panel {
+    width: min(100%, calc(100vw - 24px));
+    max-height: calc(100vh - 24px);
+  }
+
+  .game-info-scroll {
+    height: calc(100vh - 24px);
+    max-height: calc(100vh - 24px);
+  }
+}

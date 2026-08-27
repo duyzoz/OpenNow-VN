@@ -506,6 +506,28 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  const cleanupExpiredRuntimeSnapshot = useCallback(async (
+    expiredSnapshot: RuntimeSnapshot,
+    persistedSession: AuthSession,
+  ): Promise<boolean> => {
+    const context = expiredSnapshot.resumeContext;
+    const token = persistedSession.tokens.idToken ?? persistedSession.tokens.accessToken;
+    if (!context?.zone || !context.serverIp || !token) {
+      return false;
+    }
+
+    await window.openNow.stopSession({
+      token,
+      streamingBaseUrl: context.streamingBaseUrl ?? persistedSession.provider.streamingServiceUrl,
+      serverIp: context.serverIp,
+      zone: context.zone,
+      sessionId: context.sessionId,
+      clientId: context.clientId,
+      deviceId: context.deviceId,
+    });
+    return true;
+  }, []);
+
   const {
     authSession,
     savedAccounts,
@@ -548,6 +570,7 @@ export function App(): JSX.Element {
     onBootstrapSettings,
     onBootstrapVariantSelections,
     onBootstrapRuntimeSnapshot,
+    cleanupExpiredRuntimeSnapshot,
     setCurrentPage,
     setNavbarActiveSession,
     setIsResumingNavbarSession,
@@ -955,24 +978,6 @@ export function App(): JSX.Element {
     });
     return true;
   }, [authSession]);
-
-  const warmNativeStreamerForLaunch = useCallback((): void => {
-    if (settings.streamClientMode !== "native") {
-      return;
-    }
-
-    void window.openNow.getNativeStreamerStatus()
-      .then((status) => {
-        if (status.detected) {
-          console.log("[NativeStreamer] Launch warm-up ready:", status.message);
-        } else {
-          console.warn("[NativeStreamer] Launch warm-up did not detect native streamer:", status.message);
-        }
-      })
-      .catch((error) => {
-        console.warn("[NativeStreamer] Launch warm-up failed:", error);
-      });
-  }, [settings.streamClientMode]);
 
   useEffect(() => {
     if (!authSession || streamStatus !== "idle") {
@@ -1850,7 +1855,6 @@ export function App(): JSX.Element {
     subscriptionInfo,
     t,
     variantByGameId,
-    warmNativeStreamerForLaunch,
   });
 
   useEffect(() => {
