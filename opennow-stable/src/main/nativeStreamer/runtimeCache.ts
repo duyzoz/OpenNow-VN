@@ -1,12 +1,6 @@
 import { createHash } from "node:crypto";
-import {
-  cpSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { readFileSync } from "node:fs";
+import { cp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import {
@@ -96,12 +90,12 @@ export function isSamePackagedNativeStreamerCacheMarker(
     && left.runtimeManifestSha256 === right.runtimeManifestSha256;
 }
 
-export function materializePackagedNativeStreamerCache(
+export async function materializePackagedNativeStreamerCache(
   sourceExecutablePath: string,
   platformKey: string,
   exeName: string,
   context: PackagedNativeStreamerCacheContext,
-): string | null {
+): Promise<string | null> {
   if (!shouldUseStablePackagedNativeStreamerCache(context)) {
     return null;
   }
@@ -135,9 +129,12 @@ export function materializePackagedNativeStreamerCache(
     }
 
     stagingDirectory = `${cacheDirectory}.tmp-${process.pid}-${Date.now()}`;
-    rmSync(stagingDirectory, { recursive: true, force: true });
-    mkdirSync(dirname(stagingDirectory), { recursive: true });
-    cpSync(sourceDirectory, stagingDirectory, {
+    // Never copy the packaged GStreamer tree synchronously from an IPC handler.
+    // A portable build can contain hundreds of megabytes of plugins; cpSync here
+    // blocks Electron's main process and makes the Native settings tab appear frozen.
+    await rm(stagingDirectory, { recursive: true, force: true });
+    await mkdir(dirname(stagingDirectory), { recursive: true });
+    await cp(sourceDirectory, stagingDirectory, {
       recursive: true,
       force: true,
       dereference: true,
@@ -146,7 +143,7 @@ export function materializePackagedNativeStreamerCache(
         return !lower.endsWith(".pdb") && !lower.endsWith(".lib") && !lower.endsWith(".a");
       },
     });
-    writeFileSync(
+    await writeFile(
       join(stagingDirectory, ".opennow-native-runtime.json"),
       `${JSON.stringify(expectedMarker, null, 2)}\n`,
       "utf8",
@@ -159,8 +156,8 @@ export function materializePackagedNativeStreamerCache(
       throw new Error("Cached native streamer runtime is missing its bundled GStreamer directory.");
     }
 
-    rmSync(cacheDirectory, { recursive: true, force: true });
-    renameSync(stagingDirectory, cacheDirectory);
+    await rm(cacheDirectory, { recursive: true, force: true });
+    await rename(stagingDirectory, cacheDirectory);
     stagingDirectory = null;
     console.log("[NativeStreamer] Cached packaged native streamer in stable runtime path:", cachedExecutablePath);
     return cachedExecutablePath;
@@ -169,7 +166,7 @@ export function materializePackagedNativeStreamerCache(
     return null;
   } finally {
     if (stagingDirectory) {
-      rmSync(stagingDirectory, { recursive: true, force: true });
+      await rm(stagingDirectory, { recursive: true, force: true });
     }
   }
 }

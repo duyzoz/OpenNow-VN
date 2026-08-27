@@ -33,7 +33,10 @@
       "showInFolder": "Hiện trong thư mục",
       "sort": "Sắp xếp",
       "stop": "Dừng",
-      "switch": "Chuyển"
+      "switch": "Chuyển",
+      "exit": "Thoát OpenNOW",
+      "readMore": "Xem thêm",
+      "showLess": "Thu gọn"
     },
     "status": {
       "checking": "Đang kiểm tra",
@@ -48,7 +51,8 @@
       "saved": "Đã lưu",
       "testing": "Đang kiểm tra...",
       "unknown": "Không xác định",
-      "upToDate": "Đã cập nhật"
+      "upToDate": "Đã cập nhật",
+      "sessionActive": "Phiên đang hoạt động"
     },
     "units": {
       "bitrateMbps": "{{value}} Mbps",
@@ -199,7 +203,8 @@
       "purchaseUnavailable": "Không thể mua",
       "playNow": "Chơi ngay",
       "variant": "{{variant}}",
-      "storeCount": "{{count}} cửa hàng"
+      "storeCount": "{{count}} cửa hàng",
+      "cloudGame": "Game đám mây"
     }
   },
   "library": {
@@ -262,7 +267,23 @@
       "noGamesMatch": "Không có trò chơi khớp với \"{{query}}\"",
       "noFilteredGames": "Không có trò chơi khớp với bộ lọc",
       "tryAdjustingFilters": "Thử xóa bộ lọc hoặc thay đổi từ khóa tìm kiếm."
-    }
+    },
+    "rows": {
+      "continuePlaying": "Tiếp tục chơi",
+      "recentlyAdded": "Mới thêm",
+      "allGames": "Tất cả game"
+    },
+    "changeStore": "Đổi cửa hàng",
+    "detailLabels": {
+      "developer": "Nhà phát triển",
+      "publisher": "Nhà phát hành",
+      "players": "Số người chơi",
+      "genres": "Thể loại",
+      "controls": "Điều khiển",
+      "nvidiaTech": "Công nghệ NVIDIA"
+    },
+    "screenshotNumber": "Ảnh chụp màn hình {{index}}",
+    "viewDetails": "Chi tiết"
   },
   "gameCard": {
     "selectGame": "Chọn {{title}}",
@@ -346,7 +367,11 @@
       "advertisementInProgress": "Đang phát quảng cáo",
       "mediaWillAppear": "Nội dung quảng cáo sẽ xuất hiện ở đây khi có sẵn.",
       "advertisement": "Quảng cáo",
-      "titledAdvertisement": "Quảng cáo {{title}}"
+      "titledAdvertisement": "Quảng cáo {{title}}",
+      "mute": "Tắt tiếng",
+      "unmute": "Bật tiếng",
+      "muteAdvertisement": "Tắt tiếng quảng cáo",
+      "unmuteAdvertisement": "Bật tiếng quảng cáo"
     },
     "actions": {
       "cancelLoading": "Hủy tải"
@@ -357,7 +382,39 @@
       "allServers": "Tất cả máy chủ",
       "close": "Đóng",
       "cancel": "Hủy",
-      "wait": "Chờ {{duration}}"
+      "wait": "Chờ {{duration}}",
+      "title": "Chọn máy chủ",
+      "freeTierQueue": "Hàng đợi máy chủ gói Free",
+      "loading": "Đang tải dữ liệu hàng đợi trực tiếp…",
+      "recommended": "Đề xuất",
+      "autoSelected": "⚡ Tự động chọn",
+      "lowestQueuePinging": "Hàng đợi ngắn nhất · đang đo ping…",
+      "bestBalance": "Cân bằng ping và hàng đợi tốt nhất",
+      "lowestQueue": "Vị trí hàng đợi thấp nhất",
+      "closestServer": "📍 Máy chủ gần nhất",
+      "measuringLatency": "Đang đo độ trễ…",
+      "lowestLatency": "Độ trễ thấp nhất đến bạn",
+      "pingUnavailable": "Chưa có ping",
+      "noData": "Không có dữ liệu máy chủ.",
+      "poweredBy": "Cung cấp bởi",
+      "launch": "Khởi chạy",
+      "pinging": "Đang đo ping máy chủ…",
+      "noPingData": "Không có dữ liệu ping",
+      "autoBadge": "TỰ ĐỘNG",
+      "nearestBadge": "GẦN NHẤT",
+      "pingingShort": "đang đo ping…",
+      "queuePosition": "Hàng đợi: {{position}}",
+      "queueShort": "Q:{{position}}",
+      "loadingServers": "Đang tải máy chủ",
+      "regions": {
+        "northAmerica": "Bắc Mỹ",
+        "europe": "Châu Âu",
+        "japan": "Nhật Bản",
+        "southKorea": "Hàn Quốc",
+        "canada": "Canada",
+        "southeastAsia": "Đông Nam Á",
+        "malaysia": "Malaysia"
+      }
     }
   },
   "session": {
@@ -517,7 +574,6 @@
       "hideAdvanced": "Ẩn chẩn đoán nâng cao",
       "waitingForVideo": "Đang chờ video trò chơi…",
       "connecting": "Đang kết nối...",
-      "network": "Mạng",
       "decode": "Giải mã",
       "input": "Đầu vào",
       "render": "Kết xuất",
@@ -531,7 +587,9 @@
       "timeRemainingShort": "Còn lại",
       "inputQueuePressure": "Áp lực hàng chờ đầu vào (byte đệm và độ trễ gửi)",
       "inputChannelState": "Trạng thái kênh đầu vào và byte đang chờ",
-      "mouseFlushCadence": "Tần suất gửi chuột và tốc độ gói tin"
+      "mouseFlushCadence": "Tần suất gửi chuột và tốc độ gói tin",
+      "codecFallbackFrom": "Đã thương lượng codec dự phòng; codec yêu cầu {{codec}}",
+      "codecRequestedShort": "yêu cầu {{codec}}"
     },
     "controls": {
       "antiAfkEnabled": "Chống AFK đang bật",
@@ -620,7 +678,11 @@
         "screenshot": "Chụp màn hình",
         "showTimeInStats": "Hiện thời gian trong thống kê",
         "showTimeInStatsHint": "Giữ thời gian phiên hiển thị trong lớp hiệu năng.",
-        "keyboard": "Bàn phím"
+        "keyboard": "Bàn phím",
+        "current": "Phiên stream hiện tại",
+        "controls": "Điều khiển phiên",
+        "controlsHint": "Quản lý luồng đang hoạt động.",
+        "showTimeHint": "Giữ thời gian phiên trong lớp phủ hiệu năng."
       },
       "controls": {
         "mousePreferences": "Tùy chỉnh chuột",
@@ -663,6 +725,28 @@
           "sendLevel": "Mức gửi",
           "sendLevelAria": "Mức gửi micrô (người khác nghe thấy)",
           "notActive": "Micrô chưa hoạt động — kiểm tra chế độ và quyền truy cập."
+        },
+        "mouseAccelerator": "Tăng tốc chuột",
+        "mouseAcceleratorAria": "Tăng tốc chuột",
+        "mouseAcceleratorHint": "Mức tăng tốc xoay động (1% = gần như tắt, 150% = mạnh nhất).",
+        "videoFiltersUnavailable": "Bộ lọc hình ảnh không khả dụng khi native streamer đang xuất hình.",
+        "microphoneMode": "Chế độ microphone",
+        "sendLevel": "Mức gửi",
+        "sendLevelAria": "Mức microphone gửi đi (người khác nghe thấy)",
+        "micNotActive": "Mic chưa hoạt động — hãy kiểm tra chế độ và quyền truy cập.",
+        "micModes": {
+          "disabled": "Tắt",
+          "pushToTalk": "Nhấn để nói",
+          "voiceActivity": "Nhận diện giọng nói"
+        },
+        "micDescriptions": {
+          "disabled": "Không nhận âm thanh microphone",
+          "pushToTalk": "Giữ phím để nói",
+          "voiceActivity": "Luôn lắng nghe"
+        },
+        "filterHints": {
+          "sharpen": "Làm nét thích ứng tương phản, giảm mờ do nén luồng.",
+          "vibrance": "Tăng màu nhạt mà không làm quá bão hòa."
         }
       },
       "media": {
@@ -677,7 +761,12 @@
         "noRecordings": "Chưa có bản ghi. Bấm {{shortcut}} để ghi.",
         "untitled": "Không có tiêu đề",
         "showInFolder": "Hiện trong thư mục",
-        "delete": "Xóa"
+        "delete": "Xóa",
+        "scrollGalleryLeft": "Cuộn thư viện sang trái",
+        "scrollGalleryRight": "Cuộn thư viện sang phải",
+        "screenshotAlt": "Ảnh chụp màn hình {{name}}",
+        "scrollRecordingsLeft": "Cuộn bản ghi sang trái",
+        "scrollRecordingsRight": "Cuộn bản ghi sang phải"
       },
       "shortcuts": {
         "bindings": "Gán phím tắt",
@@ -690,7 +779,30 @@
         "mouseLock": "Khóa chuột",
         "stopStream": "Dừng luồng phát",
         "toggleMicrophone": "Bật/tắt micrô",
-        "toggleSidebar": "Bật/tắt thanh bên"
+        "toggleSidebar": "Bật/tắt thanh bên",
+        "title": "Gán phím tắt",
+        "subtitle": "Chỉnh phím chụp màn hình tại đây",
+        "screenshot": "Phím chụp màn hình",
+        "recording": "Phím ghi hình",
+        "screenshotAria": "Phím tắt chụp màn hình",
+        "recordingAria": "Phím tắt ghi hình",
+        "clickThenPress": "Nhấp vào đây rồi nhấn một phím",
+        "focusAndPress": "Tập trung vào ô và nhấn tổ hợp phím để gán",
+        "invalid": "Định dạng phím tắt không hợp lệ."
+      },
+      "pages": {
+        "session": "Phiên",
+        "controls": "Điều khiển",
+        "media": "Phương tiện",
+        "shortcuts": "Phím tắt"
+      },
+      "footer": {
+        "select": "Chọn",
+        "back": "Quay lại",
+        "pages": "Trang",
+        "reportBug": "Báo lỗi luồng",
+        "endSession": "Kết thúc phiên",
+        "ariaLabel": "Các trang menu nhanh"
       }
     },
     "shortcuts": {
@@ -702,6 +814,92 @@
       "focusAndPress": "Lấy tiêu điểm và bấm tổ hợp phím để gán",
       "examples": "Ví dụ: F3, Ctrl+Shift+Q, Ctrl+Shift+K",
       "stats": "Thống kê"
+    },
+    "exitPrompt": {
+      "ariaLabel": "Xác nhận thoát stream",
+      "cancelExit": "Hủy thoát",
+      "kicker": "Điều khiển phiên",
+      "title": "Thoát stream?",
+      "body": "Bạn có thực sự muốn thoát {{game}}?",
+      "subtext": "Phiên chơi game đám mây hiện tại sẽ đóng.",
+      "keepPlaying": "Tiếp tục chơi",
+      "exitStream": "Thoát stream",
+      "confirm": "Enter để xác nhận",
+      "cancel": "Esc để hủy",
+      "select": "A để chọn",
+      "back": "B để hủy"
+    },
+    "hud": {
+      "connecting": "Đang kết nối stream",
+      "connectingTo": "Đang kết nối tới {{game}}",
+      "settingUp": "Đang thiết lập stream...",
+      "stats": "Thống kê",
+      "mouseLock": "Khóa chuột",
+      "fullscreen": "Toàn màn hình",
+      "stop": "Dừng",
+      "controllerMenu": "Menu tay cầm",
+      "mic": "Micrô",
+      "exitFullscreen": "Thoát toàn màn hình",
+      "enterFullscreen": "Vào toàn màn hình",
+      "endSession": "Kết thúc phiên",
+      "antiAfkOn": "Chống AFK: BẬT",
+      "antiAfkOff": "Chống AFK: TẮT",
+      "sessionClock": "Thời gian phiên"
+    },
+    "queueAd": {
+      "adBreak": "Quảng cáo",
+      "playback": {
+        "playing": "Đang phát",
+        "paused": "Đã tạm dừng",
+        "pausedMessage": "Quảng cáo đã tạm dừng trước khi hoàn tất.",
+        "stalled": "Bị đứng",
+        "stalledMessage": "Phát lại không tiếp tục tiến triển.",
+        "autoplayBlocked": "Tự động phát bị chặn",
+        "autoplayBlockedMessage": "Trình duyệt đã chặn phát tự động.",
+        "timedOut": "Hết thời gian chờ",
+        "timedOutMessage": "Quảng cáo không bắt đầu đúng hạn.",
+        "playbackError": "Lỗi phát lại",
+        "playbackErrorMessage": "Không thể tải nội dung media.",
+        "resume": "Tiếp tục",
+        "retry": "Thử lại",
+        "start": "Bắt đầu"
+      }
+    },
+    "ui": {
+      "connectingToStream": "Đang kết nối luồng",
+      "connectingToGame": "Đang kết nối {{gameTitle}}",
+      "settingUpStream": "Đang thiết lập luồng...",
+      "sessionElapsedTimeTitle": "Thời gian đã chơi của phiên hiện tại",
+      "sessionTimeWarning": "Cảnh báo thời gian phiên",
+      "timeLeft": "còn {{value}}",
+      "antiAfkOn": "Chống AFK đã bật",
+      "antiAfkOff": "Chống AFK đã tắt",
+      "exitStreamConfirmation": "Xác nhận thoát luồng",
+      "cancelExit": "Hủy thoát",
+      "sessionControl": "Điều khiển phiên",
+      "exitStreamQuestion": "Thoát luồng?",
+      "exitStreamBody": "Bạn có thực sự muốn thoát {{gameTitle}} không?",
+      "sessionClosedOnExit": "Phiên chơi trên đám mây hiện tại sẽ bị đóng.",
+      "keepPlaying": "Tiếp tục chơi",
+      "confirm": "xác nhận",
+      "cancel": "hủy",
+      "select": "chọn",
+      "endSession": "Kết thúc phiên",
+      "stats": "Thống kê",
+      "mouseLock": "Khóa chuột",
+      "fullScreen": "Toàn màn hình",
+      "stop": "Dừng",
+      "controllerMenu": "Menu tay cầm",
+      "mic": "Micrô",
+      "preparingStream": "Đang chuẩn bị luồng",
+      "muted": "Đã tắt tiếng",
+      "recordingTitle": "Đang ghi · {{duration}}",
+      "recordingLabel": "GHI {{duration}}",
+      "antiAfkEnabledTitle": "Chống AFK đã bật",
+      "antiAfkLabel": "CHỐNG AFK BẬT",
+      "pointerLockExitHint": "Nhấn {{shortcut}} để thoát toàn màn hình và thả chuột",
+      "pointerLockEscapeSettings": "Theo cài đặt của bạn, nhấn Escape cũng sẽ thoát toàn màn hình.",
+      "pointerLockEscapeGame": "Khi đang khóa chuột, Escape sẽ gửi vào game; giữ Escape khoảng 1,5 giây để thoát toàn màn hình."
     }
   },
   "sidebar": {
@@ -808,7 +1006,9 @@
       "refreshPing": "Làm mới ping",
       "noRegionsMatch": "Không có khu vực nào khớp với \"{{query}}\"",
       "serverRegion": "Khu vực máy chủ",
-      "serverRegionHint": "Chọn khu vực máy chủ ưu tiên hoặc để OpenNOW tự chọn khu vực phù hợp nhất."
+      "serverRegionHint": "Chọn khu vực máy chủ ưu tiên hoặc để OpenNOW tự chọn khu vực phù hợp nhất.",
+      "clearSearch": "Xóa tìm kiếm vùng",
+      "testing": "Đang kiểm tra vùng"
     },
     "persistentStorage": {
       "title": "Lưu trữ liên tục",
@@ -883,7 +1083,8 @@
       "syncSummary_plural": "{{count}} trò chơi đã đồng bộ tính đến {{date}}",
       "syncState": "Trạng thái đồng bộ: {{state}}",
       "syncUnknown": "Không xác định",
-      "recently": "gần đây"
+      "recently": "gần đây",
+      "refreshing": "Đang làm mới tài khoản"
     },
     "video": {
       "title": "Video",
@@ -988,7 +1189,9 @@
       "persistInGameSettingsHint": "Cho phép các trò chơi được hỗ trợ giữ lại tùy chọn đồ họa được thay đổi trong luồng. Chỉ gửi cho các trò chơi hỗ trợ tính năng này của NVIDIA.",
       "keyboardLayout": "Bố cục bàn phím",
       "preferredStore": "Cửa hàng ưa thích",
-      "launchBehavior": "Hành vi khởi chạy"
+      "launchBehavior": "Hành vi khởi chạy",
+      "englishUs": "Tiếng Anh (Mỹ)",
+      "englishGb": "Tiếng Anh (Anh)"
     },
     "audio": {
       "title": "Âm thanh",
@@ -1007,7 +1210,10 @@
       "permissionDenied": "Quyền truy cập micrô bị từ chối. Hãy bật quyền micrô cho OpenNOW trong Cài đặt hệ thống > Quyền riêng tư & Bảo mật > Micrô.",
       "permissionRestricted": "Quyền truy cập micrô bị macOS hạn chế và không thể bật từ OpenNOW.",
       "permissionUnknown": "Không thể xác định trạng thái quyền micrô. Kiểm tra cài đặt quyền riêng tư micrô trên macOS cho OpenNOW.",
-      "permissionUnavailable": "Quyền truy cập micrô không khả dụng."
+      "permissionUnavailable": "Quyền truy cập micrô không khả dụng.",
+      "permissionRequiredForDevices": "Cần quyền truy cập micrô để hiển thị tên thiết bị và dùng chat thoại. Hãy cho phép rồi thử lại.",
+      "permissionDeniedRetry": "Quyền truy cập micrô bị từ chối. Hãy cho phép OpenNOW truy cập rồi thử lại.",
+      "devicesUnavailable": "Hiện không thể truy cập các thiết bị micrô."
     },
     "input": {
       "title": "Đầu vào",
@@ -1153,7 +1359,10 @@
         "checking": "Đang kiểm tra",
         "updateAvailable": "Có cập nhật mới",
         "downloading": "Đang tải xuống",
-        "readyToInstall": "Sẵn sàng cài đặt"
+        "readyToInstall": "Sẵn sàng cài đặt",
+        "idle": "Đang chờ",
+        "upToDate": "Đã là bản mới nhất",
+        "error": "Lỗi"
       },
       "localData": "Dữ liệu cục bộ",
       "localDataDescription": "Quản lý dữ liệu cài đặt và bộ nhớ cục bộ của ứng dụng.",
@@ -1227,7 +1436,31 @@
       "runtime": "Môi trường Native Stream",
       "runtimeDescription": "Cấu hình bộ phát Native Stream chạy cục bộ và các thành phần hỗ trợ.",
       "videoOutput": "Đầu ra video",
-      "videoOutputDescription": "Chọn cách Native Stream xuất video vào cửa sổ OpenNOW."
+      "videoOutputDescription": "Chọn cách Native Stream xuất video vào cửa sổ OpenNOW.",
+      "bundledRuntimeUsed": "Đang dùng runtime đóng gói",
+      "bundledRuntimeFound": "Đã tìm thấy runtime đóng gói",
+      "systemRuntime": "Runtime hệ thống",
+      "runtimeMissing": "Thiếu runtime",
+      "runtimeUnknown": "Runtime chưa rõ",
+      "checkingStatus": "Đang kiểm tra trạng thái streamer",
+      "runtimeCheckFailed": "Không thể kiểm tra runtime GStreamer.",
+      "statusCheckFailed": "Không thể kiểm tra trạng thái streamer gốc.",
+      "backendAuto": "Tự động",
+      "backendD3d12": "DirectX 12",
+      "backendD3d11": "DirectX 11",
+      "backendNvdec": "NVIDIA NVDEC",
+      "backendVaapi": "VAAPI",
+      "backendV4l2": "V4L2",
+      "backendVulkan": "Vulkan",
+      "backendSoftware": "Phần mềm",
+      "backendAutoDescription": "Chọn đường dẫn native mặc định cho phiên",
+      "backendD3d12Description": "Dùng bộ giải mã và bộ kết xuất D3D12",
+      "backendD3d11Description": "Dùng bộ giải mã và bộ kết xuất D3D11",
+      "backendNvdecDescription": "Dùng bộ giải mã phần cứng native NVIDIA trên Linux",
+      "backendVaapiDescription": "Dùng giải mã phần cứng Linux VA-API",
+      "backendV4l2Description": "Dùng giải mã phần cứng Linux V4L2, bao gồm Raspberry Pi",
+      "backendVulkanDescription": "Dùng trình bày Vulkan khi được hỗ trợ; chế độ nội bộ Windows dùng đường dẫn trình bày D3D tương thích",
+      "backendSoftwareDescription": "Giải mã bằng CPU với libav"
     },
     "thanks": {
       "title": "Cảm ơn bạn đã giúp OpenNOW phát triển",
@@ -1245,7 +1478,10 @@
       "loadingContributors": "Đang tải danh sách đóng góp từ GitHub...",
       "loadingSupporters": "Đang tải danh sách nhà hảo tâm từ GitHub Sponsors...",
       "noContributors": "Không thể hiển thị người đóng góp lúc này.",
-      "noSupporters": "Không thể hiển thị nhà hảo tâm lúc này."
+      "noSupporters": "Không thể hiển thị nhà hảo tâm lúc này.",
+      "contributionCount": "{{count}} contribution",
+      "contributionCount_plural": "{{count}} contribution",
+      "loadError": "Hiện không thể tải lời cảm ơn cộng đồng."
     },
     "console": {
       "appShell": "Vỏ ứng dụng",
@@ -1267,6 +1503,31 @@
     "recording": {
       "description": "Ghi lại phiên chơi trực tiếp từ luồng phát trong ứng dụng.",
       "title": "Ghi hình"
+    },
+    "clearSearch": "Xóa tìm kiếm cài đặt",
+    "searchResults": "Kết quả tìm kiếm",
+    "resolutionPresets": {
+      "720p169": "720p (16:9)",
+      "720p1610": "720p (16:10)",
+      "wxga1610": "WXGA (16:10)",
+      "wsxga1610": "WSXGA (16:10)",
+      "1080p169": "1080p (16:9)",
+      "1200p1610": "1200p (16:10)",
+      "ultrawide1080p219": "Ultrawide 1080p (21:9)",
+      "1440p169": "1440p (16:9)",
+      "1600p1610": "1600p (16:10)",
+      "ultrawide1440p219": "Ultrawide 1440p (21:9)",
+      "4k169": "4K (16:9)",
+      "4k1610": "4K (16:10)",
+      "superUltrawide329": "Super Ultrawide (32:9)"
+    },
+    "resolutionGroups": {
+      "standard169": "16:9 Tiêu chuẩn",
+      "widescreen1610": "16:10 Màn hình rộng",
+      "ultrawide219": "21:9 Siêu rộng",
+      "superUltrawide329": "32:9 Siêu siêu rộng",
+      "legacy43": "4:3 Cổ điển",
+      "other": "Khác"
     }
   },
   "navbar": {
@@ -1342,7 +1603,8 @@
     "sessionResumeFailedDescription": "Kết nối đến phiên đang chạy bị mất và tiếp tục thất bại.",
     "queueAdPlayTimeout": "Hết thời gian phát quảng cáo",
     "queueAdVideoStuck": "Video quảng cáo bị kẹt",
-    "queueAdUrlLoad": "Lỗi tải URL"
+    "queueAdUrlLoad": "Lỗi tải URL",
+    "uiCrashed": "Giao diện đã gặp lỗi"
   },
   "releaseHighlights": {
     "kicker": "Có gì mới",
@@ -1388,6 +1650,29 @@
       "empty": "Vui lòng nhập tin nhắn trước khi gửi.",
       "notConfigured": "Phản hồi không khả dụng vì PostHog chưa được cấu hình trong bản dựng này.",
       "sendFailed": "Không thể gửi phản hồi. Vui lòng thử lại."
+    },
+    "bug": {
+      "kicker": "Chẩn đoán",
+      "title": "Báo lỗi",
+      "issueTitle": "Tiêu đề lỗi",
+      "issueTitlePlaceholder": "Luồng bị đứng sau khi kết nối lại",
+      "description": "Đã xảy ra chuyện gì?",
+      "descriptionPlaceholder": "Bạn đang làm gì, lỗi xảy ra thế nào, bạn mong đợi điều gì và có thể tái hiện lỗi không?",
+      "meaningfulCharacters": "{{count}} / {{minimum}} ký tự có ý nghĩa",
+      "includeSystemInfo": "Đính kèm thông tin hệ điều hành, GPU và thiết bị",
+      "includeSessionReport": "Đính kèm báo cáo phiên mới nhất",
+      "disclosure": "Trước khi tải lên, bạn có thể xem lại báo cáo và tệp đính kèm. Nhật ký đã được ẩn thông tin nhạy cảm. Báo cáo phiên chỉ gồm tên game và chất lượng đo được, không gồm gameplay, mật khẩu, token tài khoản hoặc danh sách thư viện.",
+      "review": "Xem lại và gửi",
+      "reviewHint": "Xem lại các trường báo cáo và tệp đính kèm trước khi gửi tới API báo lỗi PrintedWaste.",
+      "appVersionRequired": "Phiên bản và bản build của ứng dụng (bắt buộc theo API báo lỗi)",
+      "systemMetadata": "Thông tin hệ điều hành, GPU và thiết bị",
+      "noAttachments": "Chưa chọn tệp chẩn đoán tùy chọn",
+      "consent": "Tôi hiểu những gì sẽ được tải lên và đồng ý gửi báo cáo này tới API PrintedWaste.",
+      "consentRequired": "Hãy xác nhận bạn hiểu những gì sẽ được tải lên trước khi gửi.",
+      "back": "Quay lại",
+      "send": "Gửi cho nhà phát triển",
+      "success": "Cảm ơn — báo cáo lỗi đã được gửi tới nhà phát triển.",
+      "reference": "Mã tham chiếu: {{reference}}"
     }
   },
   "perf": {
@@ -1499,5 +1784,87 @@
     "suggestions": {
       "notFound": "Không tìm thấy game nào cho \"{{query}}\""
     }
+  },
+  "console": {
+    "controllerPrompt": {
+      "kicker": "Đã phát hiện tay cầm",
+      "title": "Chuyển sang chế độ tay cầm?",
+      "description": "Dùng giao diện dạng console được thiết kế cho tay cầm. Bạn có thể chuyển lại bất cứ lúc nào trong Cài đặt.",
+      "accept": "Chuyển chế độ",
+      "decline": "Không, đừng hỏi lại"
+    },
+    "splash": {
+      "title": "OpenNOW",
+      "subtitle": "Chế độ console"
+    },
+    "profiles": {
+      "whosPlaying": "Ai đang chơi?",
+      "signedIn": "Đã đăng nhập",
+      "manage": "Quản lý hồ sơ",
+      "lockedProfile": "{{name}} (cần mã PIN)",
+      "switchFailed": "Không thể chuyển sang hồ sơ đó."
+    },
+    "pin": {
+      "title": "Nhập mã PIN của {{name}}",
+      "subtitle": "Hồ sơ này được khóa bằng mã PIN 4 chữ số.",
+      "enteredDigits": "Đã nhập {{count}}/4 chữ số",
+      "delete": "Xóa",
+      "incorrect": "Mã PIN không đúng. Còn {{count}} lần thử.",
+      "incorrect_plural": "Mã PIN không đúng. Còn {{count}} lần thử.",
+      "lockedOut": "Quá nhiều lần thử. Hãy thử lại sau {{seconds}} giây.",
+      "recoveryHint": "Giữ B để xóa hồ sơ này",
+      "recoveryReady": "Thả nút để chọn",
+      "forgotPin": "Quên mã PIN?",
+      "recoveryPrompt": "Xóa hồ sơ này và đăng xuất?",
+      "removeProfile": "Xóa hồ sơ này"
+    },
+    "manage": {
+      "title": "Quản lý hồ sơ",
+      "subtitle": "Đặt mã PIN để giữ riêng tư cho hồ sơ trên TV dùng chung.",
+      "setPin": "Đặt mã PIN",
+      "changePin": "Đổi mã PIN",
+      "removePin": "Xóa mã PIN",
+      "pinOn": "Đã bật PIN",
+      "currentPin": "Mã PIN hiện tại",
+      "newPin": "Mã PIN mới",
+      "wrongPin": "Mã PIN không đúng.",
+      "pinFormat": "Mã PIN phải gồm đúng 4 chữ số.",
+      "lockedOut": "Quá nhiều lần thử. Vui lòng thử lại sau ít phút.",
+      "noPinSet": "Hồ sơ này chưa đặt mã PIN.",
+      "pinFailed": "Không thể cập nhật mã PIN.",
+      "securityNote": "Mã PIN giúp tách các tài khoản trên TV dùng chung. Mã PIN không mã hóa tài khoản; bất kỳ ai có quyền truy cập file trên thiết bị vẫn có thể đọc thông tin đăng nhập đã lưu."
+    }
+  },
+  "sessionReport": {
+    "kicker": "Chất lượng phiên",
+    "title": "Báo cáo phiên",
+    "scoreLabel": "Điểm phiên {{score}}/100",
+    "summary": "Đo trong {{duration}}",
+    "limitedData": "Dữ liệu hạn chế: chỉ có {{count}} mẫu.",
+    "ratings": {
+      "excellent": "Xuất sắc",
+      "good": "Tốt",
+      "fair": "Khá",
+      "poor": "Cần cải thiện"
+    },
+    "connection": "Kết nối",
+    "metrics": {
+      "latency": "Độ trễ",
+      "speed": "Tốc độ luồng",
+      "loss": "Mất gói tin",
+      "jitter": "Jitter",
+      "fps": "Tốc độ khung hình",
+      "decode": "Thời gian giải mã"
+    },
+    "peak": "đỉnh {{value}}",
+    "profile": "Cấu hình luồng",
+    "requested": "Đã yêu cầu",
+    "delivered": "Đã truyền",
+    "route": "Định tuyến",
+    "changes": "Phát hiện thay đổi",
+    "recommendations": "Đề xuất",
+    "dontShowAgain": "Không hiển thị báo cáo phiên nữa",
+    "close": "Đóng",
+    "reportBug": "Gặp lỗi? Hãy báo lỗi"
   }
 }

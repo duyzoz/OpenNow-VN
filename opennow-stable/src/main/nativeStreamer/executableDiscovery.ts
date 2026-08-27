@@ -45,9 +45,9 @@ export function shouldIgnorePackagedExecutableOverride(
   return packagedRoots.some((root) => isPathInside(root, configuredPath, options.platform));
 }
 
-export function resolveNativeStreamerExecutableCandidates(
+export async function resolveNativeStreamerExecutableCandidates(
   options: NativeStreamerExecutableDiscoveryOptions,
-): string[] {
+): Promise<string[]> {
   const exeName = nativeStreamerExecutableName(options.platform);
   const platformKey = nativeStreamerPlatformKey(options.platform, options.arch);
   const bundledCandidates = [
@@ -68,12 +68,12 @@ export function resolveNativeStreamerExecutableCandidates(
         continue;
       }
       addCandidate(
-        materializePackagedNativeStreamerCache(
+        (await materializePackagedNativeStreamerCache(
           candidate,
           platformKey,
           exeName,
           options.cacheContext,
-        ) ?? undefined,
+        )) ?? undefined,
       );
     }
   }

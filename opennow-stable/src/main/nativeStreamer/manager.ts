@@ -415,7 +415,7 @@ export class NativeStreamerManager {
       const backendPreference = this.options.getBackendPreference();
       let lastError: Error | null = null;
 
-      for (const executablePath of resolveNativeStreamerExecutableCandidates({
+      for (const executablePath of await resolveNativeStreamerExecutableCandidates({
         platform: process.platform,
         arch: process.arch,
         resourcesPath: process.resourcesPath,

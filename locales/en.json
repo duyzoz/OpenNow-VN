@@ -33,7 +33,10 @@
       "showInFolder": "Show in folder",
       "sort": "Sort",
       "stop": "Stop",
-      "switch": "Switch"
+      "switch": "Switch",
+      "exit": "Exit OpenNOW",
+      "readMore": "Read more",
+      "showLess": "Show less"
     },
     "status": {
       "checking": "Checking",
@@ -48,7 +51,8 @@
       "saved": "Saved",
       "testing": "Testing...",
       "unknown": "Unknown",
-      "upToDate": "Up to date"
+      "upToDate": "Up to date",
+      "sessionActive": "Session active"
     },
     "units": {
       "bitrateMbps": "{{value}} Mbps",
@@ -199,7 +203,8 @@
       "purchaseUnavailable": "Purchase unavailable",
       "playNow": "Play Now",
       "variant": "{{variant}}",
-      "storeCount": "{{count}} stores"
+      "storeCount": "{{count}} stores",
+      "cloudGame": "Cloud Game"
     }
   },
   "library": {
@@ -262,7 +267,23 @@
       "noGamesMatch": "No games match \"{{query}}\"",
       "noFilteredGames": "No games match those filters",
       "tryAdjustingFilters": "Try clearing a filter or changing your search."
-    }
+    },
+    "rows": {
+      "continuePlaying": "Continue playing",
+      "recentlyAdded": "Recently added",
+      "allGames": "All games"
+    },
+    "changeStore": "Change store",
+    "detailLabels": {
+      "developer": "Developer",
+      "publisher": "Publisher",
+      "players": "Players",
+      "genres": "Genres",
+      "controls": "Controls",
+      "nvidiaTech": "NVIDIA Tech"
+    },
+    "screenshotNumber": "Screenshot {{index}}",
+    "viewDetails": "Details"
   },
   "gameCard": {
     "selectGame": "Select {{title}}",
@@ -280,7 +301,9 @@
     "resume": "Resume",
     "resumeStream": "Resume stream",
     "quit": "Quit",
-    "endStream": "End"
+    "endStream": "End",
+    "viewDetails": "View details",
+    "viewDetailsFor": "View details for {{title}}"
   },
   "streamLoading": {
     "labels": {
@@ -344,7 +367,11 @@
       "advertisementInProgress": "Advertisement in progress",
       "mediaWillAppear": "Ad media will appear here as soon as it is available.",
       "advertisement": "Advertisement",
-      "titledAdvertisement": "{{title}} advertisement"
+      "titledAdvertisement": "{{title}} advertisement",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "muteAdvertisement": "Mute advertisement",
+      "unmuteAdvertisement": "Unmute advertisement"
     },
     "actions": {
       "cancelLoading": "Cancel loading"
@@ -355,7 +382,39 @@
       "allServers": "All Servers",
       "close": "Close",
       "cancel": "Cancel",
-      "wait": "{{duration}} wait"
+      "wait": "{{duration}} wait",
+      "title": "Select Server",
+      "freeTierQueue": "Free tier server queue",
+      "loading": "Fetching live queue data…",
+      "recommended": "Recommended",
+      "autoSelected": "⚡ Auto Selected",
+      "lowestQueuePinging": "Lowest queue · pinging…",
+      "bestBalance": "Best ping + queue balance",
+      "lowestQueue": "Lowest queue position",
+      "closestServer": "📍 Closest Server",
+      "measuringLatency": "Measuring latency…",
+      "lowestLatency": "Lowest latency to you",
+      "pingUnavailable": "Ping unavailable",
+      "noData": "No server data available.",
+      "poweredBy": "Powered by",
+      "launch": "Launch",
+      "pinging": "Pinging servers…",
+      "noPingData": "No ping data available",
+      "autoBadge": "AUTO",
+      "nearestBadge": "NEAREST",
+      "pingingShort": "pinging…",
+      "queuePosition": "Queue: {{position}}",
+      "queueShort": "Q:{{position}}",
+      "loadingServers": "Loading servers",
+      "regions": {
+        "northAmerica": "North America",
+        "europe": "Europe",
+        "japan": "Japan",
+        "southKorea": "South Korea",
+        "canada": "Canada",
+        "southeastAsia": "Southeast Asia",
+        "malaysia": "Malaysia"
+      }
     }
   },
   "session": {
@@ -515,7 +574,6 @@
       "hideAdvanced": "Hide advanced diagnostics",
       "waitingForVideo": "Waiting for game video…",
       "connecting": "Connecting...",
-      "network": "Network",
       "decode": "Decode",
       "input": "Input",
       "render": "Render",
@@ -529,7 +587,9 @@
       "timeRemainingShort": "Left",
       "inputQueuePressure": "Input queue pressure (buffered bytes and delayed flush)",
       "inputChannelState": "Partially reliable input channel state and queued bytes",
-      "mouseFlushCadence": "Mouse flush cadence and packet rate"
+      "mouseFlushCadence": "Mouse flush cadence and packet rate",
+      "codecFallbackFrom": "Negotiated fallback codec; requested {{codec}}",
+      "codecRequestedShort": "requested {{codec}}"
     },
     "controls": {
       "antiAfkEnabled": "Anti-AFK is enabled",
@@ -618,7 +678,11 @@
         "screenshot": "Screenshot",
         "showTimeInStats": "Show time in stats",
         "showTimeInStatsHint": "Keep session time visible in the performance overlay.",
-        "keyboard": "Keyboard"
+        "keyboard": "Keyboard",
+        "current": "Current stream session",
+        "controls": "Session controls",
+        "controlsHint": "Manage the active stream.",
+        "showTimeHint": "Keep session time visible in the performance overlay."
       },
       "controls": {
         "mousePreferences": "Mouse preferences",
@@ -661,6 +725,28 @@
           "sendLevel": "Send level",
           "sendLevelAria": "Microphone send level (what others hear)",
           "notActive": "Mic not active — check mode and permissions."
+        },
+        "mouseAccelerator": "Mouse Accelerator",
+        "mouseAcceleratorAria": "Mouse accelerator",
+        "mouseAcceleratorHint": "Dynamic turn boost strength (1% = off-like, 150% = strongest).",
+        "videoFiltersUnavailable": "Video filters are unavailable while the native streamer renders the video.",
+        "microphoneMode": "Microphone Mode",
+        "sendLevel": "Send Level",
+        "sendLevelAria": "Microphone send level (what others hear)",
+        "micNotActive": "Microphone is not active — check the mode and permissions.",
+        "micModes": {
+          "disabled": "Disabled",
+          "pushToTalk": "Push-to-Talk",
+          "voiceActivity": "Voice Activity"
+        },
+        "micDescriptions": {
+          "disabled": "No microphone input",
+          "pushToTalk": "Hold a key to talk",
+          "voiceActivity": "Always listen"
+        },
+        "filterHints": {
+          "sharpen": "Contrast-adaptive sharpening. Counters stream compression blur.",
+          "vibrance": "Boosts muted colors without oversaturating."
         }
       },
       "media": {
@@ -675,7 +761,12 @@
         "noRecordings": "No recordings yet. Press {{shortcut}} to record.",
         "untitled": "Untitled",
         "showInFolder": "Show in folder",
-        "delete": "Delete"
+        "delete": "Delete",
+        "scrollGalleryLeft": "Scroll gallery left",
+        "scrollGalleryRight": "Scroll gallery right",
+        "screenshotAlt": "Screenshot {{name}}",
+        "scrollRecordingsLeft": "Scroll recordings left",
+        "scrollRecordingsRight": "Scroll recordings right"
       },
       "shortcuts": {
         "bindings": "Shortcut bindings",
@@ -688,7 +779,30 @@
         "mouseLock": "Mouse lock",
         "stopStream": "Stop stream",
         "toggleMicrophone": "Toggle microphone",
-        "toggleSidebar": "Toggle sidebar"
+        "toggleSidebar": "Toggle sidebar",
+        "title": "Shortcut Bindings",
+        "subtitle": "Edit screenshot keybind here",
+        "screenshot": "Screenshot Shortcut",
+        "recording": "Recording Shortcut",
+        "screenshotAria": "Screenshot shortcut",
+        "recordingAria": "Recording shortcut",
+        "clickThenPress": "Click, then press a key",
+        "focusAndPress": "Focus and press the key combination to bind",
+        "invalid": "Invalid shortcut format."
+      },
+      "pages": {
+        "session": "Session",
+        "controls": "Controls",
+        "media": "Media",
+        "shortcuts": "Keys"
+      },
+      "footer": {
+        "select": "Select",
+        "back": "Back",
+        "pages": "Pages",
+        "reportBug": "Report a stream bug",
+        "endSession": "End session",
+        "ariaLabel": "Quick menu pages"
       }
     },
     "shortcuts": {
@@ -700,6 +814,60 @@
       "focusAndPress": "Focus and press the key combination to bind",
       "examples": "Examples: F3, Ctrl+Shift+Q, Ctrl+Shift+K",
       "stats": "Stats"
+    },
+    "ui": {
+      "pointerLockExitHint": "Press {{shortcut}} to exit fullscreen and release the mouse",
+      "pointerLockEscapeSettings": "Press Escape will also exit fullscreen according to your settings.",
+      "pointerLockEscapeGame": "Escape goes to the game while pointer-locked; hold Escape for about 1.5 seconds to exit fullscreen.",
+      "connectingToStream": "Connecting to stream",
+      "connectingToGame": "Connecting to {{gameTitle}}",
+      "settingUpStream": "Setting up stream...",
+      "sessionElapsedTimeTitle": "Current gaming session elapsed time",
+      "sessionTimeWarning": "Session time warning",
+      "timeLeft": "{{value}} left",
+      "antiAfkOn": "Anti-AFK on",
+      "antiAfkOff": "Anti-AFK off",
+      "exitStreamConfirmation": "Exit stream confirmation",
+      "cancelExit": "Cancel exit",
+      "sessionControl": "Session Control",
+      "exitStreamQuestion": "Exit Stream?",
+      "exitStreamBody": "Do you really want to exit {{gameTitle}}?",
+      "sessionClosedOnExit": "Your current cloud gaming session will be closed.",
+      "keepPlaying": "Keep Playing",
+      "confirm": "confirm",
+      "cancel": "cancel",
+      "select": "select",
+      "endSession": "End session",
+      "stats": "Stats",
+      "mouseLock": "Mouse lock",
+      "fullScreen": "Full screen",
+      "stop": "Stop",
+      "controllerMenu": "Controller menu",
+      "mic": "Mic",
+      "preparingStream": "Preparing stream",
+      "muted": "Muted",
+      "recordingTitle": "Recording · {{duration}}",
+      "recordingLabel": "REC {{duration}}",
+      "antiAfkEnabledTitle": "Anti-AFK is enabled",
+      "antiAfkLabel": "ANTI-AFK ON"
+    },
+    "queueAd": {
+      "playback": {
+        "playing": "Playing",
+        "paused": "Paused",
+        "pausedMessage": "Ad paused before completion.",
+        "stalled": "Stalled",
+        "stalledMessage": "Playback stopped progressing.",
+        "autoplayBlocked": "Autoplay blocked",
+        "autoplayBlockedMessage": "Browser blocked automatic playback.",
+        "timedOut": "Timed out",
+        "timedOutMessage": "Ad did not start in time.",
+        "playbackError": "Playback error",
+        "playbackErrorMessage": "Media failed to load.",
+        "resume": "Resume",
+        "retry": "Retry",
+        "start": "Start"
+      }
     }
   },
   "sidebar": {
@@ -793,14 +961,20 @@
       "interface": "Interface",
       "about": "About",
       "thanks": "Thanks",
-      "performance": "Performance"
+      "performance": "Performance",
+      "diagnostics": "Diagnostics",
+      "console": "Console"
     },
     "region": {
       "title": "Region",
       "autoBest": "Auto (Best)",
       "searchPlaceholder": "Search regions...",
       "refreshPing": "Refresh ping",
-      "noRegionsMatch": "No regions match \"{{query}}\""
+      "noRegionsMatch": "No regions match \"{{query}}\"",
+      "serverRegion": "Server Region",
+      "serverRegionHint": "Choose a specific region or let OpenNOW use the lowest-latency route.",
+      "clearSearch": "Clear region search",
+      "testing": "Testing regions"
     },
     "persistentStorage": {
       "title": "Persistent Storage",
@@ -875,7 +1049,8 @@
       "syncSummary_plural": "{{count}} synced games as of {{date}}",
       "syncState": "Sync state: {{state}}",
       "syncUnknown": "Unknown",
-      "recently": "recently"
+      "recently": "recently",
+      "refreshing": "Refreshing accounts"
     },
     "video": {
       "title": "Video",
@@ -916,7 +1091,27 @@
       "identifyAsSteamDeck": "Identify as Steam Deck",
       "identifyAsSteamDeckHint": "Identify as the Steam Deck GFN client to unlock Deck-specific resolutions and 90 FPS. Video options refresh automatically.",
       "launchInConsoleMode": "Console Mode (TV / Big Picture)",
-      "launchInConsoleModeHint": "Start OpenNOW fullscreen with Controller Mode enabled, like GeForce NOW's TV mode. Sessions ask NVIDIA to launch games gamepad-friendly (big picture) while Console Mode or Controller Mode is active."
+      "launchInConsoleModeHint": "Start OpenNOW fullscreen with Controller Mode enabled, like GeForce NOW's TV mode. Sessions ask NVIDIA to launch games gamepad-friendly (big picture) while Console Mode or Controller Mode is active.",
+      "profile": "Quality Profile",
+      "profileHint": "Set the stream resolution, frame rate, and bandwidth ceiling.",
+      "codecAndColor": "Codec & Color",
+      "codecAndColorHint": "Choose the preferred decoder format, safe fallback, and color format.",
+      "codecAutoPick": "Auto ({{codec}})",
+      "codecAutoHint": "Chooses the best codec available for WebRTC decode on this device.",
+      "codecManualHint": "Manual choices are used when supported; negotiation can fall back safely.",
+      "codecUnsupported": "Unavailable on this device",
+      "fallbackCodec": "Fallback Codec",
+      "fallbackCodecHint": "Used if the requested codec is rejected. Auto keeps all supported codecs available.",
+      "recordingResolution": "Recording Resolution",
+      "recordingFps": "Recording FPS",
+      "session": "Session & Compatibility",
+      "sessionHint": "Proxy routing applied to catalog requests, session creation, and queue polling.",
+      "gfnLaunchMode": "GeForce NOW Launch Mode",
+      "gfnLaunchModeHint": "Client identity and feature requests sent only when OpenNOW creates a new GeForce NOW session.",
+      "processing": "Video Processing",
+      "processingHint": "Optional local effects applied after the browser decodes each frame.",
+      "identifyAsConsole": "Identify as Console",
+      "identifyAsConsoleHint": "Ask GeForce NOW to launch streamed games in gamepad-friendly mode so launchers such as Steam can start in Big Picture. This affects new GFN sessions only; it does not fullscreen OpenNOW or enable its console shell."
     },
     "videoFilters": {
       "title": "Video Filters",
@@ -941,7 +1136,9 @@
       "decode": "Decode",
       "encode": "Encode",
       "profiles": "Profiles:",
-      "linuxHardwareHint": "Linux AppImage diagnostics use Chromium's WebRTC/MediaCapabilities report. Hardware decode depends on the Chromium build plus your distro GPU/video stack: x64 systems may need VA-API/NVIDIA VA-API drivers, while ARM V4L2 support depends on Chromium/Electron exposing that decoder."
+      "linuxHardwareHint": "Linux AppImage diagnostics use Chromium's WebRTC/MediaCapabilities report. Hardware decode depends on the Chromium build plus your distro GPU/video stack: x64 systems may need VA-API/NVIDIA VA-API drivers, while ARM V4L2 support depends on Chromium/Electron exposing that decoder.",
+      "gpuDriverLine": "{{gpu}} · driver {{version}}",
+      "quickSyncHint": "GPU decode is active, but H.264 encode is using the CPU. Installing the full graphics driver may restore the hardware Media Foundation encoder."
     },
     "colorQuality": {
       "mostCompatible": "Most compatible",
@@ -958,7 +1155,9 @@
       "persistInGameSettingsHint": "Lets supported games keep graphics options changed inside the stream. Sent only for games that advertise NVIDIA in-game settings persistence support.",
       "keyboardLayout": "Keyboard Layout",
       "preferredStore": "Preferred Store",
-      "launchBehavior": "Launch Behavior"
+      "launchBehavior": "Launch Behavior",
+      "englishUs": "English (US)",
+      "englishGb": "English (UK)"
     },
     "audio": {
       "title": "Audio",
@@ -977,7 +1176,10 @@
       "permissionDenied": "Microphone access was denied. Enable microphone access for OpenNOW in System Settings > Privacy & Security > Microphone.",
       "permissionRestricted": "Microphone access is restricted by macOS and cannot be enabled from OpenNOW.",
       "permissionUnknown": "Unable to determine microphone permission status. Check macOS microphone privacy settings for OpenNOW.",
-      "permissionUnavailable": "Microphone access is not available."
+      "permissionUnavailable": "Microphone access is not available.",
+      "permissionRequiredForDevices": "Microphone access is required to show device names and use voice chat. Allow access and try again.",
+      "permissionDeniedRetry": "Microphone access was denied. Allow access for OpenNOW and try again.",
+      "devicesUnavailable": "Unable to access microphone devices right now."
     },
     "input": {
       "title": "Input",
@@ -1010,7 +1212,12 @@
       "screenshot": "Screenshot",
       "recording": "Recording",
       "toggleStreamSidebar": "Toggle stream sidebar",
-      "shortcutHint": "Click a field and press the keys to bind, or paste a shortcut ({{examples}}). Escape cancels focus. Full screen: {{fullscreen}}. Stop: {{stop}}. Mic: {{mic}}. Screenshot: {{screenshot}}. Recording: {{recording}}."
+      "shortcutHint": "Click a field and press the keys to bind, or paste a shortcut ({{examples}}). Escape cancels focus. Full screen: {{fullscreen}}. Stop: {{stop}}. Mic: {{mic}}. Screenshot: {{screenshot}}. Recording: {{recording}}.",
+      "behavior": "Input Behavior",
+      "behaviorDescription": "Keyboard, controller, clipboard, and cursor behavior during streamed sessions.",
+      "mouse": "Mouse",
+      "mouseDescription": "Pointer sensitivity and acceleration applied while a game has input focus.",
+      "shortcutsDescription": "Keyboard shortcuts for stream controls and common session actions."
     },
     "interface": {
       "appearance": "Appearance",
@@ -1060,7 +1267,24 @@
       "off": "Off",
       "everyMinutes": "Every {{count}} min",
       "streamInSeparateWindow": "Open Cloud Games in Separate Window",
-      "streamInSeparateWindowHint": "Launch cloud games in their own dedicated window instead of inside the main app, for lower memory usage. Manage both windows from either client."
+      "streamInSeparateWindowHint": "Launch cloud games in their own dedicated window instead of inside the main app, for lower memory usage. Manage both windows from either client.",
+      "appearanceDescription": "Language, theme, translucency, and accent presentation across OpenNOW.",
+      "behavior": "App Behavior",
+      "behaviorDescription": "Overlay visibility, reminders, and fullscreen behavior during everyday use.",
+      "libraryAndPresence": "Library & Presence",
+      "libraryAndPresenceDescription": "Library density and how OpenNOW represents your activity outside the app.",
+      "antiAfkReminderInterval": "Anti-AFK Reminder Interval",
+      "antiAfkReminderIntervalHint": "Show a brief Anti-AFK activation reminder at this interval when the persistent indicator is hidden (0 disables reminders).",
+      "antiAfkReminderDuration": "Anti-AFK Reminder Visible Time",
+      "antiAfkReminderDurationHint": "How long each periodic Anti-AFK activation reminder stays visible.",
+      "showSessionReport": "Show Session Report",
+      "showSessionReportHint": "Show a measured quality summary after each completed stream.",
+      "statsOverlayPosition": "Stats overlay position",
+      "statsOverlayPositionHint": "Choose which corner anchors the stream stats HUD.",
+      "posBottomLeft": "Bottom left",
+      "posBottomRight": "Bottom right",
+      "posTopLeft": "Top left",
+      "posTopRight": "Top right"
     },
     "about": {
       "applicationUpdates": "Application Updates",
@@ -1101,8 +1325,17 @@
         "checking": "Checking",
         "updateAvailable": "Update available",
         "downloading": "Downloading",
-        "readyToInstall": "Ready to install"
-      }
+        "readyToInstall": "Ready to install",
+        "idle": "Idle",
+        "upToDate": "Up to date",
+        "error": "Error"
+      },
+      "updates": "Updates",
+      "updatesDescription": "Release notes, update channel, and automatic application update behavior.",
+      "supportAndPrivacy": "Support & Privacy",
+      "supportAndPrivacyDescription": "Diagnostics, feedback, and logs you can share when you need help.",
+      "localData": "Local Data",
+      "localDataDescription": "Cached library artwork and metadata stored on this device."
     },
     "nativeStreamer": {
       "title": "Native Streamer",
@@ -1165,7 +1398,35 @@
       "transportModeWebrtc": "WebRTC (Default)",
       "transportModeNvst": "NVST (Experimental)",
       "transportModeHint": "WebRTC is the supported path. NVST (experimental) uses classic RTSPS + UDP video (Moonlight-hypothesis scaffold) while keyboard/mouse/controller stay on WebRTC SCTP datachannels. First live sessions may need SRTP/pcap validation.",
-      "transportModeWindowsOnlyHint": "NVST transport is Windows-only for now. This platform always uses WebRTC."
+      "transportModeWindowsOnlyHint": "NVST transport is Windows-only for now. This platform always uses WebRTC.",
+      "runtime": "Runtime",
+      "bundledRuntimeUsed": "Bundled Runtime Used",
+      "bundledRuntimeFound": "Bundled Runtime Found",
+      "systemRuntime": "System Runtime",
+      "runtimeMissing": "Runtime Missing",
+      "runtimeUnknown": "Runtime Unknown",
+      "runtimeDescription": "Enable the experimental streamer and inspect its local GStreamer readiness.",
+      "videoOutput": "Video Output",
+      "videoOutputDescription": "Hardware capability, rendering backend, frame pacing, and window mode.",
+      "checkingStatus": "Checking streamer status",
+      "runtimeCheckFailed": "GStreamer runtime could not be checked.",
+      "statusCheckFailed": "Native streamer status could not be checked.",
+      "backendAuto": "Auto",
+      "backendD3d12": "DirectX 12",
+      "backendD3d11": "DirectX 11",
+      "backendNvdec": "NVIDIA NVDEC",
+      "backendVaapi": "VAAPI",
+      "backendV4l2": "V4L2",
+      "backendVulkan": "Vulkan",
+      "backendSoftware": "Software",
+      "backendAutoDescription": "Pick the default native path for the session",
+      "backendD3d12Description": "Use the D3D12 decoder and renderer",
+      "backendD3d11Description": "Use the D3D11 decoder and renderer",
+      "backendNvdecDescription": "Use NVIDIA's native Linux hardware decoders",
+      "backendVaapiDescription": "Use Linux VA-API hardware decoding",
+      "backendV4l2Description": "Use Linux V4L2 hardware decoding, including Raspberry Pi",
+      "backendVulkanDescription": "Use Vulkan presentation where supported; Windows internal mode uses a compatible D3D presentation path",
+      "backendSoftwareDescription": "Decode on the CPU with libav"
     },
     "thanks": {
       "title": "Thanks for helping OpenNOW grow",
@@ -1183,7 +1444,58 @@
       "loadingContributors": "Loading contributors from GitHub...",
       "loadingSupporters": "Loading supporters from GitHub Sponsors...",
       "noContributors": "No contributors could be shown right now.",
-      "noSupporters": "No supporters could be shown right now."
+      "noSupporters": "No supporters could be shown right now.",
+      "contributionCount": "{{count}} contribution",
+      "contributionCount_plural": "{{count}} contributions",
+      "loadError": "Unable to load community acknowledgements right now."
+    },
+    "clearSearch": "Clear settings search",
+    "searchResults": "Search results",
+    "collapseSidebar": "Collapse settings sidebar",
+    "expandSidebar": "Expand settings sidebar",
+    "recording": {
+      "title": "Browser Recording",
+      "description": "Local browser recording controls. Changes apply to the next recording and do not affect the native streamer."
+    },
+    "diagnostics": {
+      "title": "Diagnostics",
+      "description": "Frame Stats overlay preferences and browser codec hardware checks.",
+      "frameStats": "Frame Stats Overlay",
+      "frameStatsHint": "Choose when the in-stream performance HUD appears and what session timing it includes.",
+      "codecHardware": "Codec & Hardware",
+      "codecHardwareHint": "Control browser acceleration preferences and test local WebRTC codec support."
+    },
+    "resolutionPresets": {
+      "720p169": "720p (16:9)",
+      "720p1610": "720p (16:10)",
+      "wxga1610": "WXGA (16:10)",
+      "wsxga1610": "WSXGA (16:10)",
+      "1080p169": "1080p (16:9)",
+      "1200p1610": "1200p (16:10)",
+      "ultrawide1080p219": "Ultrawide 1080p (21:9)",
+      "1440p169": "1440p (16:9)",
+      "1600p1610": "1600p (16:10)",
+      "ultrawide1440p219": "Ultrawide 1440p (21:9)",
+      "4k169": "4K (16:9)",
+      "4k1610": "4K (16:10)",
+      "superUltrawide329": "Super Ultrawide (32:9)"
+    },
+    "resolutionGroups": {
+      "standard169": "16:9 Standard",
+      "widescreen1610": "16:10 Widescreen",
+      "ultrawide219": "21:9 Ultrawide",
+      "superUltrawide329": "32:9 Super Ultrawide",
+      "legacy43": "4:3 Legacy",
+      "other": "Other"
+    },
+    "console": {
+      "title": "Console Experience",
+      "appShell": "App Shell",
+      "appShellDescription": "Controller-first navigation for browsing OpenNOW from a TV or across the room.",
+      "controllerMode": "Controller Mode",
+      "controllerModeHint": "Use a large-screen console-style shell with controller button hints and a horizontal library layout.",
+      "profilePicker": "Ask who's playing",
+      "profilePickerHint": "Show the profile picker when Controller Mode starts. Direct game launches are never interrupted."
     }
   },
   "navbar": {
@@ -1259,7 +1571,8 @@
     "sessionResumeFailedDescription": "The connection to the running session was lost and resume failed.",
     "queueAdPlayTimeout": "Ad play timeout",
     "queueAdVideoStuck": "Ad video is stuck",
-    "queueAdUrlLoad": "Error loading url"
+    "queueAdUrlLoad": "Error loading url",
+    "uiCrashed": "UI crashed"
   },
   "releaseHighlights": {
     "kicker": "What's new",
@@ -1305,6 +1618,29 @@
       "empty": "Please enter a message before sending.",
       "notConfigured": "Feedback is unavailable because PostHog is not configured in this build.",
       "sendFailed": "Couldn't send feedback. Please try again."
+    },
+    "bug": {
+      "kicker": "Diagnostics",
+      "title": "Report a bug",
+      "issueTitle": "Issue title",
+      "issueTitlePlaceholder": "Stream froze after reconnecting",
+      "description": "What happened?",
+      "descriptionPlaceholder": "What were you doing, what went wrong, what did you expect, and can you reproduce it?",
+      "meaningfulCharacters": "{{count}} / {{minimum}} meaningful characters",
+      "includeSystemInfo": "Include extra OS, GPU, and device info",
+      "includeSessionReport": "Include the latest measured session report",
+      "disclosure": "Before anything is uploaded, you can review the report and attachments. Logs are redacted. A selected session report includes the game title and measured quality, but never gameplay, passwords, account tokens, or your library list.",
+      "review": "Review & send",
+      "reviewHint": "Review the report fields and selected attachments before sending them to the PrintedWaste bug-report API.",
+      "appVersionRequired": "App version and build (required by the report API)",
+      "systemMetadata": "OS, GPU, and device metadata",
+      "noAttachments": "No optional diagnostic attachments selected",
+      "consent": "I understand what will be uploaded and consent to send this report to the PrintedWaste API.",
+      "consentRequired": "Confirm that you understand what will be uploaded before sending.",
+      "back": "Back",
+      "send": "Send to developer",
+      "success": "Thanks — your bug report was sent to the developer.",
+      "reference": "Reference: {{reference}}"
     }
   },
   "perf": {
@@ -1387,7 +1723,9 @@
     "addToFavorites": "Add to favorites",
     "removeFromFavorites": "Remove from favorites",
     "favoriteAdded": "Added to favorites ❤️",
-    "favoriteRemoved": "Removed from favorites"
+    "favoriteRemoved": "Removed from favorites",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "sort": {
     "relevance": "Relevance",
@@ -1404,5 +1742,97 @@
     "suggestions": {
       "notFound": "No games found for \"{{query}}\""
     }
+  },
+  "console": {
+    "controllerPrompt": {
+      "kicker": "Controller detected",
+      "title": "Switch to Controller Mode?",
+      "description": "Use the console-style layout built for a gamepad. You can switch back anytime in Settings.",
+      "accept": "Switch mode",
+      "decline": "No, don't ask again"
+    },
+    "splash": {
+      "title": "OpenNOW",
+      "subtitle": "Console mode"
+    },
+    "profiles": {
+      "whosPlaying": "Who's playing?",
+      "signedIn": "Signed in",
+      "manage": "Manage profiles",
+      "lockedProfile": "{{name}} (PIN required)",
+      "switchFailed": "Could not switch to that profile."
+    },
+    "pin": {
+      "title": "Enter {{name}}'s PIN",
+      "subtitle": "This profile is locked with a 4-digit PIN.",
+      "enteredDigits": "{{count}} of 4 digits entered",
+      "delete": "Delete",
+      "incorrect": "Incorrect PIN. {{count}} attempts left.",
+      "incorrect_plural": "Incorrect PIN. {{count}} attempts left.",
+      "lockedOut": "Too many attempts. Try again in {{seconds}}s.",
+      "recoveryHint": "Hold B to remove this profile",
+      "recoveryReady": "Release to choose",
+      "forgotPin": "Forgot PIN?",
+      "recoveryPrompt": "Remove this profile and sign out?",
+      "removeProfile": "Remove this profile"
+    },
+    "manage": {
+      "title": "Manage profiles",
+      "subtitle": "Set a PIN to keep a profile private on a shared TV.",
+      "setPin": "Set PIN",
+      "changePin": "Change PIN",
+      "removePin": "Remove PIN",
+      "pinOn": "PIN on",
+      "currentPin": "Current PIN",
+      "newPin": "New PIN",
+      "wrongPin": "That PIN is incorrect.",
+      "pinFormat": "A PIN must be exactly 4 digits.",
+      "lockedOut": "Too many attempts. Try again shortly.",
+      "noPinSet": "This profile has no PIN.",
+      "pinFailed": "Could not update the PIN.",
+      "securityNote": "A profile PIN keeps accounts separate on a shared TV. It does not encrypt your account, and anyone with access to this device's files can still read the saved sign-in."
+    }
+  },
+  "gameDetails": {
+    "eyebrow": "Game details",
+    "details": "About this game",
+    "premiumRequired": "Premium membership required",
+    "freeTierUnavailable": "Not playable on the Free tier. Requires {{tier}} or higher on GeForce NOW.",
+    "notOwned": "Not owned",
+    "playOn": "Play on {{store}}",
+    "storeOption": "{{store}}, {{ownership}}",
+    "viewDetailsFor": "View details for {{title}}"
+  },
+  "sessionReport": {
+    "kicker": "Session quality",
+    "title": "Session report",
+    "scoreLabel": "Session score {{score}} out of 100",
+    "summary": "Measured over {{duration}}",
+    "limitedData": "Limited data: only {{count}} samples were available.",
+    "ratings": {
+      "excellent": "Excellent",
+      "good": "Good",
+      "fair": "Fair",
+      "poor": "Needs work"
+    },
+    "connection": "Connection",
+    "metrics": {
+      "latency": "Latency",
+      "speed": "Stream speed",
+      "loss": "Packet loss",
+      "jitter": "Jitter",
+      "fps": "Frame rate",
+      "decode": "Decode time"
+    },
+    "peak": "peak {{value}}",
+    "profile": "Stream profile",
+    "requested": "Requested",
+    "delivered": "Delivered",
+    "route": "Route",
+    "changes": "Changes detected",
+    "recommendations": "Recommendations",
+    "dontShowAgain": "Don't show session reports again",
+    "close": "Close",
+    "reportBug": "Experienced a bug? Report it"
   }
 }
