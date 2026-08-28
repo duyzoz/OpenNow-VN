@@ -15021,3 +15021,134 @@ button.game-card-store-chip.owned.active:hover {
     max-height: calc(100vh - 24px);
   }
 }
+
+/* Native Stream confirmation dialog. */
+.native-streamer-warning {
+  position: fixed;
+  inset: 0;
+  z-index: 3300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  isolation: isolate;
+}
+
+.native-streamer-warning-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: rgba(8, 9, 11, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.native-streamer-warning-card {
+  position: relative;
+  z-index: 1;
+  width: min(480px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-md);
+  color: var(--ink);
+}
+
+.native-streamer-warning-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--panel-border-solid);
+  border-radius: 999px;
+  background: var(--accent-surface);
+  color: var(--accent);
+  font-size: .64rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.native-streamer-warning-title {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-size: 1.18rem;
+  line-height: 1.18;
+  font-weight: 700;
+}
+
+.native-streamer-warning-text {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: .88rem;
+  line-height: 1.5;
+}
+
+.native-streamer-warning-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.native-streamer-warning-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-sm);
+  background: var(--bg-a);
+  color: var(--ink-soft);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+.native-streamer-warning-list-item svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--ink-muted);
+}
+
+.native-streamer-warning-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.native-streamer-warning-btn {
+  flex: 1;
+  min-height: 38px;
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: .84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.native-streamer-warning-btn--secondary {
+  background: var(--bg-a);
+  color: var(--ink);
+}
+
+.native-streamer-warning-btn--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-on);
+}
+
+.native-streamer-warning-hint {
+  margin-top: 12px;
+  color: var(--ink-muted);
+  font-size: .72rem;
+}
+
+@media (max-width: 560px) {
+  .native-streamer-warning-actions {
+    flex-direction: column-reverse;
+  }
+}
