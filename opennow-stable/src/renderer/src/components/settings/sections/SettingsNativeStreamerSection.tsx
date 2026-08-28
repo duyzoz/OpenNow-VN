@@ -107,9 +107,7 @@ export function SettingsNativeStreamerSection({
   }, [refreshNativeStreamerStatus]);
 
   useEffect(() => {
-    if (nativeStreamerEnablePromptOpen) {
-      onBlockingOverlayChange?.(true);
-    }
+    onBlockingOverlayChange?.(nativeStreamerEnablePromptOpen);
   }, [nativeStreamerEnablePromptOpen, onBlockingOverlayChange]);
 
   useEffect(() => () => onBlockingOverlayChange?.(false), [onBlockingOverlayChange]);
@@ -128,8 +126,10 @@ export function SettingsNativeStreamerSection({
 
   const confirmNativeStreamerEnablePrompt = useCallback((): void => {
     handleChange("streamClientMode", "native");
+    // Release the page blocker synchronously; do not wait for modal exit animation.
+    onBlockingOverlayChange?.(false);
     closeNativeStreamerEnablePrompt();
-  }, [closeNativeStreamerEnablePrompt, handleChange]);
+  }, [closeNativeStreamerEnablePrompt, handleChange, onBlockingOverlayChange]);
 
   const handleNativeStreamerToggleChange = useCallback((checked: boolean): void => {
     if (!checked) {
