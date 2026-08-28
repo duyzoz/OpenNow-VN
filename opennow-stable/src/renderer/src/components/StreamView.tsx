@@ -50,7 +50,6 @@ interface StreamViewProps {
   statsPosition: StatsOverlayPosition;
   showNativeStats?: boolean;
   nativeInputCaptureActive?: boolean;
-  gstreamerEnabled: boolean;
   nativeExternalRenderer?: boolean;
   shortcuts: {
     toggleStats: string;
@@ -131,7 +130,6 @@ export function StreamView({
   statsPosition,
   showNativeStats = false,
   nativeInputCaptureActive = false,
-  gstreamerEnabled,
   nativeExternalRenderer = false,
   shortcuts,
   serverRegion,
@@ -438,7 +436,7 @@ export function StreamView({
   useEffect(() => {
     const video = localVideoRef.current;
     if (!video) return;
-    const effective = gstreamerEnabled || nativeRendererActive
+    const effective = nativeRendererActive
       ? { ...videoShader, enabled: false }
       : videoShader;
     if (!shaderPipelineRef.current) {
@@ -447,7 +445,7 @@ export function StreamView({
     } else {
       shaderPipelineRef.current.updateSettings(effective);
     }
-  }, [videoShader, gstreamerEnabled, nativeRendererActive]);
+  }, [videoShader, nativeRendererActive]);
 
   useEffect(() => () => {
     shaderPipelineRef.current?.dispose();
@@ -474,7 +472,7 @@ export function StreamView({
 
   useEffect(() => {
     const updateSurface = window.openNow?.updateNativeRenderSurface;
-    if (typeof updateSurface !== "function") {
+    if (typeof updateSurface !== "function" || !nativeRendererActive) {
       return undefined;
     }
 
@@ -545,7 +543,7 @@ export function StreamView({
         showStats: false,
       });
     };
-  }, [exitPrompt.open, showNativeStats, showSideBar, statsMode]);
+  }, [exitPrompt.open, nativeRendererActive, showNativeStats, showSideBar, statsMode]);
 
   useEffect(() => {
     const handlePointerLockChange = () => {
@@ -676,8 +674,7 @@ export function StreamView({
     };
   }, [exitPrompt.open, isConnecting, showSideBar]);
 
-  const nativeInternalHole =
-    (nativeRendererActive || gstreamerEnabled) && !nativeExternalRenderer;
+  const nativeInternalHole = nativeRendererActive && !nativeExternalRenderer;
 
   return (
     <div className={["sv", streamVideoReady ? "sv--video-ready" : "sv--video-pending", nativeInternalHole ? "sv--native-hole" : "", className].filter(Boolean).join(" ")}>
@@ -762,7 +759,7 @@ export function StreamView({
         onMouseSensitivityChange={onMouseSensitivityChange}
         mouseAcceleration={mouseAcceleration}
         onMouseAccelerationChange={onMouseAccelerationChange}
-        gstreamerEnabled={gstreamerEnabled}
+        gstreamerEnabled={nativeRendererActive}
         videoShader={videoShader}
         onVideoShaderChange={onVideoShaderChange}
         microphoneMode={microphoneMode}
@@ -849,7 +846,7 @@ export function StreamView({
             diagnosticsStore={diagnosticsStore}
             mode={statsMode === "full" ? "full" : "compact"}
             position={statsPosition}
-            gstreamerEnabled={gstreamerEnabled}
+            gstreamerEnabled={nativeRendererActive}
             serverRegion={serverRegion}
             sessionTimeRemainingText={showSessionTimeRemainingInStats ? sessionTimeRemainingText : null}
             hintsVisible={showHints}

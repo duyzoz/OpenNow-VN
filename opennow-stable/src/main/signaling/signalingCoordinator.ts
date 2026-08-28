@@ -109,7 +109,7 @@ export class SignalingCoordinator {
     ipcMain.on(
       IPC_CHANNELS.NATIVE_RENDER_SURFACE,
       (event, payload: NativeRenderSurfaceUpdate) => {
-        if (!this.isNativeStreamerSelected()) {
+        if (!this.isNativeStreamerSelected() || !this.nativeStreamerHasActiveSession()) {
           return;
         }
 

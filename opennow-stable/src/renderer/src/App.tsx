@@ -1115,11 +1115,11 @@ export function App(): JSX.Element {
   }, [requestPointerLockCapture]);
 
   const setNativeInputPaused = useCallback((paused: boolean): void => {
-    if (!nativeStreamingRef.current && settings.streamClientMode !== "native") {
+    if (!nativeStreamingRef.current) {
       return;
     }
     window.openNow.setNativeInputPaused(paused);
-  }, [nativeStreamingRef, settings.streamClientMode]);
+  }, [nativeStreamingRef]);
 
   const resolveExitPrompt = useCallback((confirmed: boolean) => {
     const resolver = exitPromptResolverRef.current;
@@ -2819,7 +2819,6 @@ export function App(): JSX.Element {
               statsPosition={settings.statsOverlayPosition}
               showNativeStats={settings.showNativeStreamerStats}
               nativeInputCaptureActive={nativeInputCaptureActive}
-              gstreamerEnabled={settings.streamClientMode === "native"}
               nativeExternalRenderer={settings.nativeExternalRenderer}
               shortcuts={{
                 toggleStats: formatShortcutForDisplay(settings.shortcutToggleStats, isMac),
