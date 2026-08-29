@@ -12,7 +12,6 @@ import type {
   MainWindowCloseChoice,
   MainWindowCloseChoiceRequest,
   GamesFetchRequest,
-  StreamWindowOpenRequest,
   CatalogBrowseRequest,
   ResolveLaunchIdRequest,
   ResolveStoreUrlRequest,
@@ -308,14 +307,6 @@ const api: OpenNowApi = {
   getReleaseHighlights: (version?: string): Promise<import("@shared/gfn").ReleaseHighlightsPayload> =>
     ipcRenderer.invoke(IPC_CHANNELS.RELEASE_HIGHLIGHTS_GET, version),
   ackReleaseHighlights: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.RELEASE_HIGHLIGHTS_ACK),
-  openStreamWindow: (input: StreamWindowOpenRequest) =>
-    ipcRenderer.invoke(IPC_CHANNELS.STREAM_WINDOW_OPEN, input),
-  onStreamWindowClosed: (listener: () => void) => {
-    ipcRenderer.on(IPC_CHANNELS.STREAM_WINDOW_CLOSED, listener);
-    return () => {
-      ipcRenderer.off(IPC_CHANNELS.STREAM_WINDOW_CLOSED, listener);
-    };
-  },
   onRequestMainWindowCloseChoice: (listener: (payload: MainWindowCloseChoiceRequest) => void) => {
     const wrapped = (_event: Electron.IpcRendererEvent, payload: MainWindowCloseChoiceRequest) => listener(payload);
     ipcRenderer.on(IPC_CHANNELS.MAIN_WINDOW_REQUEST_CLOSE_CHOICE, wrapped);

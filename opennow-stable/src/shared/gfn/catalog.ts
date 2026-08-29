@@ -31,20 +31,6 @@ export interface DirectLaunchRequest {
   receivedAt: number;
 }
 
-/** Additive secondary stream window request retained by the Remake shell. */
-export interface StreamWindowOpenRequest {
-  gameId: string;
-  resume?: boolean;
-  variantId?: string;
-  streamingBaseUrl?: string;
-}
-
-/** Result returned when opening or focusing the secondary stream window. */
-export interface StreamWindowOpenResult {
-  opened: boolean;
-  focused: boolean;
-}
-
 export type MainWindowCloseChoice = "tray" | "quit" | "cancel";
 
 export interface MainWindowCloseChoiceRequest {

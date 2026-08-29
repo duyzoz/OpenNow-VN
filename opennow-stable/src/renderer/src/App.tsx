@@ -223,15 +223,6 @@ export function App(): JSX.Element {
   const { locale, t } = useTranslation();
   const reducedMotion = useReducedMotion();
 
-  // Additive (v9): secondary "cloud client" stream window support.
-  const isStreamWindow = false;
-
-  // Additive (v9): auto-launch state for the stream window only. Guarded so
-  // it can never run in the main window.
-  // Additive (v9+): tracks that the NEXT queue-modal confirm should open the
-  // dedicated stream window instead of launching inline.
-  // Additive (v9+): tracks previous streamStatus to detect streaming→idle transition.
-
   // Navigation / settings / stream state below; auth + catalog come from hooks after deps are ready.
 
   // Navigation
@@ -804,6 +795,24 @@ export function App(): JSX.Element {
     settings.resolution,
     subscriptionInfo?.entitledResolutions,
   ]);
+
+  const warmNativeStreamerForLaunch = useCallback((): void => {
+    if (settings.streamClientMode !== "native") {
+      return;
+    }
+
+    void window.openNow.getNativeStreamerStatus()
+      .then((status) => {
+        if (status.detected) {
+          console.log("[NativeStreamer] Launch warm-up ready:", status.message);
+        } else {
+          console.warn("[NativeStreamer] Launch warm-up did not detect native streamer:", status.message);
+        }
+      })
+      .catch((error) => {
+        console.warn("[NativeStreamer] Launch warm-up failed:", error);
+      });
+  }, [settings.streamClientMode]);
 
   // Derived state
 
@@ -1855,6 +1864,7 @@ export function App(): JSX.Element {
     subscriptionInfo,
     t,
     variantByGameId,
+    warmNativeStreamerForLaunch,
   });
 
   useEffect(() => {
@@ -2634,10 +2644,8 @@ export function App(): JSX.Element {
   const catalogSurfaceActive = !shellBlocked;
 
   return (
-    <div className={`app-container${effectiveControllerMode ? " app-container--controller" : ""}${showCatalogAtmosphere ? " app-container--atmosphere" : ""}${isStreamWindow ? " app-container--stream-window" : ""}`} style={getAppStyle(settings.posterSizeScale)}>
-      {!isStreamWindow && (
+    <div className={`app-container${effectiveControllerMode ? " app-container--controller" : ""}${showCatalogAtmosphere ? " app-container--atmosphere" : ""}`} style={getAppStyle(settings.posterSizeScale)}>
       <CloseChoiceModal />
-      )}
       <div
         className="app-shell"
         inert={shellBlocked ? true : undefined}
@@ -2820,6 +2828,7 @@ export function App(): JSX.Element {
               showNativeStats={settings.showNativeStreamerStats}
               nativeInputCaptureActive={nativeInputCaptureActive}
               nativeExternalRenderer={settings.nativeExternalRenderer}
+              gstreamerEnabled={settings.streamClientMode === "native"}
               shortcuts={{
                 toggleStats: formatShortcutForDisplay(settings.shortcutToggleStats, isMac),
                 togglePointerLock: formatShortcutForDisplay(settings.shortcutTogglePointerLock, isMac),

@@ -25,8 +25,6 @@ import type {
   GameAccountConnectionsResult,
   MainWindowCloseChoice,
   MainWindowCloseChoiceRequest,
-  StreamWindowOpenRequest,
-  StreamWindowOpenResult,
   GameAccountOperationRequest,
   GameAccountOperationResult,
   GameInfo,
@@ -136,9 +134,6 @@ export interface OpenNowApi {
   markGameOwned(input: MarkGameOwnedRequest): Promise<MarkGameOwnedResult>;
   getPendingDirectLaunchRequest(): Promise<DirectLaunchRequest | null>;
   onDirectLaunchRequest(listener: (request: DirectLaunchRequest) => void): () => void;
-  /** Secondary cloud-client stream window retained by the Remake shell. */
-  openStreamWindow(input: StreamWindowOpenRequest): Promise<StreamWindowOpenResult>;
-  onStreamWindowClosed(listener: () => void): () => void;
   /** In-app close prompt retained by the Remake shell. */
   onRequestMainWindowCloseChoice(listener: (payload: MainWindowCloseChoiceRequest) => void): () => void;
   respondMainWindowCloseChoice(choice: MainWindowCloseChoice): void;

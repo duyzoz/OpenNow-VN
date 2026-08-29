@@ -112,9 +112,6 @@ export const IPC_CHANNELS = {
   RELEASE_HIGHLIGHTS_GET: "release-highlights:get",
   RELEASE_HIGHLIGHTS_ACK: "release-highlights:ack",
   RELEASE_HIGHLIGHTS_SHOW: "release-highlights:show",
-  // Secondary stream window retained by the Remake shell.
-  STREAM_WINDOW_OPEN: "stream-window:open",
-  STREAM_WINDOW_CLOSED: "stream-window:closed",
   // Custom in-app close prompt retained by the Remake shell.
   MAIN_WINDOW_REQUEST_CLOSE_CHOICE: "main-window:request-close-choice",
   MAIN_WINDOW_CLOSE_CHOICE_RESPONSE: "main-window:close-choice-response",
